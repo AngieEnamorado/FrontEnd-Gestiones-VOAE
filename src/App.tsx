@@ -30,6 +30,13 @@ export default function App() {
           />
         </Route>
 
+        <Route path="/giras" element={<PaginaEnConstruccion seccion="Giras" titulo="Giras" />} />
+        <Route path="/procad" element={<PaginaEnConstruccion seccion="Procad" titulo="Procad" />} />
+        <Route
+          path="/voluntariado"
+          element={<PaginaEnConstruccion seccion="Voluntariado" titulo="Voluntariado" />}
+        />
+
         <Route path="/pagos" element={<PaginaEnConstruccion seccion="Pagos" titulo="Pagos" />} />
         <Route
           path="/mantenimientos"

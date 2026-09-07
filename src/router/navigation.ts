@@ -7,6 +7,9 @@ import {
   HiOutlineChartBar,
   HiOutlineDocumentMagnifyingGlass,
   HiOutlineExclamationTriangle,
+  HiOutlineMapPin,
+  HiOutlineBookOpen,
+  HiOutlineHandRaised,
 } from "react-icons/hi2";
 import type { IconType } from "react-icons";
 
@@ -58,6 +61,24 @@ export const navigationItems: NavItem[] = [
         icon: HiOutlineExclamationTriangle,
       },
     ],
+  },
+  {
+    id: "giras",
+    label: "Giras",
+    path: "/giras",
+    icon: HiOutlineMapPin,
+  },
+  {
+    id: "procad",
+    label: "Procad",
+    path: "/procad",
+    icon: HiOutlineBookOpen,
+  },
+  {
+    id: "voluntariado",
+    label: "Voluntariado",
+    path: "/voluntariado",
+    icon: HiOutlineHandRaised,
   },
   {
     id: "pagos",

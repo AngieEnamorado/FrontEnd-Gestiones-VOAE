@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { HiChevronDown } from "react-icons/hi2";
-import { HiAcademicCap } from "react-icons/hi2";
 import { navigationItems } from "../router/navigation";
+import logoUnahBlanco from "../assets/logos/logounahBlanco.png";
 
 interface SidebarProps {
   colapsado: boolean;
@@ -29,9 +29,9 @@ export default function Sidebar({ colapsado }: SidebarProps) {
     >
       {/* Encabezado / marca */}
       <div className="flex h-[70px] items-center gap-3 border-b border-white/10 px-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white">
-          <HiAcademicCap className="h-5 w-5 text-unah-navy" />
-        </div>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-unah-navy-light">
+        <img src={logoUnahBlanco} alt="UNAH" className="h-7 w-7 object-contain" />
+      </div>
         {!colapsado && (
           <div className="min-w-0 leading-tight">
             <p className="truncate text-[15px] font-bold tracking-wide text-white">UNAH</p>
