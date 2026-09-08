@@ -24,6 +24,19 @@ export interface Solicitud {
   estado: EstadoSolicitud;
 }
 
+export interface SolicitudGira {
+  id: string;
+  estudiante: string;
+  docente: string;
+  destino: string;
+  categoria: string;
+  centro: string;
+  periodo: string;
+  fecha: string;
+  estado: EstadoSolicitud;
+  descripcion: string;
+}
+
 export interface EstadisticaSolicitudes {
   key: string;
   label: string;

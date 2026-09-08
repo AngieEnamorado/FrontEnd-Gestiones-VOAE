@@ -17,7 +17,7 @@ export default function UserMenu() {
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
-        className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 transition-colors hover:bg-slate-100"
+        className="flex items-center gap-2 rounded-full bg-orange-50 pl-1 pr-3 py-1 transition-colors hover:bg-orange-100"
       >
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-unah-orange text-xs font-bold text-white">
           {usuario.iniciales}

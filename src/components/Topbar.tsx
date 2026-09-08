@@ -1,6 +1,5 @@
-import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
+import { HiAcademicCap, HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 import UserMenu from "./UserMenu";
-import logoUnahblanco from "../assets/logos/logoUnahBlanco.png";
 
 interface TopbarProps {
   colapsado: boolean;
@@ -9,11 +8,11 @@ interface TopbarProps {
 
 export default function Topbar({ colapsado, onAlternarSidebar }: TopbarProps) {
   return (
-    <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+    <header className="flex h-[70px] shrink-0 items-center justify-between border-b-2 border-unah-orange bg-white px-4">
       <div className="flex items-center gap-3">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-unah-navy">
-        <img src={logoUnahblanco} alt="UNAH" className="h-6 w-6 object-contain" />
-      </div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-unah-orange">
+          <HiAcademicCap className="h-5 w-5 text-white" />
+        </div>
         <div className="leading-tight">
           <p className="text-sm font-bold text-slate-800">UNAH</p>
           <p className="text-[11px] font-semibold text-unah-orange">BECAS VOAE</p>

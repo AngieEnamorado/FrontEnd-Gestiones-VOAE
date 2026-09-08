@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
 import Solicitudes from "./pages/estudiantes/Solicitudes";
+import SolicitudesGiras from "./pages/giras/Solicitudes";
+import NuevaSolicitudGira from "./pages/giras/NuevaSolicitud";
 import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 // Estructura de rutas de la app. Cada entrada del sidebar
@@ -30,7 +32,15 @@ export default function App() {
           />
         </Route>
 
-        <Route path="/giras" element={<PaginaEnConstruccion seccion="Giras" titulo="Giras" />} />
+        <Route path="/giras">
+          <Route index element={<Navigate to="mis-giras" replace />} />
+          <Route
+            path="mis-giras"
+            element={<PaginaEnConstruccion seccion="Giras" titulo="Mis giras" />}
+          />
+          <Route path="solicitudes" element={<SolicitudesGiras />} />
+          <Route path="solicitudes/nueva" element={<NuevaSolicitudGira />} />
+        </Route>
         <Route path="/procad" element={<PaginaEnConstruccion seccion="Procad" titulo="Procad" />} />
         <Route
           path="/voluntariado"

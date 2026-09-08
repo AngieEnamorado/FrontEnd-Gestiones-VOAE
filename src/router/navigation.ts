@@ -1,13 +1,14 @@
 import {
-  HiOutlineUsers,
+  HiOutlineUser,
   HiOutlineCurrencyDollar,
   HiOutlineCog6Tooth,
-  HiOutlineShieldCheck,
+  HiOutlineLockClosed,
   HiOutlineClipboardDocumentList,
   HiOutlineChartBar,
   HiOutlineDocumentMagnifyingGlass,
   HiOutlineExclamationTriangle,
   HiOutlineMapPin,
+  HiOutlineMap,
   HiOutlineBookOpen,
   HiOutlineHandRaised,
 } from "react-icons/hi2";
@@ -34,7 +35,7 @@ export const navigationItems: NavItem[] = [
     id: "estudiantes",
     label: "Estudiantes",
     path: "/estudiantes",
-    icon: HiOutlineUsers,
+    icon: HiOutlineUser,
     children: [
       {
         id: "solicitudes",
@@ -67,6 +68,20 @@ export const navigationItems: NavItem[] = [
     label: "Giras",
     path: "/giras",
     icon: HiOutlineMapPin,
+    children: [
+      {
+        id: "mis-giras",
+        label: "Mis giras",
+        path: "/giras/mis-giras",
+        icon: HiOutlineMap,
+      },
+      {
+        id: "solicitudes",
+        label: "Solicitudes",
+        path: "/giras/solicitudes",
+        icon: HiOutlineClipboardDocumentList,
+      },
+    ],
   },
   {
     id: "procad",
@@ -96,6 +111,6 @@ export const navigationItems: NavItem[] = [
     id: "seguridad",
     label: "Seguridad",
     path: "/seguridad",
-    icon: HiOutlineShieldCheck,
+    icon: HiOutlineLockClosed,
   },
 ];
