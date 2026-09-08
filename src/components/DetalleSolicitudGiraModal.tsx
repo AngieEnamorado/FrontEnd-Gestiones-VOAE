@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { HiOutlineXMark } from "react-icons/hi2";
 import type { SolicitudGira } from "../types";
 import EstadoBadge from "./EstadoBadge";
@@ -11,7 +12,15 @@ export default function DetalleSolicitudGiraModal({
   solicitud,
   onClose,
 }: DetalleSolicitudGiraModalProps) {
+  const navigate = useNavigate();
+
   if (!solicitud) return null;
+
+  function verDetalleCompleto() {
+    if (!solicitud) return;
+    onClose();
+    navigate(`/giras/solicitudes/${solicitud.id}`);
+  }
 
   return (
     <div
@@ -78,7 +87,7 @@ export default function DetalleSolicitudGiraModal({
         {/* Acción */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={verDetalleCompleto}
           className="mt-6 w-full rounded-xl bg-unah-navy py-3 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
         >
           Ver Detalles

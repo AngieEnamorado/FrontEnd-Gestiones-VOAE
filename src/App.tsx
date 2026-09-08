@@ -3,6 +3,8 @@ import MainLayout from "./layouts/MainLayout";
 import Solicitudes from "./pages/estudiantes/Solicitudes";
 import SolicitudesGiras from "./pages/giras/Solicitudes";
 import NuevaSolicitudGira from "./pages/giras/NuevaSolicitud";
+import DetalleSolicitudGira from "./pages/giras/DetalleSolicitud";
+import MisGiras from "./pages/giras/MisGiras";
 import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 // Estructura de rutas de la app. Cada entrada del sidebar
@@ -34,12 +36,10 @@ export default function App() {
 
         <Route path="/giras">
           <Route index element={<Navigate to="mis-giras" replace />} />
-          <Route
-            path="mis-giras"
-            element={<PaginaEnConstruccion seccion="Giras" titulo="Mis giras" />}
-          />
+          <Route path="mis-giras" element={<MisGiras />} />
           <Route path="solicitudes" element={<SolicitudesGiras />} />
           <Route path="solicitudes/nueva" element={<NuevaSolicitudGira />} />
+          <Route path="solicitudes/:id" element={<DetalleSolicitudGira />} />
         </Route>
         <Route path="/procad" element={<PaginaEnConstruccion seccion="Procad" titulo="Procad" />} />
         <Route
