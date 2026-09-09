@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  HiChevronLeft,
   HiOutlineArrowDownTray,
   HiOutlineMagnifyingGlass,
   HiOutlineArrowPath,
   HiOutlineEye,
+  HiOutlineArrowLeft,
+  HiOutlineUserGroup,
 } from "react-icons/hi2";
-import DetalleSolicitudGiraModal from "../../components/DetalleSolicitudGiraModal";
+import DetalleGiraModal from "../../components/DetalleGiraModal";
 import { misGiras } from "../../data/mockMisGiras";
 import type { SolicitudGira } from "../../types";
 
@@ -45,18 +46,18 @@ export default function MisGiras() {
 
   return (
     <>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-4 flex items-center gap-2 rounded-lg bg-unah-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
+      >
+        <HiOutlineArrowLeft className="h-4 w-4" />
+        Regresar
+      </button>
+
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         {/* Encabezado */}
-        <button
-          type="button"
-          onClick={() => navigate("/estudiantes/solicitudes")}
-          className="flex items-center gap-1.5 rounded-lg bg-[#003366] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#00264d]"
-        >
-          <HiChevronLeft className="h-4 w-4" />
-          Regresar
-        </button>
-
-        <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold tracking-wider text-unah-orange">GIRAS</p>
             <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">Mis Giras</h1>
@@ -135,7 +136,7 @@ export default function MisGiras() {
                   <td className="px-4 py-4 text-slate-600">{fila.periodo}</td>
                   <td className="px-4 py-4 text-slate-500">{fila.fecha}</td>
                   <td className="px-4 py-4">
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         type="button"
                         title="Ver"
@@ -143,6 +144,14 @@ export default function MisGiras() {
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
                       >
                         <HiOutlineEye className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Inscripciones de la gira"
+                        onClick={() => navigate(`/giras/mis-giras/${fila.id}/inscripciones`)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"
+                      >
+                        <HiOutlineUserGroup className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -161,7 +170,7 @@ export default function MisGiras() {
         </div>
       </div>
 
-      <DetalleSolicitudGiraModal solicitud={seleccionada} onClose={() => setSeleccionada(null)} />
+      <DetalleGiraModal gira={seleccionada} onClose={() => setSeleccionada(null)} />
     </>
   );
 }

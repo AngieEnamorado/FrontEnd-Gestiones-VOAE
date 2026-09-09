@@ -5,6 +5,9 @@ import SolicitudesGiras from "./pages/giras/Solicitudes";
 import NuevaSolicitudGira from "./pages/giras/NuevaSolicitud";
 import DetalleSolicitudGira from "./pages/giras/DetalleSolicitud";
 import MisGiras from "./pages/giras/MisGiras";
+import ResumenGira from "./pages/giras/ResumenGira";
+import InscripcionesGira from "./pages/giras/InscripcionesGira";
+import Estadisticas from "./pages/giras/Estadisticas";
 import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 // Estructura de rutas de la app. Cada entrada del sidebar
@@ -37,9 +40,12 @@ export default function App() {
         <Route path="/giras">
           <Route index element={<Navigate to="mis-giras" replace />} />
           <Route path="mis-giras" element={<MisGiras />} />
+          <Route path="mis-giras/:id/resumen" element={<ResumenGira />} />
+          <Route path="mis-giras/:id/inscripciones" element={<InscripcionesGira />} />
           <Route path="solicitudes" element={<SolicitudesGiras />} />
           <Route path="solicitudes/nueva" element={<NuevaSolicitudGira />} />
           <Route path="solicitudes/:id" element={<DetalleSolicitudGira />} />
+          <Route path="estadisticas" element={<Estadisticas />} />
         </Route>
         <Route path="/procad" element={<PaginaEnConstruccion seccion="Procad" titulo="Procad" />} />
         <Route

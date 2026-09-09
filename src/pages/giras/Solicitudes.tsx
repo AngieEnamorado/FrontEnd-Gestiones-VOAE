@@ -5,6 +5,7 @@ import {
   HiOutlineMagnifyingGlass,
   HiOutlineArrowPath,
   HiOutlineEye,
+  HiOutlineArrowLeft,
 } from "react-icons/hi2";
 import EstadoBadge from "../../components/EstadoBadge";
 import DetalleSolicitudGiraModal from "../../components/DetalleSolicitudGiraModal";
@@ -28,6 +29,15 @@ export default function Solicitudes() {
 
   return (
     <>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-4 flex items-center gap-2 rounded-lg bg-unah-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
+      >
+        <HiOutlineArrowLeft className="h-4 w-4" />
+        Regresar
+      </button>
+
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         {/* Encabezado */}
         <div className="flex flex-wrap items-start justify-between gap-4">

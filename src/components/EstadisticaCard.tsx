@@ -3,7 +3,7 @@ import type { IconType } from "react-icons";
 interface EstadisticaCardProps {
   icon: IconType;
   label: string;
-  valor: number;
+  valor: number | string;
   colorFondo: string;
   colorIcono: string;
   colorTexto: string;
@@ -24,7 +24,9 @@ export default function EstadisticaCard({
       </div>
       <div className="min-w-0">
         <p className={`truncate text-sm font-medium ${colorTexto}`}>{label}</p>
-        <p className="text-2xl font-bold text-slate-800">{valor.toLocaleString("es-HN")}</p>
+        <p className="text-2xl font-bold text-slate-800">
+          {typeof valor === "number" ? valor.toLocaleString("es-HN") : valor}
+        </p>
       </div>
     </div>
   );
