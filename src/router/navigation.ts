@@ -11,6 +11,7 @@ import {
   HiOutlineMap,
   HiOutlineBookOpen,
   HiOutlineHandRaised,
+  HiOutlinePresentationChartLine,
 } from "react-icons/hi2";
 import type { IconType } from "react-icons";
 
@@ -80,6 +81,12 @@ export const navigationItems: NavItem[] = [
         label: "Solicitudes",
         path: "/giras/solicitudes",
         icon: HiOutlineClipboardDocumentList,
+      },
+      {
+        id: "estadisticas",
+        label: "Estadísticas",
+        path: "/giras/estadisticas",
+        icon: HiOutlinePresentationChartLine,
       },
     ],
   },

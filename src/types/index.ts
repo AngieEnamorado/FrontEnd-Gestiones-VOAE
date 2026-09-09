@@ -24,6 +24,23 @@ export interface Solicitud {
   estado: EstadoSolicitud;
 }
 
+export type AlcanceViaje = "Local" | "Nacional" | "Internacional";
+
+export type FinalidadGira = "Académica" | "Social" | "Deportiva" | "Cultural" | "Recreativa";
+
+export type OrigenFondos = "Institucional" | "Aporte de viajeros" | "Mixto" | "Externo";
+
+export interface DocenteAcompanante {
+  nombre: string;
+  rol: string;
+}
+
+export interface LineaCosto {
+  concepto: string;
+  detalle: string;
+  monto: number;
+}
+
 export interface SolicitudGira {
   id: string;
   estudiante: string;
@@ -35,6 +52,65 @@ export interface SolicitudGira {
   fecha: string;
   estado: EstadoSolicitud;
   descripcion: string;
+
+  // Datos generales — resto del formulario de la gira. Opcionales porque no
+  // todo mock de gira/solicitud tiene el detalle completo capturado.
+  alcanceViaje?: AlcanceViaje;
+  alojamiento?: string;
+
+  // Fechas y horarios
+  horaSalida?: string;
+  fechaRetorno?: string;
+  horaRetorno?: string;
+  aperturaInscripciones?: string;
+  cierreInscripciones?: string;
+
+  // Alcance académico
+  carrerasParticipantes?: string[];
+  facultadesParticipantes?: string[];
+  finalidadesGira?: FinalidadGira[];
+
+  // Personas
+  jefeAprobacion?: string;
+  estudiantesAproximados?: number;
+  docentesAproximados?: number;
+  docentesAcompanantes?: DocenteAcompanante[];
+
+  // Transporte
+  utilizaTransporteUniversidad?: boolean;
+  mediosTransporte?: string[];
+  observacionesTraslado?: string;
+
+  // Financiamiento y costos
+  origenFondos?: OrigenFondos[];
+  desgloseCostos?: LineaCosto[];
+}
+
+// Un registro individual de gira para el dashboard de Estadísticas de Giras.
+// A diferencia de SolicitudGira (una solicitud puntual con su propio detalle),
+// esto es una fila "plana" pensada para agregarse en gráficos y KPIs.
+export interface RegistroGiraAnalitica {
+  id: string;
+  fecha: string;
+  año: number;
+  periodo: string;
+  campus: string;
+  facultad: string;
+  carrera: string;
+  destino: string;
+  finalidad: FinalidadGira;
+  alcance: AlcanceViaje;
+  estado: EstadoSolicitud;
+  estudiantes: number;
+  costo: number;
+}
+
+export interface Inscripcion {
+  id: string;
+  nombreEstudiante: string;
+  estado: EstadoSolicitud;
+  fecha: string;
+  periodo: string;
 }
 
 export interface EstadisticaSolicitudes {
