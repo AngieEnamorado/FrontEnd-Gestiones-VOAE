@@ -6,6 +6,7 @@ const estilosPorEstado: Record<EstadoSolicitud, string> = {
   RECHAZADA: "bg-rose-100 text-rose-700",
   "EN REVISIÓN": "bg-violet-100 text-violet-700",
   "ESPERA INF. SOCIAL": "bg-sky-100 text-sky-700",
+  DEVUELTA: "bg-violet-100 text-violet-700",
 };
 
 export default function EstadoBadge({ estado }: { estado: EstadoSolicitud }) {
