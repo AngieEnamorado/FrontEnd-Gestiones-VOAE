@@ -184,6 +184,8 @@ export default function NuevaSolicitud() {
   // Documentos
   const [documentos, setDocumentos] = useState<DocumentoRespaldo[]>([]);
 
+  const [mostrarConfirmacionEnvio, setMostrarConfirmacionEnvio] = useState(false);
+
   const porcentaje = Math.round(((pasoActivo + 1) / pasos.length) * 100);
   const esUltimoPaso = pasoActivo === pasos.length - 1;
 
@@ -238,6 +240,10 @@ export default function NuevaSolicitud() {
 
   function manejarEnvio(e: React.FormEvent) {
     e.preventDefault();
+  }
+
+  function confirmarEnvio() {
+    setMostrarConfirmacionEnvio(false);
     navigate("/giras/solicitudes");
   }
 
@@ -250,6 +256,7 @@ export default function NuevaSolicitud() {
   }
 
   return (
+    <>
     <form onSubmit={manejarEnvio} className="flex flex-col gap-6">
       {/* Encabezado */}
       <div>
@@ -853,7 +860,8 @@ export default function NuevaSolicitud() {
           </button>
           {esUltimoPaso ? (
             <button
-              type="submit"
+              type="button"
+              onClick={() => setMostrarConfirmacionEnvio(true)}
               className="rounded-lg bg-unah-navy px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
             >
               Enviar solicitud
@@ -861,7 +869,7 @@ export default function NuevaSolicitud() {
           ) : (
             <button
               type="button"
-              onClick={() => irAPaso(pasoActivo + 1)}
+              onClick={() => setPasoActivo((actual) => Math.min(actual + 1, pasos.length - 1))}
               className="flex items-center justify-center gap-1.5 rounded-lg bg-unah-navy px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
             >
               Siguiente
@@ -871,5 +879,43 @@ export default function NuevaSolicitud() {
         </div>
       </div>
     </form>
+
+    {mostrarConfirmacionEnvio && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        onClick={() => setMostrarConfirmacionEnvio(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl sm:p-8"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className="text-xl font-bold text-[#1E293B]">
+            ¿Estás seguro de que quieres enviar la solicitud?
+          </h2>
+          <p className="mt-3 text-sm text-slate-500">
+            Una vez enviada, la solicitud pasará a revisión del jefe de aprobación y no podrás
+            realizarle cambios ni modificaciones.
+          </p>
+
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setMostrarConfirmacionEnvio(false)}
+              className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmarEnvio}
+              className="rounded-lg bg-[#003366] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:opacity-90"
+            >
+              Sí, enviar solicitud
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

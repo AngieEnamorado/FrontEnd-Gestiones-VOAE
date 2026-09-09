@@ -1,17 +1,28 @@
+import { useNavigate } from "react-router-dom";
 import { HiOutlineXMark } from "react-icons/hi2";
 import type { Inscripcion } from "../types";
 import EstadoBadge from "./EstadoBadge";
 
 interface DetalleInscripcionModalProps {
   inscripcion: Inscripcion | null;
+  giraId: string;
   onClose: () => void;
 }
 
 export default function DetalleInscripcionModal({
   inscripcion,
+  giraId,
   onClose,
 }: DetalleInscripcionModalProps) {
+  const navigate = useNavigate();
+
   if (!inscripcion) return null;
+
+  function verDetalles() {
+    if (!inscripcion) return;
+    onClose();
+    navigate(`/giras/mis-giras/${giraId}/inscripciones/${inscripcion.id}`);
+  }
 
   return (
     <div
@@ -65,7 +76,7 @@ export default function DetalleInscripcionModal({
         <div className="mt-6 flex justify-center">
           <button
             type="button"
-            onClick={() => {}}
+            onClick={verDetalles}
             className="rounded-xl bg-unah-navy px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
           >
             Ver detalles

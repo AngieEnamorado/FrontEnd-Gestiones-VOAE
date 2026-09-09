@@ -110,12 +110,66 @@ export interface RegistroGiraAnalitica {
 // llenar y completarlo después desde el formulario de Nueva Solicitud.
 export type BorradorGira = { id: string } & Partial<Omit<SolicitudGira, "id">>;
 
+export interface DocumentoInscripcion {
+  tipo: string;
+  nombre: string;
+  enlace: string;
+}
+
+export interface ContactoEmergencia {
+  nombre: string;
+  parentesco: string;
+  telefono: string;
+}
+
+export interface FichaSalud {
+  tipoSangre?: string;
+  alergias?: string;
+  condicionesMedicas?: string;
+  discapacidad?: string;
+  medicamentos?: string;
+  contactoEmergencia?: ContactoEmergencia;
+}
+
+export interface AcompananteExterno {
+  nombreCompleto: string;
+  fechaNacimiento: string;
+  correo: string;
+  telefono: string;
+}
+
 export interface Inscripcion {
   id: string;
   nombreEstudiante: string;
   estado: EstadoSolicitud;
   fecha: string;
   periodo: string;
+
+  // Datos del estudiante — vienen de su expediente universitario.
+  numeroCuenta?: string;
+  carreraFacultad?: string;
+  correoInstitucional?: string;
+  telefonoContacto?: string;
+
+  // Inscripción excepcional: alguien más (p. ej. la jefa de misión) inscribió
+  // al estudiante en su nombre y debe justificarlo.
+  esExcepcional?: boolean;
+  inscritoPor?: string;
+  motivoExcepcion?: string;
+
+  // Acompañante externo: persona ajena a la universidad que viaja con el estudiante.
+  tieneAcompanante?: boolean;
+  acompanante?: AcompananteExterno;
+
+  // Fichas de salud, propia y del acompañante externo (si aplica).
+  fichaSaludEstudiante?: FichaSalud;
+  fichaSaludAcompanante?: FichaSalud;
+
+  // Documentos de respaldo adjuntados por el estudiante.
+  documentos?: DocumentoInscripcion[];
+
+  // Notas u observaciones generales registradas por el estudiante.
+  observaciones?: string;
 }
 
 export interface EstadisticaSolicitudes {

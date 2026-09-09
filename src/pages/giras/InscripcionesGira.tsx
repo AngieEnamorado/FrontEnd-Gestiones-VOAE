@@ -218,7 +218,11 @@ export default function InscripcionesGira() {
         </>
       )}
 
-      <DetalleInscripcionModal inscripcion={seleccionada} onClose={() => setSeleccionada(null)} />
+      <DetalleInscripcionModal
+        inscripcion={seleccionada}
+        giraId={id ?? ""}
+        onClose={() => setSeleccionada(null)}
+      />
     </div>
   );
 }
