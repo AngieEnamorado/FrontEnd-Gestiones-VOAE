@@ -23,17 +23,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar discreto para el sidebar y tablas */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 9999px;
-}
-
+/* Scrollbar discreto para las tablas */
 .table-scrollbar::-webkit-scrollbar {
   height: 8px;
 }
