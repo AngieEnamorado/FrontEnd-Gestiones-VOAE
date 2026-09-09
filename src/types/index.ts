@@ -105,6 +105,11 @@ export interface RegistroGiraAnalitica {
   costo: number;
 }
 
+// Un borrador de solicitud de gira: mismos campos que SolicitudGira, pero
+// todos opcionales salvo el id, porque el usuario puede guardarlo a medio
+// llenar y completarlo después desde el formulario de Nueva Solicitud.
+export type BorradorGira = { id: string } & Partial<Omit<SolicitudGira, "id">>;
+
 export interface Inscripcion {
   id: string;
   nombreEstudiante: string;

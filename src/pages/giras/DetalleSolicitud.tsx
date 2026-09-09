@@ -11,9 +11,10 @@ import {
   HiOutlineDocumentText,
 } from "react-icons/hi2";
 import type { IconType } from "react-icons";
-import EstadoBadge from "../../components/EstadoBadge";
+import SelectorEstado from "../../components/SelectorEstado";
 import { solicitudesGiras } from "../../data/mockGirasSolicitudes";
 import { misGiras } from "../../data/mockMisGiras";
+import type { EstadoSolicitud } from "../../types";
 
 const todasLasGiras = [...solicitudesGiras, ...misGiras];
 
@@ -123,6 +124,9 @@ export default function DetalleSolicitud() {
   const [pasoActivo, setPasoActivo] = useState(0);
 
   const solicitud = useMemo(() => todasLasGiras.find((s) => s.id === id), [id]);
+  const [estadoActual, setEstadoActual] = useState<EstadoSolicitud>(
+    () => solicitud?.estado ?? "PENDIENTE",
+  );
 
   const porcentaje = Math.round(((pasoActivo + 1) / pasos.length) * 100);
   const esUltimoPaso = pasoActivo === pasos.length - 1;
@@ -166,7 +170,7 @@ export default function DetalleSolicitud() {
           Regresar
         </button>
 
-        <EstadoBadge estado={solicitud.estado} />
+        <SelectorEstado estado={estadoActual} onCambiar={setEstadoActual} />
       </div>
 
       <div>

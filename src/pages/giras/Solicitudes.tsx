@@ -6,8 +6,15 @@ import {
   HiOutlineArrowPath,
   HiOutlineEye,
   HiOutlineArrowLeft,
+  HiOutlineFolderOpen,
+  HiOutlineListBullet,
+  HiOutlineCheckCircle,
+  HiOutlineClock,
+  HiOutlineMagnifyingGlassCircle,
+  HiOutlineXCircle,
 } from "react-icons/hi2";
 import EstadoBadge from "../../components/EstadoBadge";
+import EstadisticaCard from "../../components/EstadisticaCard";
 import DetalleSolicitudGiraModal from "../../components/DetalleSolicitudGiraModal";
 import { solicitudesGiras } from "../../data/mockGirasSolicitudes";
 import type { SolicitudGira } from "../../types";
@@ -16,6 +23,17 @@ export default function Solicitudes() {
   const navigate = useNavigate();
   const [busqueda, setBusqueda] = useState("");
   const [seleccionada, setSeleccionada] = useState<SolicitudGira | null>(null);
+
+  const estadisticas = useMemo(
+    () => ({
+      total: solicitudesGiras.length,
+      aprobadas: solicitudesGiras.filter((s) => s.estado === "APROBADA").length,
+      pendientes: solicitudesGiras.filter((s) => s.estado === "PENDIENTE").length,
+      enRevision: solicitudesGiras.filter((s) => s.estado === "EN REVISIÓN").length,
+      rechazadas: solicitudesGiras.filter((s) => s.estado === "RECHAZADA").length,
+    }),
+    [],
+  );
 
   const filas = useMemo(
     () =>
@@ -46,14 +64,68 @@ export default function Solicitudes() {
             <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">Solicitudes</h1>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate("/giras/solicitudes/nueva")}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition-colors hover:bg-slate-50"
-          >
-            <HiOutlinePlus className="h-4 w-4" />
-            Nueva solicitud
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate("/giras/solicitudes/borradores")}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              <HiOutlineFolderOpen className="h-4 w-4" />
+              Borradores
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/giras/solicitudes/nueva")}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition-colors hover:bg-slate-50"
+            >
+              <HiOutlinePlus className="h-4 w-4" />
+              Nueva solicitud
+            </button>
+          </div>
+        </div>
+
+        {/* Tarjetas de resumen */}
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <EstadisticaCard
+            icon={HiOutlineListBullet}
+            label="Total"
+            valor={estadisticas.total}
+            colorFondo="bg-blue-50"
+            colorIcono="text-blue-500"
+            colorTexto="text-blue-700"
+          />
+          <EstadisticaCard
+            icon={HiOutlineCheckCircle}
+            label="Aprobadas"
+            valor={estadisticas.aprobadas}
+            colorFondo="bg-emerald-50"
+            colorIcono="text-emerald-500"
+            colorTexto="text-emerald-700"
+          />
+          <EstadisticaCard
+            icon={HiOutlineClock}
+            label="Pendientes"
+            valor={estadisticas.pendientes}
+            colorFondo="bg-amber-50"
+            colorIcono="text-amber-500"
+            colorTexto="text-amber-700"
+          />
+          <EstadisticaCard
+            icon={HiOutlineMagnifyingGlassCircle}
+            label="En revisión"
+            valor={estadisticas.enRevision}
+            colorFondo="bg-purple-50"
+            colorIcono="text-purple-500"
+            colorTexto="text-purple-700"
+          />
+          <EstadisticaCard
+            icon={HiOutlineXCircle}
+            label="Rechazadas"
+            valor={estadisticas.rechazadas}
+            colorFondo="bg-rose-50"
+            colorIcono="text-rose-500"
+            colorTexto="text-rose-700"
+          />
         </div>
 
         {/* Búsqueda y filtros */}

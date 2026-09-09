@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   HiChevronLeft,
   HiChevronRight,
@@ -14,6 +14,7 @@ import {
 } from "react-icons/hi2";
 import type { IconType } from "react-icons";
 import { useUsuarioActual } from "../../context/UserContext";
+import { borradoresGiras } from "../../data/mockBorradoresGiras";
 
 const claseInput =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-unah-orange focus:ring-1 focus:ring-unah-orange disabled:bg-slate-50 disabled:text-slate-400";
@@ -148,26 +149,37 @@ function SeccionFormulario({
 export default function NuevaSolicitud() {
   const navigate = useNavigate();
   const usuario = useUsuarioActual();
+  const { borradorId } = useParams();
+  const borrador = useMemo(
+    () => borradoresGiras.find((b) => b.id === borradorId),
+    [borradorId],
+  );
   const [pasoActivo, setPasoActivo] = useState(0);
 
   // Datos generales + fechas y horarios
-  const [objetivo, setObjetivo] = useState("");
+  const [objetivo, setObjetivo] = useState(borrador?.descripcion ?? "");
 
   // Alcance académico
-  const [carreras, setCarreras] = useState<string[]>([]);
-  const [facultades, setFacultades] = useState<string[]>([]);
-  const [finalidades, setFinalidades] = useState<string[]>([]);
+  const [carreras, setCarreras] = useState<string[]>(borrador?.carrerasParticipantes ?? []);
+  const [facultades, setFacultades] = useState<string[]>(borrador?.facultadesParticipantes ?? []);
+  const [finalidades, setFinalidades] = useState<string[]>(borrador?.finalidadesGira ?? []);
 
   // Personas
-  const [acompanantes, setAcompanantes] = useState<Acompanante[]>([]);
+  const [acompanantes, setAcompanantes] = useState<Acompanante[]>(() =>
+    (borrador?.docentesAcompanantes ?? []).map((a) => ({ id: generarId(), ...a })),
+  );
 
   // Transporte
-  const [solicitaTransporte, setSolicitaTransporte] = useState(false);
-  const [medios, setMedios] = useState<string[]>([]);
+  const [solicitaTransporte, setSolicitaTransporte] = useState(
+    borrador?.utilizaTransporteUniversidad ?? false,
+  );
+  const [medios, setMedios] = useState<string[]>(borrador?.mediosTransporte ?? []);
 
   // Financiamiento
-  const [origenes, setOrigenes] = useState<string[]>([]);
-  const [costos, setCostos] = useState<LineaCosto[]>([]);
+  const [origenes, setOrigenes] = useState<string[]>(borrador?.origenFondos ?? []);
+  const [costos, setCostos] = useState<LineaCosto[]>(() =>
+    (borrador?.desgloseCostos ?? []).map((c) => ({ id: generarId(), ...c, monto: String(c.monto) })),
+  );
 
   // Documentos
   const [documentos, setDocumentos] = useState<DocumentoRespaldo[]>([]);
@@ -230,7 +242,11 @@ export default function NuevaSolicitud() {
   }
 
   function manejarGuardarBorrador() {
-    navigate("/giras/solicitudes");
+    navigate("/giras/solicitudes/borradores");
+  }
+
+  function regresar() {
+    navigate(borrador ? "/giras/solicitudes/borradores" : "/giras/solicitudes");
   }
 
   return (
@@ -239,7 +255,7 @@ export default function NuevaSolicitud() {
       <div>
         <button
           type="button"
-          onClick={() => navigate("/giras/solicitudes")}
+          onClick={regresar}
           className="flex items-center gap-1.5 rounded-lg bg-unah-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
         >
           <HiChevronLeft className="h-4 w-4" />
@@ -248,7 +264,10 @@ export default function NuevaSolicitud() {
 
         <div className="mt-4">
           <p className="text-xs font-bold tracking-wider text-unah-orange">GIRAS</p>
-          <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">Nueva Solicitud</h1>
+          <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">
+            {borrador ? "Editar Borrador" : "Nueva Solicitud"}
+          </h1>
+          {borrador && <p className="mt-1 text-sm text-slate-400">Borrador {borrador.id}</p>}
         </div>
       </div>
 
@@ -318,7 +337,7 @@ export default function NuevaSolicitud() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className={claseLabel}>Campus que organiza</label>
-            <select className={claseInput} defaultValue="">
+            <select className={claseInput} defaultValue={borrador?.centro ?? ""}>
               <option value="" disabled>
                 Selecciona un campus
               </option>
@@ -332,10 +351,11 @@ export default function NuevaSolicitud() {
 
           <div>
             <label className={claseLabel}>Alcance del viaje</label>
-            <select className={claseInput} defaultValue="">
+            <select className={claseInput} defaultValue={borrador?.alcanceViaje ?? ""}>
               <option value="" disabled>
                 Selecciona el alcance
               </option>
+              <option>Local</option>
               <option>Nacional</option>
               <option>Internacional</option>
             </select>
@@ -343,12 +363,22 @@ export default function NuevaSolicitud() {
 
           <div>
             <label className={claseLabel}>Destino</label>
-            <input type="text" placeholder="Ej. Copán Ruinas, Copán" className={claseInput} />
+            <input
+              type="text"
+              placeholder="Ej. Copán Ruinas, Copán"
+              defaultValue={borrador?.destino ?? ""}
+              className={claseInput}
+            />
           </div>
 
           <div>
             <label className={claseLabel}>Alojamiento</label>
-            <input type="text" placeholder="Ej. Hotel Marina Copán" className={claseInput} />
+            <input
+              type="text"
+              placeholder="Ej. Hotel Marina Copán"
+              defaultValue={borrador?.alojamiento ?? ""}
+              className={claseInput}
+            />
           </div>
 
           <div className="sm:col-span-2">
@@ -371,27 +401,35 @@ export default function NuevaSolicitud() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className={claseLabel}>Fecha de salida</label>
-            <input type="date" className={claseInput} />
+            <input type="date" defaultValue={borrador?.fecha ?? ""} className={claseInput} />
           </div>
           <div>
             <label className={claseLabel}>Hora de salida</label>
-            <input type="time" className={claseInput} />
+            <input type="time" defaultValue={borrador?.horaSalida ?? ""} className={claseInput} />
           </div>
           <div>
             <label className={claseLabel}>Fecha de retorno</label>
-            <input type="date" className={claseInput} />
+            <input type="date" defaultValue={borrador?.fechaRetorno ?? ""} className={claseInput} />
           </div>
           <div>
             <label className={claseLabel}>Hora de retorno</label>
-            <input type="time" className={claseInput} />
+            <input type="time" defaultValue={borrador?.horaRetorno ?? ""} className={claseInput} />
           </div>
           <div>
             <label className={claseLabel}>Fecha inicio de inscripción</label>
-            <input type="date" className={claseInput} />
+            <input
+              type="date"
+              defaultValue={borrador?.aperturaInscripciones ?? ""}
+              className={claseInput}
+            />
           </div>
           <div>
             <label className={claseLabel}>Fecha fin de inscripción</label>
-            <input type="date" className={claseInput} />
+            <input
+              type="date"
+              defaultValue={borrador?.cierreInscripciones ?? ""}
+              className={claseInput}
+            />
           </div>
         </div>
       </SeccionFormulario>
@@ -461,7 +499,7 @@ export default function NuevaSolicitud() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className={claseLabel}>Jefe de aprobación</label>
-            <select className={claseInput} defaultValue="">
+            <select className={claseInput} defaultValue={borrador?.jefeAprobacion ?? ""}>
               <option value="" disabled>
                 Selecciona un jefe de aprobación
               </option>
@@ -478,12 +516,24 @@ export default function NuevaSolicitud() {
 
           <div>
             <label className={claseLabel}>Estudiantes aproximados</label>
-            <input type="number" min={0} placeholder="0" className={claseInput} />
+            <input
+              type="number"
+              min={0}
+              placeholder="0"
+              defaultValue={borrador?.estudiantesAproximados ?? ""}
+              className={claseInput}
+            />
           </div>
 
           <div>
             <label className={claseLabel}>Docentes aproximados</label>
-            <input type="number" min={0} placeholder="0" className={claseInput} />
+            <input
+              type="number"
+              min={0}
+              placeholder="0"
+              defaultValue={borrador?.docentesAproximados ?? ""}
+              className={claseInput}
+            />
           </div>
         </div>
 
@@ -578,6 +628,7 @@ export default function NuevaSolicitud() {
           <textarea
             rows={3}
             placeholder="Detalles adicionales sobre el transporte..."
+            defaultValue={borrador?.observacionesTraslado ?? ""}
             className={`${claseInput} resize-none`}
           />
         </div>

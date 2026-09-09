@@ -4,6 +4,7 @@ import Solicitudes from "./pages/estudiantes/Solicitudes";
 import SolicitudesGiras from "./pages/giras/Solicitudes";
 import NuevaSolicitudGira from "./pages/giras/NuevaSolicitud";
 import DetalleSolicitudGira from "./pages/giras/DetalleSolicitud";
+import BorradoresGira from "./pages/giras/Borradores";
 import MisGiras from "./pages/giras/MisGiras";
 import ResumenGira from "./pages/giras/ResumenGira";
 import InscripcionesGira from "./pages/giras/InscripcionesGira";
@@ -44,6 +45,8 @@ export default function App() {
           <Route path="mis-giras/:id/inscripciones" element={<InscripcionesGira />} />
           <Route path="solicitudes" element={<SolicitudesGiras />} />
           <Route path="solicitudes/nueva" element={<NuevaSolicitudGira />} />
+          <Route path="solicitudes/borradores" element={<BorradoresGira />} />
+          <Route path="solicitudes/borradores/:borradorId/editar" element={<NuevaSolicitudGira />} />
           <Route path="solicitudes/:id" element={<DetalleSolicitudGira />} />
           <Route path="estadisticas" element={<Estadisticas />} />
         </Route>

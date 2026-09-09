@@ -1,6 +1,6 @@
 import type { EstadoSolicitud } from "../types";
 
-const estilosPorEstado: Record<EstadoSolicitud, string> = {
+export const estilosPorEstado: Record<EstadoSolicitud, string> = {
   PENDIENTE: "bg-amber-100 text-amber-700",
   APROBADA: "bg-emerald-100 text-emerald-700",
   RECHAZADA: "bg-rose-100 text-rose-700",
