@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { HiOutlineArrowLeft, HiOutlineArrowTopRightOnSquare } from "react-icons/hi2";
-import { estilosPorEstado } from "../../components/EstadoBadge";
+import SelectorEstado from "../../components/SelectorEstado";
 import { misGiras } from "../../data/mockMisGiras";
 import { solicitudesGiras } from "../../data/mockGirasSolicitudes";
 import { inscripcionesPorGira } from "../../data/mockInscripciones";
@@ -10,13 +10,6 @@ import type { EstadoSolicitud, FichaSalud } from "../../types";
 const todasLasGiras = [...misGiras, ...solicitudesGiras];
 
 const NO_ESPECIFICADO = "No especificado";
-
-const opcionesEstado: { valor: EstadoSolicitud; etiqueta: string }[] = [
-  { valor: "APROBADA", etiqueta: "Aprobada" },
-  { valor: "PENDIENTE", etiqueta: "Pendiente" },
-  { valor: "EN REVISIÓN", etiqueta: "En revisión" },
-  { valor: "RECHAZADA", etiqueta: "Rechazada" },
-];
 
 function formatearFecha(fecha?: string) {
   if (!fecha) return null;
@@ -158,17 +151,7 @@ export default function DetalleInscripcion() {
           Regresar
         </button>
 
-        <select
-          value={estadoActual}
-          onChange={(e) => setEstadoActual(e.target.value as EstadoSolicitud)}
-          className={`rounded-full border-none px-4 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-unah-orange ${estilosPorEstado[estadoActual]}`}
-        >
-          {opcionesEstado.map((opcion) => (
-            <option key={opcion.valor} value={opcion.valor}>
-              {opcion.etiqueta}
-            </option>
-          ))}
-        </select>
+        <SelectorEstado estado={estadoActual} onCambiar={setEstadoActual} />
       </div>
 
       <div>
