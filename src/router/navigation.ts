@@ -109,6 +109,12 @@ export const navigationItems: NavItem[] = [
         icon: HiOutlineChartBar,
       },
       {
+        id: "voluntariado-estadisticas",
+        label: "Estadísticas",
+        path: "/voluntariado/estadisticas",
+        icon: HiOutlinePresentationChartLine,
+      },
+      {
         id: "voluntariado-solicitudes-grupos",
         label: "Solicitudes de grupos",
         path: "/voluntariado/solicitudes-grupos",

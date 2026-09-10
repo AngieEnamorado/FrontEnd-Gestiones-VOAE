@@ -287,6 +287,23 @@ export interface InscripcionActividadVoluntariado {
   tipoParticipante: TipoParticipante;
 }
 
+// Un registro individual de actividad de voluntariado para el dashboard de
+// Estadísticas de Voluntariado. Igual que RegistroGiraAnalitica: una fila
+// "plana" pensada para agregarse en gráficos y KPIs, independiente de los
+// mocks operativos (grupos/actividades) que alimentan el resto del módulo.
+export interface RegistroVoluntariadoAnalitica {
+  id: string;
+  fecha: string;
+  año: number;
+  periodo: string;
+  campus: string;
+  red: RedTematica["id"];
+  grupo: string;
+  estado: EstadoSolicitud;
+  participantes: number;
+  horas: number;
+}
+
 export interface RegistroAsistenciaVoluntariado {
   inscripcionId: string;
   asistio: boolean;

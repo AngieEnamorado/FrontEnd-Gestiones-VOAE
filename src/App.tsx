@@ -22,6 +22,7 @@ import InformeDetalleAdmin from "./pages/voluntariado/admin/InformeDetalle";
 import GestionGrupos from "./pages/voluntariado/admin/GestionGrupos";
 import Diplomas from "./pages/voluntariado/admin/Diplomas";
 import Catalogos from "./pages/voluntariado/admin/Catalogos";
+import EstadisticasVoluntariado from "./pages/voluntariado/admin/Estadisticas";
 
 import Inicio from "./pages/voluntariado/estudiante/Inicio";
 import CatalogoGrupos from "./pages/voluntariado/estudiante/CatalogoGrupos";
@@ -90,6 +91,7 @@ export default function App() {
         <Route path="/voluntariado">
           <Route index element={<Navigate to="tablero" replace />} />
           <Route path="tablero" element={<TableroNacional />} />
+          <Route path="estadisticas" element={<EstadisticasVoluntariado />} />
           <Route path="solicitudes-grupos" element={<SolicitudesGruposLista />} />
           <Route path="solicitudes-grupos/:id" element={<SolicitudGrupoDetalle />} />
           <Route path="actividades/aprobacion" element={<AprobacionActividades />} />
