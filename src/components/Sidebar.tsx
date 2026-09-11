@@ -2,6 +2,8 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { HiChevronRight } from "react-icons/hi2";
 import { navigationItems } from "../router/navigation";
+import { useProcad } from "../context/ProcadContext";
+import { useRolProcad } from "../context/UserContext";
 import logoUnahBlanco from "../assets/Logos/LogoUnahBlanco.png";
 
 interface SidebarProps {
@@ -10,11 +12,26 @@ interface SidebarProps {
 
 export default function Sidebar({ colapsado }: SidebarProps) {
   const location = useLocation();
+  const { pendientes } = useProcad();
+  const { rol } = useRolProcad();
 
-  // El submenú de "Estudiantes" empieza abierto porque la ruta activa
-  // por defecto (Solicitudes) vive dentro de él.
-  const [abiertos, setAbiertos] = useState<Record<string, boolean>>({
-    estudiantes: true,
+  // Cuántos casos esperan decisión detrás de cada entrada del menú. Se resuelve
+  // aquí y no en `navigation.ts` porque esa lista describe la estructura del
+  // menú, no el estado de los datos.
+  const contadores: Record<string, number> = {
+    procadEstudiantes: pendientes.estudiantes,
+    procadAgrupaciones: pendientes.agrupaciones,
+  };
+
+  // El grupo que contiene la ruta actual empieza abierto: si alguien entra
+  // directo a /procad/estadisticas, el menú tiene que mostrarle dónde está
+  // parado, no un submenú cerrado. Si no hay ninguno, abre Estudiantes, que
+  // es donde vive la ruta por defecto.
+  const [abiertos, setAbiertos] = useState<Record<string, boolean>>(() => {
+    const grupoDeLaRuta = navigationItems.find(
+      (item) => item.children?.length && location.pathname.startsWith(item.path),
+    );
+    return { [grupoDeLaRuta?.id ?? "estudiantes"]: true };
   });
 
   function alternarGrupo(id: string) {
@@ -98,7 +115,9 @@ export default function Sidebar({ colapsado }: SidebarProps) {
 
                 {tieneHijos && abierto && (
                   <ul className="mt-1 flex flex-col gap-1">
-                    {item.children!.map((hijo) => (
+                    {item
+                      .children!.filter((hijo) => !hijo.roles || hijo.roles.includes(rol))
+                      .map((hijo) => (
                       <li key={hijo.id}>
                         <NavLink
                           to={hijo.path}
@@ -118,6 +137,15 @@ export default function Sidebar({ colapsado }: SidebarProps) {
                                 }`}
                               />
                               <span className="truncate">{hijo.label}</span>
+                              {hijo.contador && contadores[hijo.contador] > 0 && (
+                                <span
+                                  className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-unah-orange px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                  title={`${contadores[hijo.contador]} pendiente(s)`}
+                                >
+                                  {contadores[hijo.contador]}
+                                  <span className="sr-only"> pendientes</span>
+                                </span>
+                              )}
                             </>
                           )}
                         </NavLink>

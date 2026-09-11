@@ -184,4 +184,212 @@ export interface UsuarioActual {
   correo: string;
   rol: string;
   iniciales: string;
+  /**
+   * Qué le toca hacer a esta persona dentro de PROCAD. El administrador
+   * gestiona; el vicerrector solo consulta estadísticas. Es un campo aparte de
+   * `rol` porque ese es el cargo institucional, texto libre que se muestra, y
+   * este decide qué se puede abrir.
+   */
+  rolProcad: RolProcad;
+}
+
+/** Los dos roles de PROCAD que existen dentro de esta plataforma. */
+export type RolProcad = "administrador" | "vicerrector";
+
+export const ETIQUETA_ROL_PROCAD: Record<RolProcad, string> = {
+  administrador: "Administrador PROCAD",
+  vicerrector: "Vicerrectoría",
+};
+
+// ===========================================================================
+//  PROCAD · Programa de Cultura, Arte y Deporte
+// ===========================================================================
+
+export type TipoAgrupacion = "deportivo" | "artistico";
+
+/** Estados que puede tener la solicitud de ingreso a una agrupación. */
+export type EstadoSolicitudProcad = "aprobada" | "pendiente" | "observada" | "noCumple";
+
+/**
+ * Un período académico de PROCAD. `elegibilidad` y `factor` son los que
+ * permiten reconstruir las cifras de períodos anteriores a partir de las del
+ * período actual: `factor` escala los conteos y `elegibilidad` los
+ * porcentajes. Cuando exista backend, cada período traerá sus propias cifras
+ * y estos dos campos desaparecen.
+ */
+export interface PeriodoProcad {
+  id: string;
+  label: string;
+  elegibilidad: number;
+  factor: number;
+}
+
+/**
+ * Cifras de una agrupación en el período actual. Es la unidad con la que
+ * trabajan todas las secciones del panel de estadísticas: se filtra, se suma
+ * y se escala, pero nunca se consulta una métrica ya agregada.
+ */
+export interface AgrupacionProcad {
+  nombre: string;
+  tipo: TipoAgrupacion;
+  centro: string;
+
+  estudiantes: number;
+  actividades: number;
+  validadas: number;
+  inscritos: number;
+  asistencias: number;
+
+  elegibilidad: number;
+  cumplimiento: number;
+
+  preferencial: number;
+  prosene: number;
+  expulsiones: number;
+  sexoF: number;
+
+  aspirantes: number;
+  cumplenIndice: number;
+  citados: number;
+  solicitudes: Record<EstadoSolicitudProcad, number>;
+
+  /** Estudiantes por carrera, en el mismo orden que `CARRERAS`. */
+  carreras: number[];
+
+  /** Excepciones de talento autorizadas este período. */
+  condicionados: number;
+  /** La dirige alguien sin contrato con la universidad. */
+  colaboradorExterno: boolean;
+  /** Es una selección multi-campus, no una agrupación de un solo centro. */
+  esSeleccion: boolean;
+
+  /** Deporte que practica, si es deportiva. */
+  deporte?: string;
+  /**
+   * Disciplinas que cubre, si es artística. Es una lista porque una misma
+   * agrupación puede trabajar varias a la vez (una asociación con áreas de
+   * danza y teatro, por ejemplo).
+   */
+  disciplinas?: string[];
+}
+
+export interface FiltrosProcad {
+  periodo: string;
+  centro: string;
+  tipo: TipoAgrupacion | "todos";
+  agrupacion: string;
+}
+
+/** Fila del resumen por centro regional: varias agrupaciones colapsadas en una. */
+export interface ResumenCentro {
+  nombre: string;
+  grupos: number;
+  estudiantes: number;
+  actividades: number;
+  estudiantesDeportivo: number;
+  estudiantesArtistico: number;
+  /** `null` cuando el centro no tiene estudiantes y el promedio no existe. */
+  elegibilidad: number | null;
+}
+
+// --- PROCAD · administración -----------------------------------------------
+
+/** Una solicitud de ingreso vista desde el panel del administrador. */
+export interface SolicitudProcad {
+  id: number;
+  nombre: string;
+  cuenta: string;
+  grupo: string;
+  centro: string;
+  indice: number;
+  estado: EstadoSolicitudProcad;
+}
+
+/**
+ * Propuesta de excepción de talento. El entrenador propone y el administrador
+ * autoriza: sin esa segunda firma la solicitud no puede quedar aprobada.
+ */
+export interface CondicionadoPendiente {
+  id: number;
+  nombre: string;
+  cuenta: string;
+  grupo: string;
+  propone: string;
+  justificacion: string;
+}
+
+export interface ExpulsionPendiente {
+  id: number;
+  nombre: string;
+  cuenta: string;
+  grupo: string;
+  solicita: string;
+  motivo: string;
+  detalle: string;
+}
+
+export interface MatriculaExcepcional {
+  id: number;
+  nombre: string;
+  cuenta: string;
+  motivo: string;
+  periodo: string;
+}
+
+export type EstadoActividadProcad = "PENDIENTE_VALIDACION" | "VALIDADA" | "RECHAZADA";
+
+export interface ActividadProcad {
+  id: number;
+  titulo: string;
+  grupo: string;
+  fecha: string;
+  inscritos: number;
+  estado: EstadoActividadProcad;
+}
+
+export type EstadoVisoria = "BORRADOR" | "PROGRAMADA";
+
+export interface VisoriaProcad {
+  id: number;
+  grupo: string;
+  centro: string;
+  fecha: string;
+  hora: string;
+  citados: number;
+  estado: EstadoVisoria;
+}
+
+/**
+ * Empleado vinculado a una o varias agrupaciones. Un colaborador externo no
+ * tiene contrato con la universidad y nunca recibe acceso al panel: el
+ * administrador actúa en el sistema en su nombre.
+ */
+export interface EmpleadoProcad {
+  nombre: string;
+  rol: string;
+  centro: string;
+  grupos: string[];
+  acceso: boolean;
+  esColaboradorExterno: boolean;
+}
+
+export interface UsuarioProcad {
+  nombre: string;
+  correo: string;
+  rol: string;
+  estado: "activo" | "inactivo";
+}
+
+export type EstadoPeriodoInscripcion = "activo" | "programado" | "cerrado";
+
+export interface PeriodoInscripcion {
+  label: string;
+  estado: EstadoPeriodoInscripcion;
+}
+
+export interface RegistroAuditoria {
+  fecha: string;
+  actor: string;
+  accion: string;
+  detalle: string;
 }

@@ -10,6 +10,13 @@ import ResumenGira from "./pages/giras/ResumenGira";
 import InscripcionesGira from "./pages/giras/InscripcionesGira";
 import DetalleInscripcion from "./pages/giras/DetalleInscripcion";
 import Estadisticas from "./pages/giras/Estadisticas";
+import EstadisticasProcad from "./pages/procad/Estadisticas";
+import EstudiantesProcad from "./pages/procad/Estudiantes";
+import AgrupacionesProcad from "./pages/procad/Agrupaciones";
+import ConfiguracionProcad from "./pages/procad/Configuracion";
+import ReportesProcad from "./pages/procad/Reportes";
+import ModoDeVista from "./pages/procad/ModoDeVista";
+import SoloAdministrador from "./router/SoloAdministrador";
 import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 // Estructura de rutas de la app. Cada entrada del sidebar
@@ -55,7 +62,43 @@ export default function App() {
           <Route path="solicitudes/:id" element={<DetalleSolicitudGira />} />
           <Route path="estadisticas" element={<Estadisticas />} />
         </Route>
-        <Route path="/procad" element={<PaginaEnConstruccion seccion="Procad" titulo="Procad" />} />
+        <Route path="/procad">
+          <Route index element={<Navigate to="estadisticas" replace />} />
+          <Route path="estadisticas" element={<EstadisticasProcad />} />
+          <Route
+            path="estudiantes"
+            element={
+              <SoloAdministrador>
+                <EstudiantesProcad />
+              </SoloAdministrador>
+            }
+          />
+          <Route
+            path="agrupaciones"
+            element={
+              <SoloAdministrador>
+                <AgrupacionesProcad />
+              </SoloAdministrador>
+            }
+          />
+          <Route
+            path="configuracion"
+            element={
+              <SoloAdministrador>
+                <ConfiguracionProcad />
+              </SoloAdministrador>
+            }
+          />
+          <Route
+            path="reportes"
+            element={
+              <SoloAdministrador>
+                <ReportesProcad />
+              </SoloAdministrador>
+            }
+          />
+          <Route path="modo" element={<ModoDeVista />} />
+        </Route>
         <Route
           path="/voluntariado"
           element={<PaginaEnConstruccion seccion="Voluntariado" titulo="Voluntariado" />}

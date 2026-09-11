@@ -9,6 +9,11 @@
   --color-unah-navy-light: #06478e;
   --color-unah-orange: #f5820f;
   --color-unah-orange-dark: #d96f08;
+
+  /* Curva de salida fuerte: arranca rápido, así la interfaz responde al
+     instante en vez de sentirse perezosa. Las curvas por defecto de CSS son
+     demasiado suaves para notarse. */
+  --ease-suave: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 html,
@@ -31,4 +36,42 @@ body {
 .table-scrollbar::-webkit-scrollbar-thumb {
   background-color: #d8dee8;
   border-radius: 9999px;
+}
+
+/* Superficies del navegador que no dibujamos nosotros, pero que igual son
+   parte del diseño: la selección de texto y el anillo de foco. */
+::selection {
+  background-color: #cfe0f5;
+  color: #00254e;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-unah-orange);
+  outline-offset: 2px;
+}
+
+/* Quien pidió menos movimiento conserva los cambios de color y opacidad, que
+   ayudan a entender, y pierde los desplazamientos. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* El aviso de acción aplicada entra desde abajo, sin rebote: es una
+   confirmación, no una celebración. */
+@keyframes aviso-entra {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }

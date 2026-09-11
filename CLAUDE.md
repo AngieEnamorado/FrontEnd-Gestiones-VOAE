@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project
 
 React + TypeScript + Vite frontend for "Becas VOAE" (UNAH), a management system covering three
-subsystems reachable from the sidebar: Estudiantes (student scholarships), Giras (field trips), and
-several still-unbuilt sections (Procad, Voluntariado, Pagos, Mantenimientos, Seguridad).
+built subsystems reachable from the sidebar: Estudiantes (student scholarships), Giras (field
+trips) and PROCAD (sports/arts programme), plus several still-unbuilt sections (Voluntariado,
+Pagos, Mantenimientos, Seguridad).
 
 ## Commands
 
@@ -32,7 +33,8 @@ When adding a new sidebar item, add it in both places, and either build a real p
 `PaginaEnConstruccion`.
 
 **Data layer is mocked in `src/data/`** (`mockSolicitudes.ts`, `mockGirasSolicitudes.ts`,
-`mockMisGiras.ts`, `mockInscripciones.ts`, `currentUser.ts`). There is no backend/API integration
+`mockMisGiras.ts`, `mockInscripciones.ts`, `mockProcadEstadisticas.ts`, `mockProcadAdmin.ts`,
+`currentUser.ts`). There is no backend/API integration
 yet — pages import mock arrays directly and filter/derive state client-side with
 `useMemo`/`useState`. `currentUser.ts`'s `obtenerUsuarioDeSesion()` simulates a session/auth call;
 when a real backend exists this is the function to replace with a real fetch, not the components
@@ -47,7 +49,26 @@ shaped differently — a `Record<string, Inscripcion[]>` keyed by gira id — ra
 
 **Current user access:** components never hardcode user info — they call `useUsuarioActual()` from
 `src/context/UserContext.tsx`, which wraps `obtenerUsuarioDeSesion()`. `UserProvider` wraps the app
-in `main.tsx`.
+in `main.tsx`. The same context exposes `useRolProcad()` (see PROCAD below).
+
+**PROCAD** is the one subsystem whose data is written, not just read, so its mutable state lives in
+`src/context/ProcadContext.tsx` (`useProcad()`), wrapped around the app in `main.tsx`. It holds the
+admin's records plus a derived `pendientes` count and the actions that resolve cases; every action
+also prepends a row to the audit log and raises a confirmation toast. State is shared because the
+decisions cross modules — resolving a case changes the badge the sidebar draws on another entry.
+
+PROCAD has two roles (`rolProcad` on `UsuarioActual`): `administrador` manages, `vicerrector` only
+reads statistics. Role filtering is scoped to PROCAD only: entries in `navigationItems` declare an
+optional `roles` array (no array = everyone sees it), `Sidebar` filters children by the active role,
+and `src/router/SoloAdministrador.tsx` guards the routes so a direct URL can't bypass the menu.
+`src/pages/procad/ModoDeVista.tsx` switches the role — it is demo tooling for the no-backend stage
+and gets deleted, along with `cambiarRolProcad`, once the session supplies the real role.
+
+Its four admin modules (`Estudiantes`, `Agrupaciones`, `Configuracion`, `Reportes`) all render
+through `src/pages/procad/LayoutModulo.tsx` and keep their sub-screens in `pages/procad/modulos/`.
+The statistics dashboard is shared by both roles; its per-section derivations live in
+`pages/procad/secciones/datos.ts` and the PDF report is built from those same functions in
+`secciones/pdf.ts`, so the export can never disagree with the screen.
 
 **Types live centrally in `src/types/index.ts`** (`Solicitud`, `SolicitudGira`, `EstadoSolicitud`,
 `UsuarioActual`, etc.) and are shared across pages/components/mock data rather than redefined
@@ -55,6 +76,11 @@ per-file.
 
 **Layout shell:** `MainLayout.tsx` renders `Sidebar` + `Topbar` around an `<Outlet />`, and owns the
 sidebar collapsed/expanded state. Route pages only render their own content area, not chrome.
+
+**Confirmation dialogs (PROCAD):** actions that change state open
+`components/procad/DialogoConfirmacion.tsx`, which follows the modal convention below — it takes a
+`Dialogo | null` and returns `null` when closed. A page keeps one `useState<Dialogo | null>` and
+passes `abrirDialogo` down to its modules, rather than each table owning its own modal.
 
 **Status badges:** `EstadoSolicitud` values (`PENDIENTE`, `APROBADA`, `RECHAZADA`, `EN REVISIÓN`,
 `ESPERA INF. SOCIAL`) have a fixed color mapping in `src/components/EstadoBadge.tsx` — reuse this

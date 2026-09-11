@@ -9,11 +9,15 @@ import {
   HiOutlineExclamationTriangle,
   HiOutlineMapPin,
   HiOutlineMap,
-  HiOutlineBookOpen,
+  HiOutlineTrophy,
   HiOutlineHandRaised,
   HiOutlinePresentationChartLine,
+  HiOutlineUserGroup,
+  HiOutlineDocumentChartBar,
+  HiOutlineArrowsRightLeft,
 } from "react-icons/hi2";
 import type { IconType } from "react-icons";
+import type { RolProcad } from "../types";
 
 /**
  * Este archivo es "la idea del routeo": describe qué páginas existirá
@@ -29,6 +33,16 @@ export interface NavItem {
   path: string;
   icon: IconType;
   children?: NavItem[];
+  /**
+   * Clave del contador de pendientes que el Sidebar dibuja junto a la entrada.
+   * Solo se declara aquí; de dónde sale el número lo resuelve el Sidebar.
+   */
+  contador?: "procadEstudiantes" | "procadAgrupaciones";
+  /**
+   * Roles de PROCAD que pueden ver esta entrada. Omitirlo significa que la ve
+   * cualquiera — que es el caso de todo lo que está fuera de PROCAD.
+   */
+  roles?: RolProcad[];
 }
 
 export const navigationItems: NavItem[] = [
@@ -92,9 +106,53 @@ export const navigationItems: NavItem[] = [
   },
   {
     id: "procad",
-    label: "Procad",
+    label: "PROCAD",
     path: "/procad",
-    icon: HiOutlineBookOpen,
+    icon: HiOutlineTrophy,
+    children: [
+      {
+        id: "estadisticas",
+        label: "Estadísticas",
+        path: "/procad/estadisticas",
+        icon: HiOutlinePresentationChartLine,
+      },
+      {
+        id: "estudiantes",
+        label: "Estudiantes",
+        path: "/procad/estudiantes",
+        icon: HiOutlineUser,
+        contador: "procadEstudiantes",
+        roles: ["administrador"],
+      },
+      {
+        id: "agrupaciones",
+        label: "Agrupaciones",
+        path: "/procad/agrupaciones",
+        icon: HiOutlineUserGroup,
+        contador: "procadAgrupaciones",
+        roles: ["administrador"],
+      },
+      {
+        id: "configuracion",
+        label: "Configuración",
+        path: "/procad/configuracion",
+        icon: HiOutlineCog6Tooth,
+        roles: ["administrador"],
+      },
+      {
+        id: "reportes",
+        label: "Reportes",
+        path: "/procad/reportes",
+        icon: HiOutlineDocumentChartBar,
+        roles: ["administrador"],
+      },
+      {
+        id: "modo",
+        label: "Modo de vista",
+        path: "/procad/modo",
+        icon: HiOutlineArrowsRightLeft,
+      },
+    ],
   },
   {
     id: "voluntariado",

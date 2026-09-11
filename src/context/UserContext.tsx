@@ -1,8 +1,18 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
-import type { UsuarioActual } from "../types";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import type { RolProcad, UsuarioActual } from "../types";
 import { obtenerUsuarioDeSesion } from "../data/currentUser";
 
-const UserContext = createContext<UsuarioActual | null>(null);
+interface ValorUsuario {
+  usuario: UsuarioActual;
+  /**
+   * Cambia el rol de PROCAD de la sesión. Existe solo para poder mostrar la
+   * vista de Vicerrectoría mientras no hay backend; cuando la sesión real
+   * traiga el rol, esto se elimina junto con el selector del Topbar.
+   */
+  cambiarRolProcad: (rol: RolProcad) => void;
+}
+
+const UserContext = createContext<ValorUsuario | null>(null);
 
 /**
  * Provee el usuario actual a toda la app.
@@ -11,9 +21,17 @@ const UserContext = createContext<UsuarioActual | null>(null);
  * de `obtenerUsuarioDeSesion` (hoy mock, mañana una llamada real).
  */
 export function UserProvider({ children }: { children: ReactNode }) {
-  const usuario = useMemo(() => obtenerUsuarioDeSesion(), []);
+  const [usuario, setUsuario] = useState<UsuarioActual>(() => obtenerUsuarioDeSesion());
 
-  return <UserContext.Provider value={usuario}>{children}</UserContext.Provider>;
+  const valor = useMemo<ValorUsuario>(
+    () => ({
+      usuario,
+      cambiarRolProcad: (rolProcad) => setUsuario((previo) => ({ ...previo, rolProcad })),
+    }),
+    [usuario],
+  );
+
+  return <UserContext.Provider value={valor}>{children}</UserContext.Provider>;
 }
 
 export function useUsuarioActual(): UsuarioActual {
@@ -21,5 +39,14 @@ export function useUsuarioActual(): UsuarioActual {
   if (!contexto) {
     throw new Error("useUsuarioActual debe usarse dentro de <UserProvider>");
   }
-  return contexto;
+  return contexto.usuario;
+}
+
+/** El rol de PROCAD de la sesión, junto con la forma de cambiarlo. */
+export function useRolProcad(): { rol: RolProcad; cambiarRol: (rol: RolProcad) => void } {
+  const contexto = useContext(UserContext);
+  if (!contexto) {
+    throw new Error("useRolProcad debe usarse dentro de <UserProvider>");
+  }
+  return { rol: contexto.usuario.rolProcad, cambiarRol: contexto.cambiarRolProcad };
 }

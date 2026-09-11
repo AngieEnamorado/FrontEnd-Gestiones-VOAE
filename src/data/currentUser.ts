@@ -12,5 +12,6 @@ export function obtenerUsuarioDeSesion(): UsuarioActual {
     correo: "erin.matute@unah.hn",
     rol: "Administrador VOAE",
     iniciales: "ER",
+    rolProcad: "administrador",
   };
 }
