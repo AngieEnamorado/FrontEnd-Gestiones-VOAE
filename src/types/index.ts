@@ -7,7 +7,8 @@ export type EstadoSolicitud =
   | "APROBADA"
   | "RECHAZADA"
   | "EN REVISIÓN"
-  | "ESPERA INF. SOCIAL";
+  | "ESPERA INF. SOCIAL"
+  | "DEVUELTA";
 
 export type TipoBeca = "academica" | "bienestar";
 
@@ -392,4 +393,170 @@ export interface RegistroAuditoria {
   actor: string;
   accion: string;
   detalle: string;
+}
+
+// ───────────────────────────────────────────────────────────
+// Voluntariado
+// ───────────────────────────────────────────────────────────
+
+export type RolPortalEstudiante = "coordinador" | "miembro";
+export type RolPortalAdministrativo = "admin" | "enlace";
+
+export interface Campus {
+  id: string;
+  nombre: string;
+}
+
+export interface RedTematica {
+  id: string;
+  nombre: string;
+  color: "amber" | "emerald" | "violet" | "blue" | "rose";
+}
+
+export interface Trimestre {
+  id: string;
+  nombre: string;
+  fechaLimite: string;
+}
+
+export type CargoJuntaDirectiva =
+  | "Presidente"
+  | "Vicepresidente"
+  | "Secretario"
+  | "Tesorero"
+  | "Fiscal"
+  | "Vocal";
+
+export interface MiembroJuntaDirectiva {
+  cargo: CargoJuntaDirectiva;
+  numeroCuenta: string;
+  nombre: string;
+}
+
+export interface MiembroGrupo {
+  numeroCuenta: string;
+  nombre: string;
+  carrera: string;
+  cargo: CargoJuntaDirectiva | "Voluntario";
+  anioIngreso: number;
+  esFundador: boolean;
+}
+
+export type TipoParticipante = "voluntario activo" | "participante";
+
+export interface GrupoVoluntariado {
+  id: string;
+  nombre: string;
+  campusId: string;
+  redesIds: string[];
+  logoIniciales: string;
+  logoColor: "amber" | "emerald" | "violet" | "navy" | "rose";
+  campoAccion: string;
+  descripcion: string;
+  mision: string;
+  vision: string;
+  reseñaHistorica: string;
+  coordinadorCuenta: string;
+  juntaDirectiva: MiembroJuntaDirectiva[];
+  miembros: MiembroGrupo[];
+  estado: EstadoSolicitud;
+  motivoDecision?: string;
+  documentos: {
+    estatutos: boolean;
+    logo: boolean;
+    actaJunta: boolean;
+  };
+  // Solo aplica mientras el grupo está en trámite (estado distinto de APROBADA):
+  // quién lo propuso y cuándo. Una vez aprobado, el grupo pasa a operar normal.
+  solicitanteCuenta?: string;
+  fechaSolicitud?: string;
+}
+
+export interface ActividadVoluntariado {
+  id: string;
+  nombre: string;
+  objetivo: string;
+  grupoId: string;
+  esConjunta: boolean;
+  grupoCoorganizadorId?: string;
+  fecha: string;
+  lugar: string;
+  cupo: number;
+  periodoAcademico: string;
+  estado: EstadoSolicitud;
+  fotosEvidencia: number;
+  resultados?: string;
+}
+
+export interface InscripcionActividadVoluntariado {
+  id: string;
+  actividadId: string;
+  estudianteCuenta: string;
+  tipoParticipante: TipoParticipante;
+}
+
+// Un registro individual de actividad de voluntariado para el dashboard de
+// Estadísticas de Voluntariado. Igual que RegistroGiraAnalitica: una fila
+// "plana" pensada para agregarse en gráficos y KPIs, independiente de los
+// mocks operativos (grupos/actividades) que alimentan el resto del módulo.
+export interface RegistroVoluntariadoAnalitica {
+  id: string;
+  fecha: string;
+  año: number;
+  periodo: string;
+  campus: string;
+  red: RedTematica["id"];
+  grupo: string;
+  estado: EstadoSolicitud;
+  participantes: number;
+  horas: number;
+}
+
+export interface RegistroAsistenciaVoluntariado {
+  inscripcionId: string;
+  asistio: boolean;
+  horas: number;
+}
+
+export interface MovimientoEconomico {
+  id: string;
+  descripcion: string;
+  monto: number;
+  tipo: "ingreso" | "egreso";
+  responsable: string;
+  tipoComprobante: string;
+}
+
+export type EstadoInformeTrimestral = "EN CAPTURA" | "ENVIADO" | "OBSERVADO" | "ACEPTADO";
+
+export interface InformeTrimestral {
+  id: string;
+  trimestreId: string;
+  grupoId: string;
+  estado: EstadoInformeTrimestral;
+  observaciones?: string;
+  saldoAnterior: number;
+  movimientos: MovimientoEconomico[];
+  actividadesIds: string[];
+}
+
+export interface SolicitudVoluntariado {
+  id: string;
+  tipo: "creacion de grupo" | "union a grupo" | "actividad";
+  titulo: string;
+  estudianteCuenta: string;
+  grupoId?: string;
+  estado: EstadoSolicitud;
+  fecha: string;
+  motivoDecision?: string;
+}
+
+export interface EstudianteVoluntariado {
+  numeroCuenta: string;
+  nombreCompleto: string;
+  carrera: string;
+  correo: string;
+  iniciales: string;
+  gruposIds: string[];
+  horasAcumuladas: number;
 }

@@ -159,6 +159,56 @@ export const navigationItems: NavItem[] = [
     label: "Voluntariado",
     path: "/voluntariado",
     icon: HiOutlineHandRaised,
+    children: [
+      {
+        id: "voluntariado-tablero",
+        label: "Tablero nacional",
+        path: "/voluntariado/tablero",
+        icon: HiOutlineChartBar,
+      },
+      {
+        id: "voluntariado-estadisticas",
+        label: "Estadísticas",
+        path: "/voluntariado/estadisticas",
+        icon: HiOutlinePresentationChartLine,
+      },
+      {
+        id: "voluntariado-solicitudes-grupos",
+        label: "Solicitudes de grupos",
+        path: "/voluntariado/solicitudes-grupos",
+        icon: HiOutlineClipboardDocumentList,
+      },
+      {
+        id: "voluntariado-actividades",
+        label: "Aprobación de actividades",
+        path: "/voluntariado/actividades/aprobacion",
+        icon: HiOutlineMap,
+      },
+      {
+        id: "voluntariado-informes",
+        label: "Informes trimestrales",
+        path: "/voluntariado/informes",
+        icon: HiOutlineDocumentMagnifyingGlass,
+      },
+      {
+        id: "voluntariado-grupos",
+        label: "Gestión de grupos",
+        path: "/voluntariado/grupos",
+        icon: HiOutlineUser,
+      },
+      {
+        id: "voluntariado-diplomas",
+        label: "Diplomas",
+        path: "/voluntariado/diplomas",
+        icon: HiOutlineHandRaised,
+      },
+      {
+        id: "voluntariado-catalogos",
+        label: "Catálogos",
+        path: "/voluntariado/catalogos",
+        icon: HiOutlineCog6Tooth,
+      },
+    ],
   },
   {
     id: "pagos",
