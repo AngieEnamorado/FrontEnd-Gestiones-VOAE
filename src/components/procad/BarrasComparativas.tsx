@@ -1,4 +1,5 @@
 import SinDatos from "./SinDatos";
+import { useEnVista } from "../../utils/useEnVista";
 import { muestraPct } from "../../utils/procadMetricas";
 import { COLOR_PISTA, COLOR_SERIE, colorUmbral } from "./paleta";
 
@@ -36,6 +37,8 @@ export default function BarrasComparativas({
   decimales = 0,
   semantica = "umbral",
 }: BarrasComparativasProps) {
+  const [referencia, enVista] = useEnVista<HTMLUListElement>();
+
   const conDato = filas.filter((f) => f.valor !== null);
   if (conDato.length === 0) return <SinDatos />;
 
@@ -46,7 +49,7 @@ export default function BarrasComparativas({
     modo === "porcentaje" ? 100 : Math.max(1, ...conDato.map((f) => f.valor as number));
 
   return (
-    <ul className="flex flex-col gap-3">
+    <ul ref={referencia} className="flex flex-col gap-3">
       {ordenadas.map((fila) => {
         const atenuada = resaltada !== null && fila.nombre !== resaltada;
         const esResaltada = resaltada !== null && fila.nombre === resaltada;
@@ -59,7 +62,7 @@ export default function BarrasComparativas({
         return (
           <li
             key={fila.nombre}
-            className={`transition-[opacity,filter] duration-200 ease-suave ${
+            className={`group/fila -mx-2 rounded-lg px-2 py-1 transition-[opacity,filter,background-color] duration-200 ease-suave hover:bg-slate-50 ${
               atenuada ? "opacity-40 grayscale-[0.6]" : "opacity-100"
             }`}
           >
@@ -85,14 +88,14 @@ export default function BarrasComparativas({
             </div>
 
             <div
-              className="mt-1.5 h-2 w-full overflow-hidden rounded-sm"
+              className="mt-1.5 h-2.5 w-full overflow-hidden rounded-sm"
               style={{ backgroundColor: COLOR_PISTA }}
             >
               {/* Extremo del dato redondeado, base cuadrada: la barra crece
                   desde la línea de inicio, no flota. */}
               <div
-                className="h-full rounded-r-[4px] transition-[width] duration-500 ease-suave"
-                style={{ width: `${ancho}%`, backgroundColor: color }}
+                className="h-full rounded-r-[4px] transition-[width,filter] duration-500 ease-suave group-hover/fila:brightness-110"
+                style={{ width: enVista ? `${ancho}%` : 0, backgroundColor: color }}
               />
             </div>
           </li>

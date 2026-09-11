@@ -11,6 +11,7 @@ import {
   type TooltipContentProps,
 } from "recharts";
 import SinDatos from "./SinDatos";
+import { useEnVista } from "../../utils/useEnVista";
 import { COLOR_EJE, COLOR_REJILLA, COLOR_SERIE } from "./paleta";
 
 interface LineaTendenciaProps {
@@ -68,6 +69,8 @@ export default function LineaTendencia({
   alto = 230,
   ariaLabel,
 }: LineaTendenciaProps) {
+  const [referencia, enVista] = useEnVista<HTMLDivElement>();
+
   if (serie.length < 2) return <SinDatos />;
 
   const datos: PuntoTendencia[] = serie.map((valor, i) => ({
@@ -86,7 +89,10 @@ export default function LineaTendencia({
   const anotarMaximo = indiceMaximo !== indiceActivo && serie[indiceMaximo] > 0;
 
   return (
-    <div className="w-full" style={{ height: alto }} role="img" aria-label={ariaLabel}>
+    <div ref={referencia} className="w-full" style={{ height: alto }} role="img" aria-label={ariaLabel}>
+      {/* El contenedor guarda su alto siempre, así que montar el gráfico más
+          tarde no mueve nada de la página. */}
+      {enVista && (
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={datos} margin={{ top: 28, right: 34, bottom: 4, left: 4 }}>
           <defs>
@@ -128,7 +134,8 @@ export default function LineaTendencia({
             strokeWidth={2}
             strokeLinecap="round"
             fill="url(#areaTendenciaProcad)"
-            isAnimationActive={false}
+            animationDuration={750}
+            animationEasing="ease-out"
             dot={{ r: 4, fill: COLOR_SERIE, stroke: "#ffffff", strokeWidth: 2 }}
             activeDot={{ r: 6, fill: COLOR_SERIE, stroke: "#ffffff", strokeWidth: 2 }}
           >
@@ -158,6 +165,7 @@ export default function LineaTendencia({
           )}
         </AreaChart>
       </ResponsiveContainer>
+      )}
     </div>
   );
 }

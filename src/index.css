@@ -75,3 +75,48 @@ body {
     transform: translate(-50%, 0);
   }
 }
+
+/* Entrada de las tarjetas de un panel. Es un solo momento: aparecen desde
+   un poco abajo, escalonadas, y se acabó. No se repite al pasar el cursor ni
+   al hacer scroll. */
+@keyframes tarjeta-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* `backwards` mantiene el estado inicial durante el retardo: sin eso, la
+   tarjeta se ve un instante antes de empezar a animar. */
+.entra-escalonado > * {
+  animation: tarjeta-entra 260ms var(--ease-suave) backwards;
+}
+
+/* El escalonado es corto a propósito: 30ms bastan para que se lea como una
+   cascada, y con más la última tarjeta se hace esperar. */
+.entra-escalonado > *:nth-child(1) { animation-delay: 0ms; }
+.entra-escalonado > *:nth-child(2) { animation-delay: 30ms; }
+.entra-escalonado > *:nth-child(3) { animation-delay: 60ms; }
+.entra-escalonado > *:nth-child(4) { animation-delay: 90ms; }
+.entra-escalonado > *:nth-child(5) { animation-delay: 120ms; }
+.entra-escalonado > *:nth-child(6) { animation-delay: 150ms; }
+.entra-escalonado > *:nth-child(n + 7) { animation-delay: 180ms; }
+
+/* Cambio de sección: un fundido corto, porque se cambia de pestaña seguido y
+   una transición larga se vuelve un peaje. */
+@keyframes panel-entra {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.panel-entra {
+  animation: panel-entra 180ms var(--ease-suave);
+}

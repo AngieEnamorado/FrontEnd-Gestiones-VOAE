@@ -11,6 +11,7 @@ import {
   type TooltipContentProps,
 } from "recharts";
 import SinDatos from "./SinDatos";
+import { useEnVista } from "../../utils/useEnVista";
 import { muestraPct, pctDe } from "../../utils/procadMetricas";
 import { COLOR_EJE, COLOR_REJILLA, COLOR_SERIE } from "./paleta";
 
@@ -64,6 +65,8 @@ function GloboPaso({ active, payload }: Partial<TooltipContentProps<number, stri
  * fuera la mitad, y el embudo ya se lee solo con los valores reales.
  */
 export default function EmbudoAcceso({ pasos, idDestacado }: EmbudoAccesoProps) {
+  const [referencia, enVista] = useEnVista<HTMLDivElement>();
+
   const validos = pasos.filter((p) => p.valor >= 0);
   if (validos.length === 0) return <SinDatos />;
 
@@ -75,7 +78,10 @@ export default function EmbudoAcceso({ pasos, idDestacado }: EmbudoAccesoProps) 
   }));
 
   return (
-    <div className="h-[280px] w-full">
+    <div ref={referencia} className="h-[280px] w-full">
+      {/* El contenedor guarda su alto siempre, así que montar el gráfico más
+          tarde no mueve nada de la página. */}
+      {enVista && (
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={filas} margin={{ top: 24, right: 8, bottom: 8, left: -12 }}>
           <CartesianGrid vertical={false} stroke={COLOR_REJILLA} />
@@ -94,7 +100,13 @@ export default function EmbudoAcceso({ pasos, idDestacado }: EmbudoAccesoProps) 
             allowDecimals={false}
           />
           <Tooltip content={<GloboPaso />} cursor={{ fill: "#f8fafc" }} />
-          <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false}>
+          <Bar
+            dataKey="valor"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={24}
+            animationDuration={700}
+            animationEasing="ease-out"
+          >
             {filas.map((fila) => (
               <Cell
                 key={fila.id}
@@ -110,6 +122,7 @@ export default function EmbudoAcceso({ pasos, idDestacado }: EmbudoAccesoProps) 
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      )}
     </div>
   );
 }

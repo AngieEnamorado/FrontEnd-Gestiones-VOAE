@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import Leyenda from "./Leyenda";
 import SinDatos from "./SinDatos";
+import { useEnVista } from "../../utils/useEnVista";
 import { COLOR_EJE, COLOR_REJILLA, COLOR_TIPO, ETIQUETA_TIPO } from "./paleta";
 import type { TipoAgrupacion } from "../../types";
 
@@ -49,6 +50,8 @@ function GloboPunto({ active, payload }: Partial<TooltipContentProps<number, str
 const TICKS = [0, 25, 50, 75, 100];
 
 export default function Dispersion({ puntos }: { puntos: PuntoDispersion[] }) {
+  const [referencia, enVista] = useEnVista<HTMLDivElement>();
+
   if (puntos.length === 0) return <SinDatos />;
 
   const porTipo: { tipo: TipoAgrupacion; datos: PuntoDispersion[] }[] = [
@@ -64,7 +67,10 @@ export default function Dispersion({ puntos }: { puntos: PuntoDispersion[] }) {
           { color: COLOR_TIPO.artistico, label: ETIQUETA_TIPO.artistico },
         ]}
       />
-      <div className="h-[320px] w-full">
+      <div ref={referencia} className="h-[320px] w-full">
+      {/* El contenedor guarda su alto siempre, así que montar el gráfico más
+          tarde no mueve nada de la página. */}
+        {enVista && (
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 10, right: 28, bottom: 28, left: 0 }}>
             <CartesianGrid stroke={COLOR_REJILLA} />
@@ -113,7 +119,8 @@ export default function Dispersion({ puntos }: { puntos: PuntoDispersion[] }) {
                 fill={COLOR_TIPO[tipo]}
                 stroke="#ffffff"
                 strokeWidth={2}
-                isAnimationActive={false}
+                animationDuration={700}
+                animationEasing="ease-out"
               >
                 <LabelList
                   dataKey="etiqueta"
@@ -125,6 +132,7 @@ export default function Dispersion({ puntos }: { puntos: PuntoDispersion[] }) {
             ))}
           </ScatterChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

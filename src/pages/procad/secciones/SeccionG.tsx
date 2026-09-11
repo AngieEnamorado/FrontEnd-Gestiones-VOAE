@@ -4,6 +4,7 @@ import TablaDatos from "../../../components/procad/TablaDatos";
 import TarjetaEstadistica from "../../../components/procad/TarjetaEstadistica";
 import { MATRICULA_EXCEPCIONAL_TOTAL } from "../../../data/mockProcadEstadisticas";
 import { escalarConteo } from "../../../utils/procadMetricas";
+import RejillaAnimada from "../../../components/procad/RejillaAnimada";
 import type { ContextoSeccion } from "./contexto";
 import { casosEspeciales } from "./datos";
 
@@ -30,7 +31,7 @@ export default function SeccionG({ ctx }: { ctx: ContextoSeccion }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <RejillaAnimada className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MiniCifra valor={condicionados} etiqueta="Condicionados por excepción de talento" />
         <MiniCifra valor={externos.length} etiqueta="Agrupaciones con colaborador externo" />
         <MiniCifra
@@ -38,9 +39,9 @@ export default function SeccionG({ ctx }: { ctx: ContextoSeccion }) {
           etiqueta="Matrículas excepcionales otorgadas"
         />
         <MiniCifra valor={selecciones.length} etiqueta="Selecciones multi-campus activas" />
-      </div>
+      </RejillaAnimada>
 
-      <div className="grid items-start gap-5 lg:grid-cols-2">
+      <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
         <TarjetaEstadistica
           numero="29"
           titulo="Agrupaciones con condicionados este período"
@@ -112,7 +113,7 @@ export default function SeccionG({ ctx }: { ctx: ContextoSeccion }) {
             mostrará sus resultados agregados.
           </p>
         </TarjetaEstadistica>
-      </div>
+      </RejillaAnimada>
     </div>
   );
 }

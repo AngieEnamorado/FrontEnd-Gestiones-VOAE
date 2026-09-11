@@ -1,5 +1,15 @@
 import { useMemo, useRef, useState } from "react";
-import { HiOutlineDocumentArrowDown, HiOutlineEye, HiOutlineXMark } from "react-icons/hi2";
+import {
+  HiOutlineAcademicCap,
+  HiOutlineCalendarDays,
+  HiOutlineCheckBadge,
+  HiOutlineClipboardDocumentCheck,
+  HiOutlineDocumentArrowDown,
+  HiOutlineEye,
+  HiOutlineTrophy,
+  HiOutlineUserGroup,
+  HiOutlineXMark,
+} from "react-icons/hi2";
 import KpiProcad from "../../components/procad/KpiProcad";
 import SeccionB from "./secciones/SeccionB";
 import SeccionC from "./secciones/SeccionC";
@@ -316,11 +326,14 @@ export default function EstadisticasProcad() {
           <span className="font-bold text-unah-orange">A.</span> Cifras de encabezado, cada una con
           su variación respecto al período anterior.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="entra-escalonado grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <KpiProcad
             numero="1"
             etiqueta="Promedio de actividades asistidas por estudiante"
-            valor={kpis.asistidas[indicePeriodo].toFixed(1)}
+            icono={HiOutlineCalendarDays}
+            tono="azul"
+            valor={kpis.asistidas[indicePeriodo]}
+            decimales={1}
             serie={kpis.asistidas}
             indiceActivo={indicePeriodo}
             requisito="RF-24"
@@ -328,7 +341,10 @@ export default function EstadisticasProcad() {
           <KpiProcad
             numero="2"
             etiqueta="En matrícula preferencial"
-            valor={`${kpis.preferencial[indicePeriodo]}%`}
+            icono={HiOutlineAcademicCap}
+            tono="ambar"
+            valor={kpis.preferencial[indicePeriodo]}
+            sufijo="%"
             serie={kpis.preferencial}
             indiceActivo={indicePeriodo}
             sufijoDelta=" pp"
@@ -337,7 +353,10 @@ export default function EstadisticasProcad() {
           <KpiProcad
             numero="3"
             etiqueta="Elegibilidad"
-            valor={`${kpis.elegibilidad[indicePeriodo]}%`}
+            icono={HiOutlineCheckBadge}
+            tono="esmeralda"
+            valor={kpis.elegibilidad[indicePeriodo]}
+            sufijo="%"
             serie={kpis.elegibilidad}
             indiceActivo={indicePeriodo}
             sufijoDelta=" pp"
@@ -345,22 +364,27 @@ export default function EstadisticasProcad() {
           <KpiProcad
             numero="4"
             etiqueta="Estudiantes en agrupaciones"
-            valor={String(kpis.estudiantes[indicePeriodo])}
+            icono={HiOutlineUserGroup}
+            tono="destacada"
+            valor={kpis.estudiantes[indicePeriodo]}
             serie={kpis.estudiantes}
             indiceActivo={indicePeriodo}
-            destacada
           />
           <KpiProcad
             numero="5"
             etiqueta="Agrupaciones activas"
-            valor={String(kpis.agrupaciones[indicePeriodo])}
+            icono={HiOutlineTrophy}
+            tono="violeta"
+            valor={kpis.agrupaciones[indicePeriodo]}
             serie={kpis.agrupaciones}
             indiceActivo={indicePeriodo}
           />
           <KpiProcad
             numero="6"
             etiqueta="Actividades validadas"
-            valor={String(kpis.actividades[indicePeriodo])}
+            icono={HiOutlineClipboardDocumentCheck}
+            tono="cielo"
+            valor={kpis.actividades[indicePeriodo]}
             serie={kpis.actividades}
             indiceActivo={indicePeriodo}
           />
@@ -413,13 +437,15 @@ export default function EstadisticasProcad() {
           aria-labelledby={`pestana-${seccion.id}`}
           className="pt-5"
         >
-          <p className="mb-4 text-xs text-slate-500">{seccion.intro}</p>
-          {seccionActiva === "B" && <SeccionB ctx={contexto} />}
-          {seccionActiva === "C" && <SeccionC ctx={contexto} />}
-          {seccionActiva === "D" && <SeccionD ctx={contexto} />}
-          {seccionActiva === "E" && <SeccionE ctx={contexto} />}
-          {seccionActiva === "F" && <SeccionF ctx={contexto} />}
-          {seccionActiva === "G" && <SeccionG ctx={contexto} />}
+          <div key={seccionActiva} className="panel-entra">
+            <p className="mb-4 text-xs text-slate-500">{seccion.intro}</p>
+            {seccionActiva === "B" && <SeccionB ctx={contexto} />}
+            {seccionActiva === "C" && <SeccionC ctx={contexto} />}
+            {seccionActiva === "D" && <SeccionD ctx={contexto} />}
+            {seccionActiva === "E" && <SeccionE ctx={contexto} />}
+            {seccionActiva === "F" && <SeccionF ctx={contexto} />}
+            {seccionActiva === "G" && <SeccionG ctx={contexto} />}
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import LineaTendencia from "../../../components/procad/LineaTendencia";
 import SinDatos from "../../../components/procad/SinDatos";
 import TarjetaEstadistica from "../../../components/procad/TarjetaEstadistica";
+import RejillaAnimada from "../../../components/procad/RejillaAnimada";
 import type { ContextoSeccion } from "./contexto";
 import { ETIQUETAS_PERIODO, ETIQUETAS_PERIODO_CORTAS, seriesDeTendencia } from "./datos";
 
@@ -11,18 +12,18 @@ export default function SeccionF({ ctx }: { ctx: ContextoSeccion }) {
 
   if (datos.length === 0) {
     return (
-      <div className="grid gap-5">
+      <RejillaAnimada className="grid gap-5">
         <TarjetaEstadistica numero="27" titulo="Evolución del porcentaje de elegibilidad" ancha>
           <SinDatos />
         </TarjetaEstadistica>
-      </div>
+      </RejillaAnimada>
     );
   }
 
   const series = seriesDeTendencia(ctx);
 
   return (
-    <div className="grid gap-5">
+    <RejillaAnimada className="grid gap-5">
       <TarjetaEstadistica
         numero="27"
         titulo="Evolución del porcentaje de elegibilidad entre períodos"
@@ -72,6 +73,6 @@ export default function SeccionF({ ctx }: { ctx: ContextoSeccion }) {
           </div>
         </div>
       </TarjetaEstadistica>
-    </div>
+    </RejillaAnimada>
   );
 }

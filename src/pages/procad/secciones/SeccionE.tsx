@@ -1,11 +1,13 @@
 import BarraApilada from "../../../components/procad/BarraApilada";
 import BarrasComparativas from "../../../components/procad/BarrasComparativas";
+import ColumnasCategorias from "../../../components/procad/ColumnasCategorias";
 import CifraDestacada from "../../../components/procad/CifraDestacada";
 import Leyenda from "../../../components/procad/Leyenda";
 import Medidor from "../../../components/procad/Medidor";
 import TarjetaEstadistica from "../../../components/procad/TarjetaEstadistica";
 import { COLOR_TIPO } from "../../../components/procad/paleta";
 import { muestraPct } from "../../../utils/procadMetricas";
+import RejillaAnimada from "../../../components/procad/RejillaAnimada";
 import type { ContextoSeccion } from "./contexto";
 import { equidadYPermanencia, participacionPorCarrera } from "./datos";
 
@@ -16,11 +18,16 @@ import { equidadYPermanencia, participacionPorCarrera } from "./datos";
 const COLOR_MUJERES = COLOR_TIPO.deportivo;
 const COLOR_HOMBRES = COLOR_TIPO.artistico;
 
+/** Bajo cada columna solo cabe un nombre corto; el completo va en el globo. */
+const NOMBRE_CORTO_CARRERA: Record<string, string> = {
+  "Ingeniería en Sistemas": "Ing. Sistemas",
+};
+
 export default function SeccionE({ ctx }: { ctx: ContextoSeccion }) {
   const e = equidadYPermanencia(ctx);
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-2">
+    <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
       <TarjetaEstadistica numero="23" titulo="Participación por sexo">
         <Leyenda
           entradas={[
@@ -55,16 +62,21 @@ export default function SeccionE({ ctx }: { ctx: ContextoSeccion }) {
         numero="24"
         titulo="Participación por carrera"
         nota="De qué carreras vienen los integrantes aprobados."
-        ancha
       >
-        <BarrasComparativas filas={participacionPorCarrera(ctx)} modo="conteo" />
+        <ColumnasCategorias
+          unidad="estudiantes"
+          columnas={participacionPorCarrera(ctx).map((c) => ({
+            nombre: c.nombre,
+            corto: NOMBRE_CORTO_CARRERA[c.nombre] ?? c.nombre,
+            valor: c.valor ?? 0,
+          }))}
+        />
       </TarjetaEstadistica>
 
       <TarjetaEstadistica
         numero="26"
         titulo="Estudiantes PROSENE dentro de los elegibles"
         nota="Beneficiarios PROSENE, elegibles aunque no alcancen el mínimo de actividades."
-        ancha
       >
         <CifraDestacada
           valor={String(e.prosene)}
@@ -77,6 +89,6 @@ export default function SeccionE({ ctx }: { ctx: ContextoSeccion }) {
           />
         </CifraDestacada>
       </TarjetaEstadistica>
-    </div>
+    </RejillaAnimada>
   );
 }

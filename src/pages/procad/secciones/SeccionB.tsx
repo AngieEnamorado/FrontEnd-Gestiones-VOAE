@@ -2,6 +2,7 @@ import BarrasComparativas from "../../../components/procad/BarrasComparativas";
 import Dispersion from "../../../components/procad/Dispersion";
 import ListaAviso from "../../../components/procad/ListaAviso";
 import TarjetaEstadistica from "../../../components/procad/TarjetaEstadistica";
+import RejillaAnimada from "../../../components/procad/RejillaAnimada";
 import type { ContextoSeccion } from "./contexto";
 import {
   agrupacionesSinValidar,
@@ -19,7 +20,7 @@ export default function SeccionB({ ctx }: { ctx: ContextoSeccion }) {
   const { resaltada } = ctx;
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-2">
+    <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
       <TarjetaEstadistica
         numero="7"
         titulo="Promedio de actividades asistidas por agrupación"
@@ -80,6 +81,6 @@ export default function SeccionB({ ctx }: { ctx: ContextoSeccion }) {
           mensajeTodoBien="Todas las agrupaciones del filtro tienen al menos una actividad validada."
         />
       </TarjetaEstadistica>
-    </div>
+    </RejillaAnimada>
   );
 }

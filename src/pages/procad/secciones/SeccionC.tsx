@@ -6,6 +6,7 @@ import SinDatos from "../../../components/procad/SinDatos";
 import TablaDatos from "../../../components/procad/TablaDatos";
 import TarjetaEstadistica from "../../../components/procad/TarjetaEstadistica";
 import { COLOR_TIPO, ETIQUETA_TIPO } from "../../../components/procad/paleta";
+import RejillaAnimada from "../../../components/procad/RejillaAnimada";
 import type { ContextoSeccion } from "./contexto";
 import {
   actividadesPorCentro,
@@ -27,7 +28,7 @@ export default function SeccionC({ ctx }: { ctx: ContextoSeccion }) {
   const distribucion = distribucionPorTipo(ctx);
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-2">
+    <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
       <TarjetaEstadistica numero="13" titulo="Estudiantes por agrupación">
         <BarrasComparativas filas={estudiantesPorAgrupacion(ctx)} modo="conteo" />
       </TarjetaEstadistica>
@@ -132,6 +133,6 @@ export default function SeccionC({ ctx }: { ctx: ContextoSeccion }) {
           ])}
         />
       </TarjetaEstadistica>
-    </div>
+    </RejillaAnimada>
   );
 }

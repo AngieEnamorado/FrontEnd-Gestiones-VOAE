@@ -1,11 +1,11 @@
 import BarrasComparativas from "../../../components/procad/BarrasComparativas";
+import DonaCategorias from "../../../components/procad/DonaCategorias";
 import EmbudoAcceso from "../../../components/procad/EmbudoAcceso";
 import Medidor from "../../../components/procad/Medidor";
-import TablaDatos from "../../../components/procad/TablaDatos";
 import TarjetaEstadistica from "../../../components/procad/TarjetaEstadistica";
 import { COLOR_ESTADO, ETIQUETA_ESTADO } from "../../../components/procad/paleta";
 import { INDICE_MINIMO } from "../../../data/mockProcadEstadisticas";
-import { muestraPct } from "../../../utils/procadMetricas";
+import RejillaAnimada from "../../../components/procad/RejillaAnimada";
 import type { ContextoSeccion } from "./contexto";
 import { aprobacionPorCampus, desgloseEstados, pasosDelRecorrido, razonesDeAcceso } from "./datos";
 
@@ -18,7 +18,7 @@ export default function SeccionD({ ctx }: { ctx: ContextoSeccion }) {
   const razones = razonesDeAcceso(ctx);
 
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-2">
+    <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
       <TarjetaEstadistica
         numero="19"
         titulo="Recorrido de acceso al programa"
@@ -27,28 +27,16 @@ export default function SeccionD({ ctx }: { ctx: ContextoSeccion }) {
       >
         <EmbudoAcceso pasos={pasos} idDestacado="aprobados" />
 
-        <p className="mb-3 mt-5 text-xs font-semibold text-slate-600">
+        <p className="mb-4 mt-6 text-xs font-semibold text-slate-600">
           Desglose de las solicitudes enviadas, por estado:
         </p>
-        <TablaDatos
-          anchoMinimo="420px"
-          columnas={[
-            { label: "Estado" },
-            { label: "Solicitudes", numerica: true },
-            { label: "%", numerica: true },
-          ]}
-          filas={estados.map((e) => [
-            <span key={`estado-${e.estado}`} className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: COLOR_ESTADO[e.estado] }}
-              />
-              {ETIQUETA_ESTADO[e.estado]}
-            </span>,
-            e.valor,
-            muestraPct(e.pct),
-          ])}
+        <DonaCategorias
+          unidad="solicitudes"
+          porciones={estados.map((e) => ({
+            nombre: ETIQUETA_ESTADO[e.estado],
+            valor: e.valor,
+            color: COLOR_ESTADO[e.estado],
+          }))}
         />
       </TarjetaEstadistica>
 
@@ -84,6 +72,6 @@ export default function SeccionD({ ctx }: { ctx: ContextoSeccion }) {
           </p>
         </div>
       </TarjetaEstadistica>
-    </div>
+    </RejillaAnimada>
   );
 }
