@@ -3,7 +3,6 @@ dist
 dist-ssr
 *.local
 .DS_Store
-CLAUDE.md
 
 # Prototipos HTML de PROCAD: material de referencia, no del producto.
 LOCAL PROCAD/
