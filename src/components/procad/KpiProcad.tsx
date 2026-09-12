@@ -1,6 +1,5 @@
 import { HiOutlineArrowTrendingDown, HiOutlineArrowTrendingUp, HiOutlineMinus } from "react-icons/hi2";
 import type { IconType } from "react-icons";
-import Sparkline from "./Sparkline";
 import { useConteoAnimado } from "../../utils/useConteoAnimado";
 import { useEnVista } from "../../utils/useEnVista";
 
@@ -13,10 +12,44 @@ export type TonoKpi = "azul" | "ambar" | "esmeralda" | "violeta" | "cielo" | "de
 
 const TONOS: Record<
   TonoKpi,
-  { fondo: string; icono: string; cifra: string; etiqueta: string; linea: string; anillo: string }
+  {
+    fondo: string;
+    /** Mismo fondo apenas un punto más oscuro: sólo para señalar el hover. */
+    fondoHover: string;
+    /**
+     * Los dos reflejos, arriba a la derecha y abajo a la izquierda. Ambos salen
+     * del mismo color que la linea del sparkline y con la misma opacidad en
+     * todos los tonos: es lo unico que mantiene a las seis tarjetas con la
+     * misma presencia de color. Si cada tono elige su propio matiz, unas se ven
+     * lavadas y otras saturadas.
+     */
+    brillo: string;
+    brilloBajo: string;
+    /**
+     * El filo iluminado del borde superior. Va por tono porque es contraste, no
+     * color: el mismo blanco que sobre un fondo claro apenas se insinua, sobre
+     * el navy de la destacada se convierte en una franja.
+     */
+    filo: string;
+    /**
+     * La banda del destello. Tambien va por tono: el mismo blanco que sobre el
+     * navy es un reflejo evidente, sobre un fondo claro no se ve pasar.
+     */
+    destello: string;
+    icono: string;
+    cifra: string;
+    etiqueta: string;
+    linea: string;
+    anillo: string;
+  }
 > = {
   azul: {
-    fondo: "bg-blue-50",
+    fondo: "bg-blue-100/55",
+    fondoHover: "hover:bg-blue-100/70",
+    brillo: "bg-[#3b82f6]/35",
+    brilloBajo: "bg-[#3b82f6]/20",
+    filo: "bg-white/70",
+    destello: "via-white/45",
     icono: "bg-white/70 text-blue-500",
     cifra: "text-blue-900",
     etiqueta: "text-blue-700/70",
@@ -24,7 +57,12 @@ const TONOS: Record<
     anillo: "#eff6ff",
   },
   ambar: {
-    fondo: "bg-amber-50",
+    fondo: "bg-amber-100/55",
+    fondoHover: "hover:bg-amber-100/70",
+    brillo: "bg-[#f59e0b]/35",
+    brilloBajo: "bg-[#f59e0b]/20",
+    filo: "bg-white/70",
+    destello: "via-white/45",
     icono: "bg-white/70 text-amber-500",
     cifra: "text-amber-900",
     etiqueta: "text-amber-700/70",
@@ -32,7 +70,12 @@ const TONOS: Record<
     anillo: "#fffbeb",
   },
   esmeralda: {
-    fondo: "bg-emerald-50",
+    fondo: "bg-emerald-100/55",
+    fondoHover: "hover:bg-emerald-100/70",
+    brillo: "bg-[#10b981]/35",
+    brilloBajo: "bg-[#10b981]/20",
+    filo: "bg-white/70",
+    destello: "via-white/45",
     icono: "bg-white/70 text-emerald-500",
     cifra: "text-emerald-900",
     etiqueta: "text-emerald-700/70",
@@ -40,7 +83,12 @@ const TONOS: Record<
     anillo: "#ecfdf5",
   },
   violeta: {
-    fondo: "bg-violet-50",
+    fondo: "bg-violet-100/55",
+    fondoHover: "hover:bg-violet-100/70",
+    brillo: "bg-[#8b5cf6]/35",
+    brilloBajo: "bg-[#8b5cf6]/20",
+    filo: "bg-white/70",
+    destello: "via-white/45",
     icono: "bg-white/70 text-violet-500",
     cifra: "text-violet-900",
     etiqueta: "text-violet-700/70",
@@ -48,7 +96,12 @@ const TONOS: Record<
     anillo: "#f5f3ff",
   },
   cielo: {
-    fondo: "bg-sky-50",
+    fondo: "bg-sky-100/55",
+    fondoHover: "hover:bg-sky-100/70",
+    brillo: "bg-[#0ea5e9]/35",
+    brilloBajo: "bg-[#0ea5e9]/20",
+    filo: "bg-white/70",
+    destello: "via-white/45",
     icono: "bg-white/70 text-sky-500",
     cifra: "text-sky-900",
     etiqueta: "text-sky-700/70",
@@ -56,7 +109,12 @@ const TONOS: Record<
     anillo: "#f0f9ff",
   },
   destacada: {
-    fondo: "bg-gradient-to-br from-unah-navy to-unah-navy-dark",
+    fondo: "bg-gradient-to-br from-unah-navy/90 to-unah-navy-dark/95",
+    fondoHover: "hover:from-unah-navy/95 hover:to-unah-navy-dark",
+    brillo: "bg-[#38bdf8]/35",
+    brilloBajo: "bg-[#38bdf8]/20",
+    filo: "bg-white/15",
+    destello: "via-white/30",
     icono: "bg-white/15 text-white",
     cifra: "text-white",
     etiqueta: "text-blue-100",
@@ -151,15 +209,31 @@ export default function KpiProcad({
   return (
     <div
       ref={referencia}
-      className={`flex flex-col rounded-2xl p-5 shadow-sm transition-[box-shadow,transform] duration-200 ease-suave hover:-translate-y-0.5 ${
-        destacada ? "hover:shadow-lg hover:shadow-unah-navy/25" : "hover:shadow-md"
-      } ${estilo.fondo}`}
+      className={`con-destello relative flex flex-col overflow-hidden rounded-3xl p-4 shadow-[0_12px_32px_-14px_rgba(10,35,80,0.45)] backdrop-blur-xl transition-colors duration-200 ease-suave ${estilo.fondo} ${estilo.fondoHover}`}
     >
+      {/* El vidrio son tres luces: el filo iluminado de arriba y dos reflejos en
+          esquinas opuestas. Viven dentro de la tarjeta, no en un campo de color
+          compartido detras de la fila: asi el overflow-hidden los recorta en el
+          borde y cada tarjeta se queda con su propio tono, sin manchar a la
+          vecina ni asomar por los huecos de la rejilla. Van en -z para quedar
+          sobre el fondo de la tarjeta pero debajo de la cifra. */}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-x-0 top-0 -z-10 h-px ${estilo.filo}`}
+      />
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute -right-12 -top-14 -z-10 h-36 w-36 rounded-full blur-2xl ${estilo.brillo}`}
+      />
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute -bottom-16 -left-14 -z-10 h-40 w-40 rounded-full blur-2xl ${estilo.brilloBajo}`}
+      />
       <div className="flex items-start justify-between gap-2">
         <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${estilo.icono}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${estilo.icono}`}
         >
-          <Icono className="h-5 w-5" aria-hidden="true" />
+          <Icono className="h-4.5 w-4.5" aria-hidden="true" />
         </span>
         <Delta serie={serie} indice={indiceActivo} sufijo={sufijoDelta} destacada={destacada} />
       </div>
@@ -167,15 +241,17 @@ export default function KpiProcad({
       {/* Cifras proporcionales, no tabulares: a este tamaño el ancho fijo de
           dígito deja huecos raros dentro del número. */}
       <p
-        className={`mt-3.5 text-3xl font-extrabold leading-none ${estilo.cifra}`}
+        className={`mt-2.5 text-[28px] font-extrabold leading-none ${estilo.cifra}`}
         style={{ fontVariantNumeric: "proportional-nums" }}
       >
         {contado.toFixed(decimales)}
         {sufijo}
       </p>
 
-      <p className={`mt-2 text-xs font-semibold leading-snug ${estilo.etiqueta}`}>
-        <span className="opacity-70">{numero} · </span>
+      <p
+        title={`Cifra ${numero} de la especificación`}
+        className={`mt-1.5 text-[11px] font-semibold leading-snug ${estilo.etiqueta}`}
+      >
         {etiqueta}
         {requisito && (
           <span
@@ -189,11 +265,17 @@ export default function KpiProcad({
         )}
       </p>
 
-      <Sparkline
-        serie={serie}
-        indiceActivo={indiceActivo}
-        color={estilo.linea}
-        colorAnillo={estilo.anillo}
+      <p className={`mt-1.5 text-[10px] leading-none ${estilo.etiqueta}`}>
+        {indiceActivo > 0
+          ? `vs ${serie[indiceActivo - 1].toFixed(decimales)}${sufijo} el período anterior`
+          : "sin período previo"}
+      </p>
+
+      {/* Va al final y por encima del contenido: un reflejo pasa sobre la
+          superficie, no por debajo de lo que hay impreso en ella. */}
+      <span
+        aria-hidden="true"
+        className={`destello pointer-events-none absolute -top-[60%] z-10 h-[220%] w-[45%] -skew-x-[18deg] bg-gradient-to-r from-transparent to-transparent ${estilo.destello}`}
       />
     </div>
   );

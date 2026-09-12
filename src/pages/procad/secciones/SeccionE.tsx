@@ -27,7 +27,7 @@ export default function SeccionE({ ctx }: { ctx: ContextoSeccion }) {
   const e = equidadYPermanencia(ctx);
 
   return (
-    <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
+    <RejillaAnimada className="grid gap-5 lg:grid-cols-2">
       <TarjetaEstadistica numero="23" titulo="Participación por sexo">
         <Leyenda
           entradas={[

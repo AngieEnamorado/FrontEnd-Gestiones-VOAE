@@ -18,7 +18,7 @@ export default function SeccionD({ ctx }: { ctx: ContextoSeccion }) {
   const razones = razonesDeAcceso(ctx);
 
   return (
-    <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
+    <RejillaAnimada className="grid gap-5 lg:grid-cols-2">
       <TarjetaEstadistica
         numero="19"
         titulo="Recorrido de acceso al programa"

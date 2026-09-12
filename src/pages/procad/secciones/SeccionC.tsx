@@ -28,7 +28,7 @@ export default function SeccionC({ ctx }: { ctx: ContextoSeccion }) {
   const distribucion = distribucionPorTipo(ctx);
 
   return (
-    <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
+    <RejillaAnimada className="grid gap-5 lg:grid-cols-2">
       <TarjetaEstadistica numero="13" titulo="Estudiantes por agrupación">
         <BarrasComparativas filas={estudiantesPorAgrupacion(ctx)} modo="conteo" />
       </TarjetaEstadistica>

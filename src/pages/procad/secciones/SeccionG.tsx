@@ -41,7 +41,7 @@ export default function SeccionG({ ctx }: { ctx: ContextoSeccion }) {
         <MiniCifra valor={selecciones.length} etiqueta="Selecciones multi-campus activas" />
       </RejillaAnimada>
 
-      <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
+      <RejillaAnimada className="grid gap-5 lg:grid-cols-2">
         <TarjetaEstadistica
           numero="29"
           titulo="Agrupaciones con condicionados este período"

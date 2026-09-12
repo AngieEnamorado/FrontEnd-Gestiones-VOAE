@@ -14,6 +14,11 @@
      instante en vez de sentirse perezosa. Las curvas por defecto de CSS son
      demasiado suaves para notarse. */
   --ease-suave: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Para lo que se mueve de un punto a otro dentro de la pantalla —el
+     indicador que se desliza entre pestañas—, en vez de entrar o salir:
+     arranca y frena, sin el tirón inicial del ease-out. */
+  --ease-mueve: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 html,
@@ -28,9 +33,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar discreto para las tablas */
+/* Scrollbar discreto para las tablas y para las listas con techo de alto */
 .table-scrollbar::-webkit-scrollbar {
   height: 8px;
+  width: 8px;
 }
 
 .table-scrollbar::-webkit-scrollbar-thumb {
@@ -106,8 +112,10 @@ body {
 .entra-escalonado > *:nth-child(6) { animation-delay: 150ms; }
 .entra-escalonado > *:nth-child(n + 7) { animation-delay: 180ms; }
 
-/* Cambio de sección: un fundido corto, porque se cambia de pestaña seguido y
-   una transición larga se vuelve un peaje. */
+/* Cambio de sección: el panel solo se funde. El desplazamiento lo hacen sus
+   tarjetas, una tras otra —ver abajo—. Cuando el padre tambien se movia, su
+   movimiento tapaba el de los hijos y el escalonado no se percibia: dos
+   animaciones a la vez se cancelan en vez de sumarse. */
 @keyframes panel-entra {
   from {
     opacity: 0;
@@ -118,5 +126,72 @@ body {
 }
 
 .panel-entra {
-  animation: panel-entra 180ms var(--ease-suave);
+  animation: panel-entra 160ms var(--ease-suave) backwards;
+}
+
+/* Las tarjetas de una sección entran desde el lado del que viene el cambio:
+   desde la derecha si la sección elegida esta a la derecha. Solo dentro del
+   panel de secciones; la fila de cifras conserva su entrada hacia arriba. */
+@keyframes tarjeta-entra-lateral {
+  from {
+    opacity: 0;
+    transform: translate3d(calc(var(--direccion, 1) * 24px), 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.panel-entra .entra-escalonado > * {
+  animation: tarjeta-entra-lateral 320ms var(--ease-suave) backwards;
+}
+
+/* Pasos de 50ms en vez de los 30ms de la carga inicial: aqui el escalonado es
+   la transicion entera, no un adorno de fondo, y a 30ms no se llegaba a ver.
+   Con seis tarjetas, la ultima termina sobre los 570ms; mas paso que este y la
+   seccion se hace esperar. */
+.panel-entra .entra-escalonado > *:nth-child(1) { animation-delay: 0ms; }
+.panel-entra .entra-escalonado > *:nth-child(2) { animation-delay: 50ms; }
+.panel-entra .entra-escalonado > *:nth-child(3) { animation-delay: 100ms; }
+.panel-entra .entra-escalonado > *:nth-child(4) { animation-delay: 150ms; }
+.panel-entra .entra-escalonado > *:nth-child(5) { animation-delay: 200ms; }
+.panel-entra .entra-escalonado > *:nth-child(6) { animation-delay: 250ms; }
+.panel-entra .entra-escalonado > *:nth-child(n + 7) { animation-delay: 290ms; }
+
+/* Destello al pasar el cursor: una banda de luz inclinada que cruza la tarjeta
+   de lado a lado. Entra y sale por fuera del borde (de -80% a 130%) y es mas
+   alta que la tarjeta, para que el filo nunca se vea recortado. Se dispara en
+   :hover y da una sola pasada: en un carne, que se mira de reojo, el bucle
+   infinito es adorno; en un panel que se lee despacio seria un parpadeo. */
+@keyframes destello-cruza {
+  from {
+    left: -80%;
+  }
+  to {
+    left: 130%;
+  }
+}
+
+.con-destello > .destello {
+  left: -80%;
+}
+
+.con-destello:hover > .destello {
+  /* ease-in-out, no --ease-suave: esa curva arranca disparada y se arrastra al
+     final, y una luz que cruza un cristal se mueve pareja de lado a lado. */
+  animation: destello-cruza 850ms ease-in-out;
+}
+
+/* Las manos del arrastre son las del sistema, no dibujos nuestros: `pointer`
+   es la mano que senala y `grabbing` la mano cerrada. Se probo dibujar la
+   cerrada para darle mas filo —la de Windows llega con el contorno flojo—,
+   pero salia rara: la del sistema, aun con menos contraste, se lee como una
+   mano de verdad. */
+.cursor-mano {
+  cursor: pointer;
+}
+
+.cursor-mano:active {
+  cursor: grabbing;
 }

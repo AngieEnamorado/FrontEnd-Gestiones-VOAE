@@ -45,15 +45,23 @@ export default function BarrasComparativas({
   // Ordenado de mayor a menor: la pregunta de estas tarjetas es siempre
   // "¿quién va adelante y quién se quedó atrás?".
   const ordenadas = [...filas].sort((a, b) => (b.valor ?? -1) - (a.valor ?? -1));
-  const maximo =
+  const tope =
     modo === "porcentaje" ? 100 : Math.max(1, ...conDato.map((f) => f.valor as number));
 
+
   return (
-    <ul ref={referencia} className="flex flex-col gap-3">
+    // Techo de alto con desplazamiento propio: se siguen viendo todas las
+    // filas, pero una lista de diecisiete agrupaciones ya no mide el triple
+    // que la tarjeta de al lado con cinco centros. Mismo recurso que usan las
+    // tablas anchas de este panel.
+    <ul
+      ref={referencia}
+      className="table-scrollbar flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1"
+    >
       {ordenadas.map((fila) => {
         const atenuada = resaltada !== null && fila.nombre !== resaltada;
         const esResaltada = resaltada !== null && fila.nombre === resaltada;
-        const ancho = fila.valor === null ? 0 : Math.min(100, (fila.valor / maximo) * 100);
+        const ancho = fila.valor === null ? 0 : Math.min(100, (fila.valor / tope) * 100);
         const color =
           modo === "porcentaje" && semantica === "umbral"
             ? colorUmbral(fila.valor)

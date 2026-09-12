@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   HiOutlineAcademicCap,
   HiOutlineCalendarDays,
@@ -11,6 +11,8 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import KpiProcad from "../../components/procad/KpiProcad";
+import TarjetasOcultas from "./TarjetasOcultas";
+import { ProveedorVisibilidad, useVisibilidadTarjetas } from "./visibilidadTarjetas";
 import SeccionB from "./secciones/SeccionB";
 import SeccionC from "./secciones/SeccionC";
 import SeccionD from "./secciones/SeccionD";
@@ -42,6 +44,18 @@ import {
 import { generarReportePdf, type SeccionReportePdf } from "../../utils/exportarPdf";
 import { useRolProcad } from "../../context/UserContext";
 import type { FiltrosProcad, TipoAgrupacion } from "../../types";
+
+/* Los filtros ya no son campos de formulario con su etiqueta encima, sino
+   pildoras en la barra superior: se leen como controles del panel, no como un
+   formulario que hay que llenar antes de ver nada.
+
+   Cada pildora lleva un ancho fijo, el de su valor por defecto. Un <select>
+   normal se dimensiona por su opcion mas larga —por eso «Todos los centros»
+   ocupaba el ancho de «Campus Cortes / Valle de Sula (CURC)»—, y dejarlo medir
+   su contenido hacia que la fila se recolocara con cada eleccion. Fijo, la fila
+   no se mueve nunca: lo que no cabe se corta con puntos suspensivos. */
+const clasePildora =
+  "cursor-pointer truncate rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-slate-600 shadow-sm transition-colors duration-150 hover:border-slate-300 hover:text-slate-800";
 
 const FILTROS_INICIALES: FiltrosProcad = {
   periodo: PERIODO_ACTUAL,
@@ -78,15 +92,61 @@ const SECCIONES = [
 
 type IdSeccion = (typeof SECCIONES)[number]["id"];
 
-const claseLabel = "mb-1.5 block text-xs font-semibold text-slate-500";
-const claseSelect =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none transition-colors focus:border-unah-orange";
 
 export default function EstadisticasProcad() {
-  const { rol } = useRolProcad();
-  const [filtros, setFiltros] = useState<FiltrosProcad>(FILTROS_INICIALES);
+  // El apartado activo vive aqui, fuera del proveedor, porque el proveedor lo
+  // necesita para etiquetar cada tarjeta que se registra.
   const [seccionActiva, setSeccionActiva] = useState<IdSeccion>("B");
+
+  return (
+    <ProveedorVisibilidad seccionActiva={seccionActiva}>
+      <PanelEstadisticas seccionActiva={seccionActiva} setSeccionActiva={setSeccionActiva} />
+    </ProveedorVisibilidad>
+  );
+}
+
+function PanelEstadisticas({
+  seccionActiva,
+  setSeccionActiva,
+}: {
+  seccionActiva: IdSeccion;
+  setSeccionActiva: (id: IdSeccion) => void;
+}) {
+  const { rol } = useRolProcad();
+  const { ocultas, catalogo } = useVisibilidadTarjetas();
+  const [filtros, setFiltros] = useState<FiltrosProcad>(FILTROS_INICIALES);
   const refsPestanas = useRef<Record<string, HTMLButtonElement | null>>({});
+  /** +1 si la sección elegida está a la derecha de la anterior, -1 si a la izquierda. */
+  const [direccion, setDireccion] = useState(1);
+  /** Posición y ancho de la pestaña activa, para el subrayado que se desliza. */
+  const [indicador, setIndicador] = useState({ x: 0, y: 0, ancho: 0 });
+
+  function irASeccion(id: IdSeccion) {
+    if (id === seccionActiva) return;
+    const desde = SECCIONES.findIndex((s) => s.id === seccionActiva);
+    const hasta = SECCIONES.findIndex((s) => s.id === id);
+    setDireccion(hasta > desde ? 1 : -1);
+    setSeccionActiva(id);
+  }
+
+  // El subrayado se mide del botón real en vez de dibujarse dentro de él: uno
+  // solo que se desplaza se lee como un objeto que viaja, mientras que un borde
+  // por botón solo puede aparecer y desaparecer. `useLayoutEffect` para medir
+  // antes de pintar y que nunca arranque desde una posición equivocada.
+  useLayoutEffect(() => {
+    function medir() {
+      const boton = refsPestanas.current[seccionActiva];
+      if (boton)
+        setIndicador({
+          x: boton.offsetLeft,
+          y: boton.offsetTop + boton.offsetHeight - 2,
+          ancho: boton.offsetWidth,
+        });
+    }
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [seccionActiva]);
 
   const indicePeriodo = indiceDePeriodo(filtros.periodo);
 
@@ -155,7 +215,7 @@ export default function EstadisticasProcad() {
   function moverPestana(direccion: 1 | -1) {
     const actual = SECCIONES.findIndex((s) => s.id === seccionActiva);
     const siguiente = SECCIONES[(actual + direccion + SECCIONES.length) % SECCIONES.length];
-    setSeccionActiva(siguiente.id);
+    irASeccion(siguiente.id);
     refsPestanas.current[siguiente.id]?.focus();
   }
 
@@ -190,10 +250,22 @@ export default function EstadisticasProcad() {
       ...seccionesDelReporte(contexto),
     ];
 
+    // «Que se imprima como este»: un apartado del que se quitaron todas sus
+    // tarjetas no aparece en el reporte. El recorte es por apartado y no por
+    // tarjeta porque las tablas del PDF agrupan varias cifras en una sola —la
+    // de Participacion lleva las cinco juntas—, asi que quitar una tarjeta
+    // suelta no tiene una fila que corresponda.
+    const apartadosVacios = new Set(
+      SECCIONES.filter((seccionPdf) => {
+        const suyas = catalogo.filter((t) => t.seccion === seccionPdf.id);
+        return suyas.length > 0 && suyas.every((t) => ocultas.includes(t.numero));
+      }).map((seccionPdf) => seccionPdf.id as string),
+    );
+
     generarReportePdf(
       "PROCAD",
       "Estadísticas de Participación",
-      secciones,
+      secciones.filter((bloque) => !apartadosVacios.has(bloque.titulo.slice(0, 1))),
       "procad-estadisticas.pdf",
     );
   }
@@ -202,120 +274,98 @@ export default function EstadisticasProcad() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Encabezado */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {/* Encabezado: el titulo y los cuatro filtros en una sola franja. Antes
+          los filtros ocupaban una tarjeta propia y, con el aviso, la primera
+          pantalla se iba entera en controles sin mostrar un solo dato. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <p className="text-xs font-bold tracking-wider text-unah-orange">PROCAD</p>
           <h1 className="text-2xl font-bold text-balance break-words text-slate-800 sm:text-3xl">
             Estadísticas de Participación
           </h1>
+          {/* Lo que sigue después de leer estas cifras depende de quién las lee:
+              el administrador puede ir a resolver; Vicerrectoría no gestiona. */}
+          <p className="mt-1.5 flex max-w-2xl items-start gap-1.5 text-xs leading-relaxed text-slate-500">
+            <HiOutlineEye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-unah-navy" aria-hidden="true" />
+            <span>
+              <b className="font-semibold text-unah-navy">Panel de consulta.</b>{" "}
+              {rol === "administrador"
+                ? "Aquí solo se leen cifras de participación; la gestión operativa vive en los demás módulos de PROCAD."
+                : "Vicerrectoría consulta las estadísticas del programa; la gestión operativa la realiza el administrador."}
+            </span>
+          </p>
         </div>
 
-        <button
-          type="button"
-          onClick={exportarReporte}
-          className="flex items-center gap-2 rounded-lg bg-unah-navy px-4 py-2.5 text-sm font-semibold text-white transition-[background-color,transform] duration-150 ease-suave hover:bg-unah-navy-dark active:scale-[0.98]"
-        >
-          <HiOutlineDocumentArrowDown className="h-4 w-4" />
-          Exportar reporte (PDF)
-        </button>
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            aria-label="Período"
+            value={filtros.periodo}
+            onChange={(e) => cambiarFiltro({ periodo: e.target.value })}
+            className={`${clasePildora} w-[212px]`}
+          >
+            {PERIODOS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
 
-      <p className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] leading-relaxed text-slate-500">
-        <HiOutlineEye className="mt-0.5 h-4 w-4 shrink-0 text-unah-navy" aria-hidden="true" />
-        {/* Lo que sigue después de leer estas cifras depende de quién las lee:
-            el administrador puede ir a resolver; Vicerrectoría no gestiona. */}
-        <span>
-          <b className="font-semibold text-unah-navy">Panel de consulta.</b>{" "}
-          {rol === "administrador"
-            ? "Aquí solo se leen cifras de participación; la gestión operativa —solicitudes, catálogos, usuarios— vive en los demás módulos de PROCAD."
-            : "Vicerrectoría consulta las estadísticas de participación del programa. La gestión operativa —solicitudes, catálogos, usuarios— la realiza el administrador de PROCAD."}
-        </span>
-      </p>
+          <select
+            aria-label="Campus o centro regional"
+            value={filtros.centro}
+            onChange={(e) => cambiarFiltro({ centro: e.target.value })}
+            className={`${clasePildora} w-[168px]`}
+          >
+            <option value="todos">Todos los centros</option>
+            {CENTROS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
 
-      {/* Filtros: una sola fila arriba de todo, y todas las tarjetas se rehacen
-          contra la misma rebanada de datos. */}
-      <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[190px] flex-1">
-            <label className={claseLabel} htmlFor="procad-periodo">
-              Período
-            </label>
-            <select
-              id="procad-periodo"
-              value={filtros.periodo}
-              onChange={(e) => cambiarFiltro({ periodo: e.target.value })}
-              className={claseSelect}
-            >
-              {PERIODOS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            aria-label="Tipo de agrupación"
+            value={filtros.tipo}
+            onChange={(e) => cambiarFiltro({ tipo: e.target.value as TipoAgrupacion | "todos" })}
+            className={`${clasePildora} w-[112px]`}
+          >
+            <option value="todos">Todo tipo</option>
+            <option value="deportivo">Deportivo</option>
+            <option value="artistico">Artístico</option>
+          </select>
 
-          <div className="min-w-[220px] flex-1">
-            <label className={claseLabel} htmlFor="procad-centro">
-              Campus / centro regional
-            </label>
-            <select
-              id="procad-centro"
-              value={filtros.centro}
-              onChange={(e) => cambiarFiltro({ centro: e.target.value })}
-              className={claseSelect}
-            >
-              <option value="todos">Todos los centros</option>
-              {CENTROS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="min-w-[150px] flex-1">
-            <label className={claseLabel} htmlFor="procad-tipo">
-              Tipo
-            </label>
-            <select
-              id="procad-tipo"
-              value={filtros.tipo}
-              onChange={(e) => cambiarFiltro({ tipo: e.target.value as TipoAgrupacion | "todos" })}
-              className={claseSelect}
-            >
-              <option value="todos">Todos</option>
-              <option value="deportivo">Deportivo</option>
-              <option value="artistico">Artístico</option>
-            </select>
-          </div>
-
-          <div className="min-w-[220px] flex-1">
-            <label className={claseLabel} htmlFor="procad-agrupacion">
-              Agrupación
-            </label>
-            <select
-              id="procad-agrupacion"
-              value={filtros.agrupacion}
-              onChange={(e) => cambiarFiltro({ agrupacion: e.target.value })}
-              className={claseSelect}
-            >
-              <option value="todas">Todas</option>
-              {opcionesAgrupacion.map((a) => (
-                <option key={a.nombre} value={a.nombre}>
-                  {a.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            aria-label="Agrupación"
+            value={filtros.agrupacion}
+            onChange={(e) => cambiarFiltro({ agrupacion: e.target.value })}
+            className={`${clasePildora} w-[204px]`}
+          >
+            <option value="todas">Todas las agrupaciones</option>
+            {opcionesAgrupacion.map((a) => (
+              <option key={a.nombre} value={a.nombre}>
+                {a.nombre}
+              </option>
+            ))}
+          </select>
 
           <button
             type="button"
             onClick={() => setFiltros(FILTROS_INICIALES)}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-500 transition-[color,background-color,transform] duration-150 ease-suave hover:bg-slate-50 hover:text-slate-700 active:scale-[0.98]"
+            title="Limpiar filtros"
+            className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-[13px] font-semibold text-slate-500 shadow-sm transition-[color,background-color,transform] duration-150 ease-suave hover:bg-slate-50 hover:text-slate-700 active:scale-[0.98]"
           >
             <HiOutlineXMark className="h-4 w-4" />
-            Limpiar
+            <span className="sr-only sm:not-sr-only">Limpiar</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={exportarReporte}
+            className="flex items-center gap-2 rounded-full bg-unah-navy px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-suave hover:bg-unah-navy-dark active:scale-[0.98]"
+          >
+            <HiOutlineDocumentArrowDown className="h-4 w-4" />
+            Exportar PDF
           </button>
         </div>
       </div>
@@ -323,8 +373,7 @@ export default function EstadisticasProcad() {
       {/* A · Cifras de encabezado */}
       <section aria-label="Cifras de encabezado">
         <p className="mb-3 text-xs text-slate-500">
-          <span className="font-bold text-unah-orange">A.</span> Cifras de encabezado, cada una con
-          su variación respecto al período anterior.
+          Cifras de encabezado, cada una con su variación respecto al período anterior.
         </p>
         <div className="entra-escalonado grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <KpiProcad
@@ -337,6 +386,15 @@ export default function EstadisticasProcad() {
             serie={kpis.asistidas}
             indiceActivo={indicePeriodo}
             requisito="RF-24"
+          />
+          <KpiProcad
+            numero="4"
+            etiqueta="Estudiantes en agrupaciones"
+            icono={HiOutlineUserGroup}
+            tono="destacada"
+            valor={kpis.estudiantes[indicePeriodo]}
+            serie={kpis.estudiantes}
+            indiceActivo={indicePeriodo}
           />
           <KpiProcad
             numero="2"
@@ -362,15 +420,6 @@ export default function EstadisticasProcad() {
             sufijoDelta=" pp"
           />
           <KpiProcad
-            numero="4"
-            etiqueta="Estudiantes en agrupaciones"
-            icono={HiOutlineUserGroup}
-            tono="destacada"
-            valor={kpis.estudiantes[indicePeriodo]}
-            serie={kpis.estudiantes}
-            indiceActivo={indicePeriodo}
-          />
-          <KpiProcad
             numero="5"
             etiqueta="Agrupaciones activas"
             icono={HiOutlineTrophy}
@@ -391,8 +440,14 @@ export default function EstadisticasProcad() {
         </div>
       </section>
 
-      {/* Secciones B–G */}
-      <div>
+      {/* Las seis secciones. El margen extra las separa de las cifras: sin el,
+          la tira de pestañas se pega a la ultima fila de tarjetas y parece
+          parte de ellas. */}
+      <div className="mt-3">
+        <p className="mb-2 text-center text-[11px] text-slate-400">
+          Elige un apartado para ver sus gráficas
+        </p>
+
         <div
           role="tablist"
           aria-label="Secciones de estadísticas"
@@ -401,7 +456,7 @@ export default function EstadisticasProcad() {
             e.preventDefault();
             moverPestana(e.key === "ArrowRight" ? 1 : -1);
           }}
-          className="table-scrollbar flex gap-1 overflow-x-auto border-b border-slate-200"
+          className="relative flex flex-wrap justify-center gap-x-1 border-b border-slate-200"
         >
           {SECCIONES.map((s) => {
             const activa = s.id === seccionActiva;
@@ -417,18 +472,26 @@ export default function EstadisticasProcad() {
                 aria-selected={activa}
                 aria-controls="panel-seccion"
                 tabIndex={activa ? 0 : -1}
-                onClick={() => setSeccionActiva(s.id)}
-                className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-[13px] font-semibold transition-colors duration-150 ${
-                  activa
-                    ? "border-unah-orange text-unah-navy"
-                    : "border-transparent text-slate-500 hover:text-unah-navy"
+                onClick={() => irASeccion(s.id)}
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-[13px] font-semibold transition-colors duration-150 ${
+                  activa ? "text-unah-navy" : "text-slate-500 hover:text-unah-navy"
                 }`}
               >
-                <span className={activa ? "text-unah-orange" : "text-slate-400"}>{s.id}</span>
                 {s.label}
               </button>
             );
           })}
+
+          {/* Se mueve con transform y no con `left`/`width`: así el navegador no
+              rehace el diseño en cada fotograma. El ancho sale de escalar una
+              barra de 1px, con el origen a la izquierda. */}
+          <span
+            aria-hidden="true"
+            className="absolute left-0 top-0 h-0.5 w-px origin-left rounded-full bg-unah-orange transition-transform duration-[280ms] ease-mueve"
+            style={{
+              transform: `translate3d(${indicador.x}px, ${indicador.y}px, 0) scaleX(${indicador.ancho})`,
+            }}
+          />
         </div>
 
         <div
@@ -437,8 +500,17 @@ export default function EstadisticasProcad() {
           aria-labelledby={`pestana-${seccion.id}`}
           className="pt-5"
         >
-          <div key={seccionActiva} className="panel-entra">
-            <p className="mb-4 text-xs text-slate-500">{seccion.intro}</p>
+          <div
+            key={seccionActiva}
+            className="panel-entra"
+            style={{ "--direccion": direccion } as React.CSSProperties}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <p className="text-xs text-slate-500">{seccion.intro}</p>
+              <TarjetasOcultas
+                etiquetasSeccion={Object.fromEntries(SECCIONES.map((x) => [x.id, x.label]))}
+              />
+            </div>
             {seccionActiva === "B" && <SeccionB ctx={contexto} />}
             {seccionActiva === "C" && <SeccionC ctx={contexto} />}
             {seccionActiva === "D" && <SeccionD ctx={contexto} />}

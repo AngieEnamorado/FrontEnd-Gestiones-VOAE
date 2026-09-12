@@ -20,7 +20,7 @@ export default function SeccionB({ ctx }: { ctx: ContextoSeccion }) {
   const { resaltada } = ctx;
 
   return (
-    <RejillaAnimada className="grid items-start gap-5 lg:grid-cols-2">
+    <RejillaAnimada className="grid gap-5 lg:grid-cols-2">
       <TarjetaEstadistica
         numero="7"
         titulo="Promedio de actividades asistidas por agrupación"
