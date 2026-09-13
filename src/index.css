@@ -195,3 +195,85 @@ body {
 .cursor-mano:active {
   cursor: grabbing;
 }
+
+/* Impresión. La plataforma vive en una ventana que no se desplaza —el alto es
+   el de la pantalla y quien hace scroll es <main>—, así que sin esto el
+   navegador solo imprimiría lo que cabe en pantalla. Aquí se liberan esos
+   altos, se quita el armazón (barra lateral, barra superior y todo lo marcado
+   con `no-imprimir`) y se le pide a cada tarjeta que no se parta entre dos
+   páginas. Las entradas animadas se apagan: en papel solo dejarían tarjetas a
+   medio aparecer. */
+/* Los tres puntos del aviso de «preparando el PDF»: laten por turnos, que es
+   la forma mas callada de decir que algo sigue trabajando. */
+@keyframes punto-late {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Lo que solo existe en papel: el sello de quién imprimió. En pantalla sobra
+   —el nombre está en la barra superior— pero la hoja sale del sistema y no
+   lleva nada que lo diga. */
+.solo-impresion {
+  display: none;
+}
+
+@media print {
+  /* Todo este bloque está condicionado a `.reporte-procad`, que solo lleva la
+     página del reporte personalizado. Es la única pantalla de la plataforma
+     pensada para imprimirse; el resto imprime como imprimía el navegador, sin
+     que estas reglas le cambien nada. */
+  html:has(.reporte-procad),
+  body:has(.reporte-procad),
+  body:has(.reporte-procad) #root,
+  body:has(.reporte-procad) #root > div,
+  body:has(.reporte-procad) #root > div > div,
+  body:has(.reporte-procad) main {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body:has(.reporte-procad) main {
+    padding: 0 !important;
+  }
+
+  body:has(.reporte-procad) aside,
+  body:has(.reporte-procad) header,
+  body:has(.reporte-procad) .no-imprimir {
+    display: none !important;
+  }
+
+  body:has(.reporte-procad) main section {
+    break-inside: avoid;
+  }
+
+  /* En papel no hay dónde desplazar: las listas largas y las tablas anchas se
+     despliegan enteras en vez de salir cortadas por su barra. */
+  body:has(.reporte-procad) .table-scrollbar {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  body:has(.reporte-procad) .entra-escalonado > *,
+  body:has(.reporte-procad) .panel-entra {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .solo-impresion {
+    display: block;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}

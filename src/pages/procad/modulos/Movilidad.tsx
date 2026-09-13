@@ -5,6 +5,7 @@ import TablaDatos from "../../../components/procad/TablaDatos";
 import { useProcad } from "../../../context/ProcadContext";
 import { CENTROS, agrupacionesProcad } from "../../../data/mockProcadEstadisticas";
 import { generarReportePdf } from "../../../utils/exportarPdf";
+import { SELLO_PROCAD } from "../reportePdf";
 
 const claseLabel = "mb-1.5 block text-xs font-semibold text-slate-500";
 const claseCampo =
@@ -52,6 +53,7 @@ export default function Movilidad() {
         },
       ],
       "procad-aptos-movilidad.pdf",
+      SELLO_PROCAD,
     );
   }
 

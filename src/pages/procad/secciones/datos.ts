@@ -13,7 +13,7 @@ import {
   sumaSolicitudes,
   totalSolicitudes,
 } from "../../../utils/procadMetricas";
-import type { EstadoSolicitudProcad } from "../../../types";
+import type { AgrupacionProcad, EstadoSolicitudProcad } from "../../../types";
 import type { ContextoSeccion } from "./contexto";
 
 // Todas las cifras que muestran las secciones B–G se derivan aquí, una sola
@@ -277,5 +277,49 @@ export function casosEspeciales(ctx: ContextoSeccion) {
     conCondicionados: datos.filter((a) => a.condicionados > 0),
     externos: datos.filter((a) => a.colaboradorExterno),
     selecciones: datos.filter((a) => a.esSeleccion),
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  A · Cifras de encabezado
+// ---------------------------------------------------------------------------
+
+/** Las seis cifras de encabezado, cada una como serie completa de períodos. */
+export interface SeriesEncabezado {
+  asistidas: number[];
+  preferencial: number[];
+  elegibilidad: number[];
+  estudiantes: number[];
+  agrupaciones: number[];
+  actividades: number[];
+}
+
+/**
+ * Cada cifra sale como serie y no como número suelto: la tarjeta necesita la
+ * serie entera para dibujar su tendencia y para comparar contra el período
+ * anterior.
+ */
+export function seriesDeEncabezado(datos: AgrupacionProcad[]): SeriesEncabezado {
+  const estudiantes = suma(datos, "estudiantes");
+  const asistencias = suma(datos, "asistencias");
+  const preferencial = suma(datos, "preferencial");
+  const validadas = suma(datos, "validadas");
+  const elegibilidad = Math.round(elegibilidadPromedio(datos));
+
+  const porPeriodo = <T,>(calcular: (i: number) => T) => PERIODOS.map((_, i) => calcular(i));
+
+  return {
+    asistidas: porPeriodo((i) => {
+      const r = razon(escalarConteo(asistencias, i), escalarConteo(estudiantes, i));
+      return r === null ? 0 : Number(r.toFixed(1));
+    }),
+    preferencial: porPeriodo((i) => {
+      const pct = pctDe(escalarConteo(preferencial, i), escalarConteo(estudiantes, i));
+      return pct === null ? 0 : escalarPct(pct, i);
+    }),
+    elegibilidad: porPeriodo((i) => escalarPct(elegibilidad, i)),
+    estudiantes: porPeriodo((i) => escalarConteo(estudiantes, i)),
+    agrupaciones: porPeriodo((i) => Math.max(1, escalarConteo(datos.length, i))),
+    actividades: porPeriodo((i) => escalarConteo(validadas, i)),
   };
 }

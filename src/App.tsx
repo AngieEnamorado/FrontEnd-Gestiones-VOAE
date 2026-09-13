@@ -12,6 +12,7 @@ import InscripcionesGira from "./pages/giras/InscripcionesGira";
 import DetalleInscripcion from "./pages/giras/DetalleInscripcion";
 import Estadisticas from "./pages/giras/Estadisticas";
 import EstadisticasProcad from "./pages/procad/Estadisticas";
+import ReportePersonalizado from "./pages/procad/ReportePersonalizado";
 import EstudiantesProcad from "./pages/procad/Estudiantes";
 import AgrupacionesProcad from "./pages/procad/Agrupaciones";
 import ConfiguracionProcad from "./pages/procad/Configuracion";
@@ -95,6 +96,9 @@ export default function App() {
         <Route path="/procad">
           <Route index element={<Navigate to="estadisticas" replace />} />
           <Route path="estadisticas" element={<EstadisticasProcad />} />
+          {/* El reporte personalizado se arma desde el panel y lleva su
+              selección en la URL, así que no es una entrada del sidebar. */}
+          <Route path="estadisticas/personalizado" element={<ReportePersonalizado />} />
           <Route
             path="estudiantes"
             element={

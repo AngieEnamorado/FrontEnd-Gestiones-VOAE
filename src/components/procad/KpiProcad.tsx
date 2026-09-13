@@ -2,6 +2,8 @@ import { HiOutlineArrowTrendingDown, HiOutlineArrowTrendingUp, HiOutlineMinus } 
 import type { IconType } from "react-icons";
 import { useConteoAnimado } from "../../utils/useConteoAnimado";
 import { useEnVista } from "../../utils/useEnVista";
+import { useSeleccionReporte } from "../../pages/procad/seleccionReporte";
+import CasillaSeleccion from "./CasillaSeleccion";
 
 /**
  * Tono de la tarjeta. Es identidad, no dato: sirve para que cada cifra se
@@ -205,11 +207,41 @@ export default function KpiProcad({
   const contado = useConteoAnimado(valor, enVista);
   const estilo = TONOS[tono];
   const destacada = tono === "destacada";
+  const seleccion = useSeleccionReporte();
+  const marcada = seleccion.activo && seleccion.estaSeleccionada(numero);
 
   return (
     <div
       ref={referencia}
-      className={`con-destello relative flex flex-col overflow-hidden rounded-3xl p-4 shadow-[0_12px_32px_-14px_rgba(10,35,80,0.45)] backdrop-blur-xl transition-colors duration-200 ease-suave ${estilo.fondo} ${estilo.fondoHover}`}
+      // `data-kpi` y no `data-tarjeta`: el arrastre del panel de tarjetas
+      // quitadas busca ese otro atributo para saber dónde soltar, y las cifras
+      // de encabezado no participan de eso. Aquí sirve para que el reporte en
+      // PDF sepa qué fotografiar.
+      data-kpi={numero}
+      // Igual que las gráficas: al armar un reporte, la cifra entera se marca.
+      {...(seleccion.activo
+        ? {
+            role: "checkbox",
+            "aria-checked": marcada,
+            "aria-label": etiqueta,
+            tabIndex: 0,
+            onClick: () => seleccion.alternar(numero),
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key !== " " && e.key !== "Enter") return;
+              e.preventDefault();
+              seleccion.alternar(numero);
+            },
+          }
+        : {})}
+      className={`con-destello relative flex flex-col overflow-hidden rounded-3xl p-4 shadow-[0_12px_32px_-14px_rgba(10,35,80,0.45)] backdrop-blur-xl transition-[background-color,box-shadow] duration-200 ease-suave ${estilo.fondo} ${estilo.fondoHover} ${
+        seleccion.activo
+          ? `cursor-pointer outline-none ${
+              marcada
+                ? "ring-2 ring-unah-orange"
+                : "ring-1 ring-white/40 hover:ring-unah-navy/30 focus-visible:ring-2 focus-visible:ring-unah-navy"
+            }`
+          : ""
+      }`}
     >
       {/* El vidrio son tres luces: el filo iluminado de arriba y dos reflejos en
           esquinas opuestas. Viven dentro de la tarjeta, no en un campo de color
@@ -235,7 +267,10 @@ export default function KpiProcad({
         >
           <Icono className="h-4.5 w-4.5" aria-hidden="true" />
         </span>
-        <Delta serie={serie} indice={indiceActivo} sufijo={sufijoDelta} destacada={destacada} />
+        <span className="flex items-center gap-2">
+          <Delta serie={serie} indice={indiceActivo} sufijo={sufijoDelta} destacada={destacada} />
+          {seleccion.activo && <CasillaSeleccion marcada={marcada} sobreOscuro={destacada} />}
+        </span>
       </div>
 
       {/* Cifras proporcionales, no tabulares: a este tamaño el ancho fijo de

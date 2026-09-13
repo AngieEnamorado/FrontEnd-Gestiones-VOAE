@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { NUMEROS_TARJETAS } from "./secciones/catalogoTarjetas";
 
 /** Una tarjeta que se dibujó alguna vez, con el apartado donde vive. */
 export interface TarjetaRegistrada {
@@ -15,16 +16,22 @@ interface ValorVisibilidad {
    */
   orden: string[];
   /**
-   * Deja `movida` justo delante de `destino`. Solo lo usa el panel lateral: al
-   * soltar un widget sobre una tarjeta, se coloca en ese hueco. El boton
-   * «Colocar» no pasa por aqui, porque devuelve la tarjeta a su sitio original.
+   * Coloca `movida` junto a `destino`. Con `donde` en «auto» el lado lo decide
+   * el sentido del movimiento; los espacios vacíos de la rejilla lo mandan
+   * explícito, porque un hueco está en un sitio concreto de la fila. El botón
+   * «Colocar» no pasa por aquí: devuelve la tarjeta a su sitio original.
    */
-  reordenar: (movida: string, destino: string) => void;
+  reordenar: (movida: string, destino: string, donde?: "antes" | "despues" | "auto") => void;
   posicionDe: (numero: string) => number;
   /** Apartado que se está viendo: con él se etiqueta cada tarjeta al registrarse. */
   seccionActiva: string;
   ocultas: string[];
   catalogo: TarjetaRegistrada[];
+  /**
+   * En el reporte personalizado las tarjetas no se quitan ni se arrastran: lo
+   * que sale ahí ya se eligió en el armador, y para cambiarlo se vuelve a él.
+   */
+  soloLectura: boolean;
   registrar: (tarjeta: TarjetaRegistrada) => void;
   ocultar: (numero: string) => void;
   mostrar: (numero: string) => void;
@@ -52,6 +59,7 @@ const ContextoVisibilidad = createContext<ValorVisibilidad>({
   seccionActiva: "",
   ocultas: [],
   catalogo: [],
+  soloLectura: false,
   registrar: () => {},
   ocultar: () => {},
   mostrar: () => {},
@@ -65,12 +73,21 @@ export function useVisibilidadTarjetas() {
 
 export function ProveedorVisibilidad({
   seccionActiva,
+  ocultasIniciales = [],
+  soloLectura = false,
   children,
 }: {
   seccionActiva: string;
+  /**
+   * Con qué tarjetas arranca escondidas. El panel no pasa ninguna —empieza
+   * completo— y el reporte personalizado pasa todas las que no se eligieron,
+   * que es como dibuja una selección con las mismas secciones de siempre.
+   */
+  ocultasIniciales?: string[];
+  soloLectura?: boolean;
   children: React.ReactNode;
 }) {
-  const [ocultas, setOcultas] = useState<string[]>([]);
+  const [ocultas, setOcultas] = useState<string[]>(ocultasIniciales);
   const [catalogo, setCatalogo] = useState<TarjetaRegistrada[]>([]);
   const [orden, setOrden] = useState<string[]>([]);
 
@@ -78,6 +95,15 @@ export function ProveedorVisibilidad({
   // falta tenerlo completo de antemano: una tarjeta que nadie ha visto todavía
   // está visible por definición, que es el estado por defecto.
   const registrar = useCallback((tarjeta: TarjetaRegistrada) => {
+    // El armador del reporte personalizado elige sobre `catalogoTarjetas.ts`,
+    // que es una lista escrita a mano. Si alguien agrega una tarjeta y olvida
+    // anotarla allí, no se podría elegir nunca: en desarrollo se avisa aquí.
+    if (import.meta.env.DEV && !NUMEROS_TARJETAS.includes(tarjeta.numero)) {
+      console.warn(
+        `La tarjeta ${tarjeta.numero} («${tarjeta.titulo}») no está en CATALOGO_TARJETAS: no aparecerá en el armador del reporte personalizado.`,
+      );
+    }
+
     setCatalogo((previo) =>
       previo.some((t) => t.numero === tarjeta.numero) ? previo : [...previo, tarjeta],
     );
@@ -87,19 +113,35 @@ export function ProveedorVisibilidad({
   }, []);
 
 
-  const reordenar = useCallback((movida: string, destino: string) => {
-    if (movida === destino) return;
-    setOrden((previo) => {
-      const sin = previo.filter((n) => n !== movida);
-      const i = sin.indexOf(destino);
-      if (i === -1) return previo;
-      return [...sin.slice(0, i), movida, ...sin.slice(i)];
-    });
-  }, []);
+  const reordenar = useCallback(
+    (movida: string, destino: string, donde: "antes" | "despues" | "auto" = "auto") => {
+      if (movida === destino) return;
+      setOrden((previo) => {
+        const desde = previo.indexOf(movida);
+        const hasta = previo.indexOf(destino);
+        if (hasta === -1) return previo;
+
+        const sin = previo.filter((n) => n !== movida);
+        const i = sin.indexOf(destino);
+        // Bajando, la tarjeta queda después de la de destino; subiendo, antes.
+        // Es lo que uno espera al soltarla encima de otra: si siempre entrara
+        // antes, arrastrarla sobre la de al lado no movería nada.
+        //
+        // La que vuelve del panel de quitadas es el caso aparte: no venía de
+        // ningún sitio del tablero, así que entra en el hueco, delante.
+        const bajando = desde !== -1 && !ocultas.includes(movida) && desde < hasta;
+        const despues = donde === "auto" ? bajando : donde === "despues";
+        const corte = despues ? i + 1 : i;
+        return [...sin.slice(0, corte), movida, ...sin.slice(corte)];
+      });
+    },
+    [ocultas],
+  );
 
   const valor = useMemo<ValorVisibilidad>(
     () => ({
       seccionActiva,
+      soloLectura,
       ocultas,
       catalogo,
       orden,
@@ -114,7 +156,7 @@ export function ProveedorVisibilidad({
       mostrarTodas: () => setOcultas([]),
       estaOculta: (numero) => ocultas.includes(numero),
     }),
-    [seccionActiva, ocultas, catalogo, orden, registrar, reordenar],
+    [seccionActiva, soloLectura, ocultas, catalogo, orden, registrar, reordenar],
   );
 
   return <ContextoVisibilidad.Provider value={valor}>{children}</ContextoVisibilidad.Provider>;

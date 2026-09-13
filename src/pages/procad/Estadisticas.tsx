@@ -1,47 +1,48 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion } from "motion/react";
 import {
-  HiOutlineAcademicCap,
-  HiOutlineCalendarDays,
-  HiOutlineCheckBadge,
-  HiOutlineClipboardDocumentCheck,
+  HiOutlineCheckCircle,
   HiOutlineDocumentArrowDown,
+  HiOutlineDocumentChartBar,
   HiOutlineEye,
-  HiOutlineTrophy,
-  HiOutlineUserGroup,
   HiOutlineXMark,
 } from "react-icons/hi2";
-import KpiProcad from "../../components/procad/KpiProcad";
 import TarjetasOcultas from "./TarjetasOcultas";
+import DialogoFormatoPdf from "../../components/procad/DialogoFormatoPdf";
 import { ProveedorVisibilidad, useVisibilidadTarjetas } from "./visibilidadTarjetas";
+import { ProveedorArrastre } from "./arrastreTarjetas";
+import SeccionA from "./secciones/SeccionA";
 import SeccionB from "./secciones/SeccionB";
 import SeccionC from "./secciones/SeccionC";
 import SeccionD from "./secciones/SeccionD";
 import SeccionE from "./secciones/SeccionE";
 import SeccionF from "./secciones/SeccionF";
 import SeccionG from "./secciones/SeccionG";
-import type { ContextoSeccion } from "./secciones/contexto";
-import { seccionesDelReporte } from "./secciones/pdf";
+import { construirContexto } from "./secciones/contexto";
+import { seriesDeEncabezado } from "./secciones/datos";
+import { bloquesDelReporte } from "./secciones/pdf";
+import { ContextoSeleccion, type ValorSeleccion } from "./seleccionReporte";
+import {
+  FILTROS_INICIALES,
+  PARAM_DESCARGA,
+  PARAM_PERSONALIZAR,
+  RUTA_REPORTE,
+  construirConsulta,
+  filtrosDesdeParametros,
+  modoDesdeParametros,
+  numerosDesdeParametros,
+} from "./enlaceReporte";
 import {
   CENTROS,
   PERIODOS,
-  PERIODO_ACTUAL,
   agrupacionesProcad,
 } from "../../data/mockProcadEstadisticas";
-import {
-  agrupacionesDisponibles,
-  elegibilidadPromedio,
-  escalarConteo,
-  escalarPct,
-  filtrarParaCentros,
-  filtrarPorAgrupacion,
-  filtrarPorTipoYCentro,
-  indiceDePeriodo,
-  pctDe,
-  razon,
-  resumenPorCentro,
-  suma,
-} from "../../utils/procadMetricas";
-import { generarReportePdf, type SeccionReportePdf } from "../../utils/exportarPdf";
+import { agrupacionesDisponibles } from "../../utils/procadMetricas";
+import { NUMEROS_TARJETAS, ordenarSeleccion } from "./secciones/catalogoTarjetas";
+import { generarReportePdf } from "../../utils/exportarPdf";
+import { nombreDeReporte } from "../../utils/nombreDeReporte";
+import { SELLO_PROCAD } from "./reportePdf";
 import { useRolProcad } from "../../context/UserContext";
 import type { FiltrosProcad, TipoAgrupacion } from "../../types";
 
@@ -56,13 +57,6 @@ import type { FiltrosProcad, TipoAgrupacion } from "../../types";
    no se mueve nunca: lo que no cabe se corta con puntos suspensivos. */
 const clasePildora =
   "cursor-pointer truncate rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-slate-600 shadow-sm transition-colors duration-150 hover:border-slate-300 hover:text-slate-800";
-
-const FILTROS_INICIALES: FiltrosProcad = {
-  periodo: PERIODO_ACTUAL,
-  centro: "todos",
-  tipo: "todos",
-  agrupacion: "todas",
-};
 
 const SECCIONES = [
   {
@@ -92,6 +86,11 @@ const SECCIONES = [
 
 type IdSeccion = (typeof SECCIONES)[number]["id"];
 
+/** Letra del apartado → su nombre, para las listas que solo tienen la letra. */
+const ETIQUETAS_SECCION: Record<string, string> = Object.fromEntries(
+  SECCIONES.map((s) => [s.id, s.label]),
+);
+
 
 export default function EstadisticasProcad() {
   // El apartado activo vive aqui, fuera del proveedor, porque el proveedor lo
@@ -100,7 +99,10 @@ export default function EstadisticasProcad() {
 
   return (
     <ProveedorVisibilidad seccionActiva={seccionActiva}>
-      <PanelEstadisticas seccionActiva={seccionActiva} setSeccionActiva={setSeccionActiva} />
+      {/* Dentro de la visibilidad: el arrastre necesita saber reordenar. */}
+      <ProveedorArrastre>
+        <PanelEstadisticas seccionActiva={seccionActiva} setSeccionActiva={setSeccionActiva} />
+      </ProveedorArrastre>
     </ProveedorVisibilidad>
   );
 }
@@ -113,13 +115,34 @@ function PanelEstadisticas({
   setSeccionActiva: (id: IdSeccion) => void;
 }) {
   const { rol } = useRolProcad();
-  const { ocultas, catalogo } = useVisibilidadTarjetas();
-  const [filtros, setFiltros] = useState<FiltrosProcad>(FILTROS_INICIALES);
+  const { ocultas, catalogo, mostrarTodas } = useVisibilidadTarjetas();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  // Se vuelve del reporte con «seguir personalizando»: la URL trae los filtros
+  // con los que se armó y lo que ya estaba elegido, así que el panel arranca
+  // como estaba y con el armador abierto.
+  const volviendo = params.has(PARAM_PERSONALIZAR);
+  const [filtros, setFiltros] = useState<FiltrosProcad>(() =>
+    volviendo ? filtrosDesdeParametros(params) : FILTROS_INICIALES,
+  );
+  /**
+   * Las métricas marcadas para el reporte, o `null` cuando no se está armando
+   * ninguno. No hay ventana aparte: al entrar en este modo, el panel se
+   * convierte en el armador.
+   */
+  const [seleccionadas, setSeleccionadas] = useState<string[] | null>(() =>
+    volviendo ? numerosDesdeParametros(params, PARAM_PERSONALIZAR) : null,
+  );
+  const armando = seleccionadas !== null;
+  /** Con qué modo se estaba viendo el reporte del que se volvió, si se volvió. */
+  const [modoPrevio] = useState(() => modoDesdeParametros(params));
   const refsPestanas = useRef<Record<string, HTMLButtonElement | null>>({});
   /** +1 si la sección elegida está a la derecha de la anterior, -1 si a la izquierda. */
   const [direccion, setDireccion] = useState(1);
   /** Posición y ancho de la pestaña activa, para el subrayado que se desliza. */
   const [indicador, setIndicador] = useState({ x: 0, y: 0, ancho: 0 });
+  /** Abierto mientras se elige con qué forma descargar la página. */
+  const [eligiendoFormato, setEligiendoFormato] = useState(false);
 
   function irASeccion(id: IdSeccion) {
     if (id === seccionActiva) return;
@@ -148,8 +171,6 @@ function PanelEstadisticas({
     return () => window.removeEventListener("resize", medir);
   }, [seccionActiva]);
 
-  const indicePeriodo = indiceDePeriodo(filtros.periodo);
-
   // Cambiar tipo o centro puede dejar seleccionada una agrupación que ya no
   // existe en el recorte. En ese caso el filtro de agrupación vuelve a "todas"
   // en lugar de quedar apuntando a nada.
@@ -171,46 +192,15 @@ function PanelEstadisticas({
     [filtros],
   );
 
-  const contexto = useMemo<ContextoSeccion>(() => {
-    const datos = filtrarPorAgrupacion(agrupacionesProcad, filtros);
-    return {
-      datos,
-      datosAmplios: filtrarPorTipoYCentro(agrupacionesProcad, filtros),
-      centros: resumenPorCentro(filtrarParaCentros(agrupacionesProcad, filtros), indicePeriodo),
-      indicePeriodo,
-      filtros,
-      resaltada: filtros.agrupacion === "todas" ? null : filtros.agrupacion,
-    };
-  }, [filtros, indicePeriodo]);
+  const contexto = useMemo(() => construirContexto(filtros), [filtros]);
+  const kpis = useMemo(() => seriesDeEncabezado(contexto.datos), [contexto.datos]);
+  const { indicePeriodo } = contexto;
 
-  // Las seis cifras de encabezado, cada una como serie completa de períodos: la
-  // tarjeta necesita la serie para dibujar su tendencia y para calcular la
-  // variación contra el período anterior.
-  const kpis = useMemo(() => {
-    const datos = contexto.datos;
-    const estudiantes = suma(datos, "estudiantes");
-    const asistencias = suma(datos, "asistencias");
-    const preferencial = suma(datos, "preferencial");
-    const validadas = suma(datos, "validadas");
-    const elegibilidad = Math.round(elegibilidadPromedio(datos));
-
-    const porPeriodo = <T,>(calcular: (i: number) => T) => PERIODOS.map((_, i) => calcular(i));
-
-    return {
-      asistidas: porPeriodo((i) => {
-        const r = razon(escalarConteo(asistencias, i), escalarConteo(estudiantes, i));
-        return r === null ? 0 : Number(r.toFixed(1));
-      }),
-      preferencial: porPeriodo((i) => {
-        const pct = pctDe(escalarConteo(preferencial, i), escalarConteo(estudiantes, i));
-        return pct === null ? 0 : escalarPct(pct, i);
-      }),
-      elegibilidad: porPeriodo((i) => escalarPct(elegibilidad, i)),
-      estudiantes: porPeriodo((i) => escalarConteo(estudiantes, i)),
-      agrupaciones: porPeriodo((i) => Math.max(1, escalarConteo(datos.length, i))),
-      actividades: porPeriodo((i) => escalarConteo(validadas, i)),
-    };
-  }, [contexto.datos]);
+  // Los parámetros se limpian en cuanto se leyeron: así recargar la página no
+  // vuelve a abrir el armador, y la URL del panel queda como siempre.
+  useEffect(() => {
+    if (volviendo) setParams({}, { replace: true });
+  }, [volviendo, setParams]);
 
   function moverPestana(direccion: 1 | -1) {
     const actual = SECCIONES.findIndex((s) => s.id === seccionActiva);
@@ -219,42 +209,14 @@ function PanelEstadisticas({
     refsPestanas.current[siguiente.id]?.focus();
   }
 
-  function exportarReporte() {
-    const periodo = PERIODOS[indicePeriodo];
-    const secciones: SeccionReportePdf[] = [
-      {
-        titulo: "Filtros aplicados",
-        columnas: ["Filtro", "Valor"],
-        filas: [
-          ["Período", periodo.label],
-          ["Campus / centro regional", filtros.centro === "todos" ? "Todos" : filtros.centro],
-          ["Tipo", filtros.tipo === "todos" ? "Todos" : filtros.tipo],
-          ["Agrupación", filtros.agrupacion === "todas" ? "Todas" : filtros.agrupacion],
-        ],
-      },
-      {
-        titulo: "A · Cifras de encabezado",
-        columnas: ["Indicador", "Valor"],
-        filas: [
-          [
-            "1 · Promedio de actividades asistidas por estudiante",
-            kpis.asistidas[indicePeriodo].toFixed(1),
-          ],
-          ["2 · En matrícula preferencial", `${kpis.preferencial[indicePeriodo]}%`],
-          ["3 · Elegibilidad", `${kpis.elegibilidad[indicePeriodo]}%`],
-          ["4 · Estudiantes en agrupaciones", kpis.estudiantes[indicePeriodo]],
-          ["5 · Agrupaciones activas", kpis.agrupaciones[indicePeriodo]],
-          ["6 · Actividades validadas", kpis.actividades[indicePeriodo]],
-        ],
-      },
-      ...seccionesDelReporte(contexto),
-    ];
-
-    // «Que se imprima como este»: un apartado del que se quitaron todas sus
-    // tarjetas no aparece en el reporte. El recorte es por apartado y no por
-    // tarjeta porque las tablas del PDF agrupan varias cifras en una sola —la
-    // de Participacion lleva las cinco juntas—, asi que quitar una tarjeta
-    // suelta no tiene una fila que corresponda.
+  // Todo lo que el panel puede llevarse a un PDF, tabla por tabla.
+  //
+  // «Que se imprima como este»: un apartado del que se quitaron todas sus
+  // tarjetas no aparece ni en el reporte completo ni en la lista del compuesto.
+  // El recorte es por apartado y no por tarjeta porque las tablas del PDF
+  // agrupan varias cifras en una sola —la de Participación lleva las cinco
+  // juntas—, así que quitar una tarjeta suelta no tiene una fila que quitar.
+  const bloques = useMemo(() => {
     const apartadosVacios = new Set(
       SECCIONES.filter((seccionPdf) => {
         const suyas = catalogo.filter((t) => t.seccion === seccionPdf.id);
@@ -262,22 +224,129 @@ function PanelEstadisticas({
       }).map((seccionPdf) => seccionPdf.id as string),
     );
 
+    return bloquesDelReporte(contexto, {
+      asistidas: kpis.asistidas[indicePeriodo],
+      preferencial: kpis.preferencial[indicePeriodo],
+      elegibilidad: kpis.elegibilidad[indicePeriodo],
+      estudiantes: kpis.estudiantes[indicePeriodo],
+      agrupaciones: kpis.agrupaciones[indicePeriodo],
+      actividades: kpis.actividades[indicePeriodo],
+    }).filter((bloque) => !apartadosVacios.has(bloque.grupo));
+  }, [contexto, kpis, indicePeriodo, catalogo, ocultas]);
+
+  /**
+   * La página entera en PDF, con las cifras en tablas. Sale de aquí mismo: las
+   * tablas se escriben con los datos, no se fotografían, así que no hace falta
+   * tener dibujado ningún apartado.
+   */
+  function exportarCifras() {
+    setEligiendoFormato(false);
     generarReportePdf(
       "PROCAD",
       "Estadísticas de Participación",
-      secciones.filter((bloque) => !apartadosVacios.has(bloque.titulo.slice(0, 1))),
-      "procad-estadisticas.pdf",
+      bloques,
+      nombreDeReporte(),
+      SELLO_PROCAD,
+    );
+  }
+
+  /**
+   * La página entera en PDF, con sus gráficas.
+   *
+   * El panel tiene montado solo el apartado de la pestaña activa —los demás ni
+   * existen en la página—, y una gráfica que no está dibujada no se puede
+   * fotografiar. Así que la descarga se delega en la página del reporte, que
+   * dibuja todos los apartados de una vez: se abre con todo lo que hay en
+   * pantalla marcado y con la orden de descargar al terminar de dibujarse.
+   */
+  function exportarGraficas() {
+    setEligiendoFormato(false);
+    const visibles = NUMEROS_TARJETAS.filter((n) => !ocultas.includes(n));
+    navigate(
+      `${RUTA_REPORTE}${construirConsulta(visibles, filtros, undefined, "graficas")}&${PARAM_DESCARGA}=1`,
+    );
+  }
+
+  // Entrar a armar devuelve las tarjetas quitadas: si una no está en pantalla
+  // no se puede marcar, y encontrarse con que «falta» una estadística sin saber
+  // por qué sería peor que recuperar el panel completo.
+  function empezarAArmar() {
+    mostrarTodas();
+    setSeleccionadas([]);
+  }
+
+  const valorSeleccion = useMemo<ValorSeleccion>(
+    () => ({
+      activo: armando,
+      estaSeleccionada: (numero) => seleccionadas?.includes(numero) ?? false,
+      alternar: (numero) =>
+        setSeleccionadas((previo) =>
+          previo === null
+            ? previo
+            : previo.includes(numero)
+              ? previo.filter((n) => n !== numero)
+              : [...previo, numero],
+        ),
+    }),
+    [armando, seleccionadas],
+  );
+
+  // El reporte personalizado no se dibuja aquí: la selección y los filtros se
+  // van en la URL y el reporte es otra página, que se puede recargar, guardar
+  // en marcadores o compartir.
+  function generarPersonalizado() {
+    if (!seleccionadas || seleccionadas.length === 0) return;
+    // El modo del reporte —gráficas o tablas— vuelve como venía: si se llegó
+    // aquí desde un reporte en tablas, al regenerarlo sigue en tablas.
+    navigate(
+      `${RUTA_REPORTE}${construirConsulta(ordenarSeleccion(seleccionadas), filtros, undefined, modoPrevio)}`,
     );
   }
 
   const seccion = SECCIONES.find((s) => s.id === seccionActiva) ?? SECCIONES[0];
 
   return (
-    <div className="flex flex-col gap-5">
+    <ContextoSeleccion.Provider value={valorSeleccion}>
+    {/* El hueco de abajo es para la barra flotante: sin el, la ultima fila de
+        tarjetas se queda debajo de ella y no hay forma de marcarla. */}
+    <div className={`flex flex-col gap-5 ${armando ? "pb-24" : ""}`}>
       {/* Encabezado: el titulo y los cuatro filtros en una sola franja. Antes
           los filtros ocupaban una tarjeta propia y, con el aviso, la primera
-          pantalla se iba entera en controles sin mostrar un solo dato. */}
+          pantalla se iba entera en controles sin mostrar un solo dato.
+
+          Mientras se arma un reporte, el titulo cede su sitio a la instruccion:
+          el panel deja de ser algo que se lee y pasa a ser algo que se marca,
+          asi que quien manda en la pantalla es esa instruccion. Los filtros se
+          quedan, porque el recorte tambien se elige aqui. */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        {armando ? (
+          <div className="panel-entra min-w-0 max-w-2xl">
+            <p className="text-xs font-bold tracking-wider text-unah-orange">
+              REPORTE PERSONALIZADO
+            </p>
+            <h1 className="text-2xl font-bold text-balance break-words text-slate-800 sm:text-3xl">
+              Seleccione lo que quiere personalizar
+            </h1>
+            <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-slate-500">
+              <HiOutlineCheckCircle
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-unah-orange"
+                aria-hidden="true"
+              />
+              <span>
+                Pulse las estadísticas que quiere incluir: las cifras de arriba y las gráficas de
+                cualquier apartado. Lo marcado se conserva al cambiar de apartado y al cambiar los
+                filtros.{" "}
+                <button
+                  type="button"
+                  onClick={() => setSeleccionadas(null)}
+                  className="font-semibold text-unah-navy underline-offset-2 transition-colors hover:text-unah-orange hover:underline"
+                >
+                  Cancelar
+                </button>
+              </span>
+            </p>
+          </div>
+        ) : (
         <div className="min-w-0">
           <p className="text-xs font-bold tracking-wider text-unah-orange">PROCAD</p>
           <h1 className="text-2xl font-bold text-balance break-words text-slate-800 sm:text-3xl">
@@ -295,6 +364,7 @@ function PanelEstadisticas({
             </span>
           </p>
         </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <select
@@ -359,14 +429,32 @@ function PanelEstadisticas({
             <span className="sr-only sm:not-sr-only">Limpiar</span>
           </button>
 
-          <button
-            type="button"
-            onClick={exportarReporte}
-            className="flex items-center gap-2 rounded-full bg-unah-navy px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-suave hover:bg-unah-navy-dark active:scale-[0.98]"
-          >
-            <HiOutlineDocumentArrowDown className="h-4 w-4" />
-            Exportar PDF
-          </button>
+          {/* Las dos formas de exportar van juntas en su propia caja: cuando la
+              fila no cabe, bajan las dos de una vez en vez de partirse y dejar
+              una arriba con los filtros y la otra sola en el renglón de abajo. */}
+          {!armando && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={empezarAArmar}
+              title="Elegir estadísticas y armar un reporte solo con ellas"
+              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-slate-600 shadow-sm transition-[background-color,color,transform] duration-150 ease-suave hover:bg-slate-50 hover:text-unah-navy active:scale-[0.98]"
+            >
+              <HiOutlineDocumentChartBar className="h-4 w-4" />
+              Reporte personalizado
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEligiendoFormato(true)}
+              title="Descargar toda la página, con los filtros y las tarjetas que tenés ahora"
+              className="flex items-center gap-2 rounded-full bg-unah-navy px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-suave hover:bg-unah-navy-dark active:scale-[0.98]"
+            >
+              <HiOutlineDocumentArrowDown className="h-4 w-4" />
+              Exportar página PDF
+            </button>
+          </div>
+          )}
         </div>
       </div>
 
@@ -375,69 +463,7 @@ function PanelEstadisticas({
         <p className="mb-3 text-xs text-slate-500">
           Cifras de encabezado, cada una con su variación respecto al período anterior.
         </p>
-        <div className="entra-escalonado grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <KpiProcad
-            numero="1"
-            etiqueta="Promedio de actividades asistidas por estudiante"
-            icono={HiOutlineCalendarDays}
-            tono="azul"
-            valor={kpis.asistidas[indicePeriodo]}
-            decimales={1}
-            serie={kpis.asistidas}
-            indiceActivo={indicePeriodo}
-            requisito="RF-24"
-          />
-          <KpiProcad
-            numero="4"
-            etiqueta="Estudiantes en agrupaciones"
-            icono={HiOutlineUserGroup}
-            tono="destacada"
-            valor={kpis.estudiantes[indicePeriodo]}
-            serie={kpis.estudiantes}
-            indiceActivo={indicePeriodo}
-          />
-          <KpiProcad
-            numero="2"
-            etiqueta="En matrícula preferencial"
-            icono={HiOutlineAcademicCap}
-            tono="ambar"
-            valor={kpis.preferencial[indicePeriodo]}
-            sufijo="%"
-            serie={kpis.preferencial}
-            indiceActivo={indicePeriodo}
-            sufijoDelta=" pp"
-            requisito="RF-24"
-          />
-          <KpiProcad
-            numero="3"
-            etiqueta="Elegibilidad"
-            icono={HiOutlineCheckBadge}
-            tono="esmeralda"
-            valor={kpis.elegibilidad[indicePeriodo]}
-            sufijo="%"
-            serie={kpis.elegibilidad}
-            indiceActivo={indicePeriodo}
-            sufijoDelta=" pp"
-          />
-          <KpiProcad
-            numero="5"
-            etiqueta="Agrupaciones activas"
-            icono={HiOutlineTrophy}
-            tono="violeta"
-            valor={kpis.agrupaciones[indicePeriodo]}
-            serie={kpis.agrupaciones}
-            indiceActivo={indicePeriodo}
-          />
-          <KpiProcad
-            numero="6"
-            etiqueta="Actividades validadas"
-            icono={HiOutlineClipboardDocumentCheck}
-            tono="cielo"
-            valor={kpis.actividades[indicePeriodo]}
-            serie={kpis.actividades}
-            indiceActivo={indicePeriodo}
-          />
-        </div>
+        <SeccionA kpis={kpis} indicePeriodo={indicePeriodo} />
       </section>
 
       {/* Las seis secciones. El margen extra las separa de las cifras: sin el,
@@ -507,9 +533,7 @@ function PanelEstadisticas({
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <p className="text-xs text-slate-500">{seccion.intro}</p>
-              <TarjetasOcultas
-                etiquetasSeccion={Object.fromEntries(SECCIONES.map((x) => [x.id, x.label]))}
-              />
+              {!armando && <TarjetasOcultas etiquetasSeccion={ETIQUETAS_SECCION} />}
             </div>
             {seccionActiva === "B" && <SeccionB ctx={contexto} />}
             {seccionActiva === "C" && <SeccionC ctx={contexto} />}
@@ -520,6 +544,54 @@ function PanelEstadisticas({
           </div>
         </div>
       </div>
+
+      {/* Aparece en cuanto hay una marcada, abajo a la derecha: mientras se
+          recorren los apartados no estorba, y cuando ya hay algo que generar
+          esta siempre a mano sin tener que volver arriba. */}
+      {seleccionadas !== null && seleccionadas.length > 0 && (
+        // Entra con rebote y en navy, no en blanco: sobre un panel que es todo
+        // tarjetas claras, una barra clara se confundía con una más. Oscura y
+        // con el naranja institucional adentro, se lee como lo único que hay
+        // que pulsar cuando ya se eligió.
+        <motion.div
+          initial={{ opacity: 0, transform: "translateY(20px) scale(0.96)" }}
+          animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
+          transition={{ type: "spring", duration: 0.5, bounce: 0.42 }}
+          className="fixed bottom-6 right-6 z-40 flex max-w-[calc(100vw-3rem)] items-center gap-2 rounded-full border border-unah-navy-dark bg-unah-navy p-2 shadow-2xl shadow-unah-navy/35"
+        >
+          {/* Cancelar también desde aquí: al final de un apartado largo, el
+              enlace de arriba queda fuera de la pantalla. */}
+          <button
+            type="button"
+            onClick={() => setSeleccionadas(null)}
+            aria-label="Cancelar el reporte personalizado"
+            title="Cancelar"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 transition-colors duration-150 hover:bg-white/15 hover:text-white"
+          >
+            <HiOutlineXMark className="h-4 w-4" />
+          </button>
+          <span className="hidden pl-1 text-xs font-semibold text-white/70 sm:inline">
+            <b className="text-white">{seleccionadas.length}</b>{" "}
+            {seleccionadas.length === 1 ? "estadística" : "estadísticas"}
+          </span>
+          <button
+            type="button"
+            onClick={generarPersonalizado}
+            className="flex items-center gap-2 rounded-full bg-unah-orange px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-unah-orange/30 transition-[background-color,transform] duration-150 ease-suave hover:bg-unah-orange-dark active:scale-[0.98]"
+          >
+            <HiOutlineDocumentChartBar className="h-4.5 w-4.5" />
+            Generar reporte personalizado
+          </button>
+        </motion.div>
+      )}
+
+      <DialogoFormatoPdf
+        abierto={eligiendoFormato}
+        onCerrar={() => setEligiendoFormato(false)}
+        onGraficas={exportarGraficas}
+        onCifras={exportarCifras}
+      />
     </div>
+    </ContextoSeleccion.Provider>
   );
 }

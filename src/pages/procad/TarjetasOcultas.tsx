@@ -9,6 +9,7 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import { useVisibilidadTarjetas } from "./visibilidadTarjetas";
+import { traerALaVista, useArrastreTarjetas, type Colocacion } from "./arrastreTarjetas";
 
 /**
  * Panel lateral de tarjetas quitadas.
@@ -29,26 +30,16 @@ export default function TarjetasOcultas({
   const { ocultas, catalogo, mostrar, mostrarTodas, reordenar } =
     useVisibilidadTarjetas();
   const [abierto, setAbierto] = useState(false);
-  const [arrastrando, setArrastrando] = useState<string | null>(null);
+  // El arrastre —el hueco marcado, el rótulo y el desplazamiento de la página—
+  // es el mismo que el de las tarjetas del tablero, así que sale del contexto.
+  const { arrastrando, tomar } = useArrastreTarjetas();
 
-  /** Al soltar: la tarjeta que quede debajo del puntero marca el hueco. */
-  function soltar(
-    numero: string,
-    evento: MouseEvent | TouchEvent | PointerEvent,
-  ) {
-    setArrastrando(null);
+  /** Al soltar: la tarjeta vuelve al tablero, en el hueco que se haya marcado. */
+  function soltar(numero: string, sobre: Colocacion | null) {
     mostrar(numero);
-
-    const punto = "clientX" in evento ? evento : evento.changedTouches?.[0];
-    if (!punto) return;
-    const destino = document
-      .elementsFromPoint(punto.clientX, punto.clientY)
-      .map(
-        (el) =>
-          (el as HTMLElement).closest?.("[data-tarjeta]") as HTMLElement | null,
-      )
-      .find((el) => el && el.dataset.tarjeta !== numero);
-    if (destino?.dataset.tarjeta) reordenar(numero, destino.dataset.tarjeta);
+    if (sobre) reordenar(numero, sobre.numero, sobre.donde);
+    // Vuelve a un tablero que puede estar en otra pantalla: se la enseña.
+    traerALaVista(numero);
   }
 
   const fichas = ocultas
@@ -73,18 +64,17 @@ export default function TarjetasOcultas({
 
       {abierto && (
         <>
-          {/* Gris medio casi opaco. El numero sale de medir la referencia: alli
-              lo que era blanco queda en 166 de luminancia y el texto en ~130,
-              que es lo que da un gris #949494 al 85%. Con un velo mas claro el
-              fondo se ve lavado y con uno oscuro se ve apagado; este lo aplana,
-              que es el efecto buscado. */}
+          {/* El mismo velo que los modales de la plataforma: oscurece y desenfoca
+              en vez de aplanar con un gris opaco. Asi el panel de tarjetas se
+              lee como una capa por encima del tablero —que sigue ahi, borroso,
+              detras— y no como otra pantalla que lo sustituye. */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
             aria-hidden="true"
             onClick={() => setAbierto(false)}
-            className="fixed inset-0 z-30 bg-[#949494]/85"
+            className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm"
           />
 
           <motion.aside
@@ -92,6 +82,7 @@ export default function TarjetasOcultas({
             animate={{ opacity: 1, transform: "translateX(0px)" }}
             transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
             aria-label="Tarjetas quitadas"
+            data-panel-quitadas=""
             // `overflow-hidden` recorta el contenido contra las esquinas
           // redondeadas, pero tambien recortaria la tarjeta que se esta
           // arrastrando: mientras hay una en vuelo, el panel deja de recortar.
@@ -138,38 +129,29 @@ export default function TarjetasOcultas({
               </div>
             ) : (
               <ul
-                className={`flex-1 px-5 ${arrastrando ? "overflow-visible" : "overflow-y-auto"}`}
+                className="flex-1 overflow-y-auto px-5"
               >
                 {fichas.map((ficha) => (
-                  // Mientras el widget viaja, su sitio queda como un hueco
-                  // punteado: se ve de dónde salió y a dónde vuelve si se suelta
-                  // en falso.
+                  // Mientras se la mueve, la ficha se queda aquí marcada con su
+                  // contorno punteado —igual que las tarjetas del tablero— y lo
+                  // que viaja con el puntero es su rótulo. No se arrastra la
+                  // ficha misma: vive en un panel fijo, y al desplazarse la
+                  // página se iba por debajo de la ventana y se perdía de vista.
                   <li
                     key={ficha.numero}
                     className={`py-4 ${
                       arrastrando === ficha.numero
-                        ? "rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50"
+                        ? "rounded-xl border-2 border-dashed border-slate-300"
                         : "border-b border-dashed border-slate-200 last:border-b-0"
                     }`}
                   >
-                    <motion.div
-                      drag
-                      dragSnapToOrigin
-                      dragElastic={0.1}
-                      dragMomentum={false}
-                      onDragStart={() => setArrastrando(ficha.numero)}
-                      onDragEnd={(evento) => soltar(ficha.numero, evento)}
-                      whileDrag={{ scale: 1.03, zIndex: 50 }}
-                      transition={{
-                        type: "spring",
-                        duration: 0.45,
-                        bounce: 0.18,
-                      }}
-                      className={`cursor-mano flex touch-none select-none gap-3.5 rounded-xl ${
-                        arrastrando === ficha.numero
-                          ? "bg-white p-3 shadow-2xl shadow-slate-900/20"
-                          : ""
-                      }`}
+                    <div
+                      onPointerDown={(e) =>
+                        tomar({ numero: ficha.numero, titulo: ficha.titulo }, e, (sobre) =>
+                          soltar(ficha.numero, sobre),
+                        )
+                      }
+                      className="cursor-mano flex touch-none select-none gap-3.5 rounded-xl px-2"
                     >
                       {/* Marcador de la tarjeta. Todavía es genérico: no es una vista
                       previa de su gráfica. */}
@@ -192,6 +174,7 @@ export default function TarjetasOcultas({
 
                         <button
                           type="button"
+                          data-no-arrastra=""
                           onClick={() => mostrar(ficha.numero)}
                           className="mt-2.5 flex w-fit items-center gap-1 rounded-full bg-unah-navy px-3 py-1 text-[11px] font-semibold text-white transition-[background-color,transform] duration-150 ease-suave hover:bg-unah-navy-dark active:scale-[0.98]"
                         >
@@ -199,7 +182,7 @@ export default function TarjetasOcultas({
                           Colocar
                         </button>
                       </div>
-                    </motion.div>
+                    </div>
                   </li>
                 ))}
               </ul>

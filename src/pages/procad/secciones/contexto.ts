@@ -1,4 +1,12 @@
 import type { AgrupacionProcad, FiltrosProcad, ResumenCentro } from "../../../types";
+import { agrupacionesProcad } from "../../../data/mockProcadEstadisticas";
+import {
+  filtrarParaCentros,
+  filtrarPorAgrupacion,
+  filtrarPorTipoYCentro,
+  indiceDePeriodo,
+  resumenPorCentro,
+} from "../../../utils/procadMetricas";
 import type { SeccionReportePdf } from "../../../utils/exportarPdf";
 
 /**
@@ -25,3 +33,21 @@ export interface ContextoSeccion {
 
 /** Cada sección sabe armar su propio aporte al PDF, con las cifras que muestra. */
 export type ConstructorPdf = (ctx: ContextoSeccion) => SeccionReportePdf[];
+
+/**
+ * Arma el contexto a partir de los filtros. Vive aquí y no en la página porque
+ * el reporte personalizado —que es otra ruta— tiene que recortar los datos
+ * exactamente igual que el panel; si cada uno lo hiciera por su cuenta, el
+ * reporte podría enseñar otra rebanada.
+ */
+export function construirContexto(filtros: FiltrosProcad): ContextoSeccion {
+  const indicePeriodo = indiceDePeriodo(filtros.periodo);
+  return {
+    datos: filtrarPorAgrupacion(agrupacionesProcad, filtros),
+    datosAmplios: filtrarPorTipoYCentro(agrupacionesProcad, filtros),
+    centros: resumenPorCentro(filtrarParaCentros(agrupacionesProcad, filtros), indicePeriodo),
+    indicePeriodo,
+    filtros,
+    resaltada: filtros.agrupacion === "todas" ? null : filtros.agrupacion,
+  };
+}

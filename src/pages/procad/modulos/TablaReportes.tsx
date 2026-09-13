@@ -6,6 +6,7 @@ import TablaDatos, { type ColumnaTabla } from "../../../components/procad/TablaD
 import { CENTROS, PERIODOS, agrupacionesProcad } from "../../../data/mockProcadEstadisticas";
 import { escalarConteo, suma } from "../../../utils/procadMetricas";
 import { generarReportePdf } from "../../../utils/exportarPdf";
+import { SELLO_PROCAD } from "../reportePdf";
 
 type Corte = "agrupacion" | "campus" | "periodo";
 
@@ -82,6 +83,7 @@ export default function TablaReportes() {
       TITULOS[corte],
       [{ titulo: TITULOS[corte], columnas: columnas.map((c) => c.label), filas }],
       `procad-reporte-${corte}.pdf`,
+      SELLO_PROCAD,
     );
   }
 
