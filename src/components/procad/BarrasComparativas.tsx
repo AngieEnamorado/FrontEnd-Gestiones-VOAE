@@ -70,7 +70,7 @@ export default function BarrasComparativas({
         return (
           <li
             key={fila.nombre}
-            className={`group/fila -mx-2 rounded-lg px-2 py-1 transition-[opacity,filter,background-color] duration-200 ease-suave hover:bg-slate-50 ${
+            className={`group/fila -mx-2 rounded-lg px-2 py-1 transition-[opacity,filter,background-color] duration-200 ease-suave hover:bg-slate-100 ${
               atenuada ? "opacity-40 grayscale-[0.6]" : "opacity-100"
             }`}
           >

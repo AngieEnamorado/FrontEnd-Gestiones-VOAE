@@ -42,7 +42,7 @@ export default function Diplomas() {
                 const elegible = f.porcentaje >= UMBRAL;
                 const emitido = emitidos.has(f.key);
                 return (
-                  <tr key={f.key} className="hover:bg-slate-50">
+                  <tr key={f.key} className="transition-colors duration-150 hover:bg-slate-100">
                     <td className="px-5 py-3.5 font-semibold text-slate-800">{f.miembro.nombre}</td>
                     <td className="px-5 py-3.5 text-slate-600">{f.grupo.nombre}</td>
                     <td className="px-5 py-3.5 text-slate-600">{nombreCampus(f.grupo.campusId)}</td>

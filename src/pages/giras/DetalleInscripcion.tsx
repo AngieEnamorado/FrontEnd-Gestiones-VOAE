@@ -259,7 +259,7 @@ export default function DetalleInscripcion() {
             <tbody className="divide-y divide-slate-100">
               {inscripcion.documentos && inscripcion.documentos.length > 0 ? (
                 inscripcion.documentos.map((documento) => (
-                  <tr key={`${documento.tipo}-${documento.nombre}`}>
+                  <tr key={`${documento.tipo}-${documento.nombre}`} className="transition-colors duration-150 hover:bg-slate-100">
                     <td className="px-4 py-3 font-medium text-slate-700">{documento.tipo}</td>
                     <td className="px-4 py-3 text-slate-600">{documento.nombre}</td>
                     <td className="px-4 py-3">

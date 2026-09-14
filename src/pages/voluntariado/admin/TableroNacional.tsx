@@ -162,7 +162,7 @@ export default function TableroNacional() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filasCampus.map((fila) => (
-                <tr key={fila.campus.id}>
+                <tr key={fila.campus.id} className="transition-colors duration-150 hover:bg-slate-100">
                   <td className="px-5 py-3 font-medium text-slate-700">{fila.campus.nombre}</td>
                   <td className="px-5 py-3 text-slate-500">{fila.grupos}</td>
                   <td className="px-5 py-3 text-slate-500">{fila.horas}</td>

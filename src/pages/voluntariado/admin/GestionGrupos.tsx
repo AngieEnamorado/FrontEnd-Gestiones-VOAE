@@ -30,7 +30,7 @@ export default function GestionGrupos() {
                 const cuentaCoordinador = coordinadores[grupo.id] ?? grupo.coordinadorCuenta;
                 const coordinador = grupo.miembros.find((m) => m.numeroCuenta === cuentaCoordinador);
                 return (
-                  <tr key={grupo.id} className="hover:bg-slate-50">
+                  <tr key={grupo.id} className="transition-colors duration-150 hover:bg-slate-100">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
                         <LogoGrupo iniciales={grupo.logoIniciales} color={grupo.logoColor} tamano="sm" />

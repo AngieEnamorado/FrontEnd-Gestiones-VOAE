@@ -176,7 +176,7 @@ export default function Solicitudes() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filas.map((fila, idx) => (
-              <tr key={fila.id} className="hover:bg-slate-50">
+              <tr key={fila.id} className="transition-colors duration-150 hover:bg-slate-100">
                 <td className="px-4 py-4 text-slate-400">{idx + 1}</td>
                 <td className="px-4 py-4">
                   <p className="font-semibold text-slate-800">{fila.nombreEstudiante}</p>
@@ -245,13 +245,13 @@ export default function Solicitudes() {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors duration-150 hover:bg-slate-100"
           >
             <HiOutlineChevronLeft className="h-4 w-4" />
           </button>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors duration-150 hover:bg-slate-100"
           >
             <HiOutlineChevronLeft className="h-4 w-4" />
           </button>
@@ -263,13 +263,13 @@ export default function Solicitudes() {
           </button>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors duration-150 hover:bg-slate-100"
           >
             <HiOutlineChevronRight className="h-4 w-4" />
           </button>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors duration-150 hover:bg-slate-100"
           >
             <HiOutlineChevronRight className="h-4 w-4" />
           </button>

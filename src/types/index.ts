@@ -300,8 +300,39 @@ export interface SolicitudProcad {
   id: number;
   nombre: string;
   cuenta: string;
+  /** Número de identidad; en la ficha va junto al nombre, como en un carnet. */
+  identidad: string;
+  correo: string;
+  telefono: string;
+  sexo: "M" | "F";
+  carrera: string;
   grupo: string;
+  tipo: TipoAgrupacion;
   centro: string;
+  /** El período al que se postula, y el día en que lo hizo. */
+  periodo: string;
+  fechaSolicitud: string;
+  /**
+   * Índice global de la carrera, distinto del del período: uno dice cómo le fue
+   * este trimestre y el otro cómo le ha ido siempre.
+   */
+  indiceGlobal: number;
+  /** Matrícula confirmada contra Registro; sin ella la solicitud no procede. */
+  matriculaVerificada: boolean;
+  /** Quién responde por el estudiante si algo pasa en una práctica. */
+  contactoEmergencia: { nombre: string; telefono: string };
+  /**
+   * Puesto dentro del equipo. No todas lo tienen: un grupo artístico o un
+   * deporte individual —atletismo, ajedrez— no reparte posiciones.
+   */
+  posicion?: string;
+  /** Solo en agrupaciones artísticas, y varía entre integrantes del mismo grupo. */
+  instrumento?: string;
+  nivelExperiencia?: "Principiante" | "Intermedio" | "Avanzado";
+  /** Lo que declaró el estudiante; vacío o sin definir es «no declaró». */
+  alergia?: string;
+  /** Lo que contó de su trayectoria, con lo que haya adjuntado para probarlo. */
+  experiencia?: { texto: string; archivos: string[] };
   indice: number;
   estado: EstadoSolicitudProcad;
 }
@@ -559,4 +590,30 @@ export interface EstudianteVoluntariado {
   iniciales: string;
   gruposIds: string[];
   horasAcumuladas: number;
+}
+
+/**
+ * Una foto de la galería de agrupaciones. `span` es cuántas de las seis
+ * columnas del mosaico ocupa: el ritmo irregular es lo que hace que una
+ * cuadrícula de fotos se lea como un álbum y no como un catálogo.
+ */
+export interface FotoGaleria {
+  id: string;
+  /** Identificador de la imagen en el CDN de archivo. */
+  imagen: string;
+  /** Qué se ve, para quien no puede verla. */
+  alt: string;
+  span: 2 | 3 | 4 | 6;
+}
+
+/** Las fotos de una actividad, que es como se guardan y como se miran. */
+export interface AlbumGaleria {
+  id: string;
+  actividad: string;
+  grupo: string;
+  tipo: TipoAgrupacion;
+  centro: string;
+  /** ISO, para poder ordenar y formatear sin volver a interpretar el texto. */
+  fecha: string;
+  fotos: FotoGaleria[];
 }

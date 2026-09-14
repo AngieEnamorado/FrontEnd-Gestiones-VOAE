@@ -1,3 +1,4 @@
+import { useState } from "react";
 import CajaPendientes from "../../components/procad/CajaPendientes";
 import PestanasModulo, { type OpcionPestana } from "../../components/procad/PestanasModulo";
 
@@ -37,6 +38,19 @@ export default function LayoutModulo<T extends string>({
   mensajeSinPendientes,
   children,
 }: LayoutModuloProps<T>) {
+  /** +1 si la pestaña elegida está a la derecha de la anterior, -1 si a la izquierda. */
+  const [direccion, setDireccion] = useState(1);
+
+  // El cambio pasa por aquí y no directo al padre: es en el clic —con la vieja
+  // y la nueva a la vista— cuando se sabe de qué lado tiene que entrar el panel.
+  function cambiar(id: T) {
+    if (id === activa) return;
+    const desde = pestanas.findIndex((p) => p.id === activa);
+    const hasta = pestanas.findIndex((p) => p.id === id);
+    setDireccion(hasta > desde ? 1 : -1);
+    onCambiar(id);
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -56,7 +70,7 @@ export default function LayoutModulo<T extends string>({
         <PestanasModulo
           opciones={pestanas}
           activa={activa}
-          onCambiar={onCambiar}
+          onCambiar={cambiar}
           etiqueta={`Secciones de ${titulo}`}
           nombre={nombre}
         />
@@ -66,7 +80,15 @@ export default function LayoutModulo<T extends string>({
           aria-labelledby={`${nombre}-${activa}`}
           className="pt-5"
         >
-          {children}
+          {/* La `key` remonta el panel en cada cambio: es lo que hace que la
+              animación de entrada vuelva a correr. */}
+          <div
+            key={activa}
+            className="panel-modulo-entra"
+            style={{ "--direccion": direccion } as React.CSSProperties}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>

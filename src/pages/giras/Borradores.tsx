@@ -44,7 +44,7 @@ export default function Borradores() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {borradoresGiras.map((fila) => (
-                <tr key={fila.id} className="bg-white hover:bg-slate-50">
+                <tr key={fila.id} className="bg-white transition-colors duration-150 hover:bg-slate-100">
                   <td className="px-4 py-4">
                     <span className="inline-block rounded-md bg-pink-100 px-2 py-1 font-mono text-xs font-semibold text-rose-800">
                       {fila.id}

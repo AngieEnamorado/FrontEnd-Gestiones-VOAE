@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { CLASE_INDICADOR, useIndicadorPestanas } from "./indicadorPestanas";
 
 export interface OpcionPestana<T extends string> {
   id: T;
@@ -31,7 +31,7 @@ export default function PestanasModulo<T extends string>({
   etiqueta,
   nombre,
 }: PestanasModuloProps<T>) {
-  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const { contenedor, refs, estilo } = useIndicadorPestanas(activa, opciones.length);
 
   function mover(direccion: 1 | -1) {
     const actual = opciones.findIndex((o) => o.id === activa);
@@ -42,6 +42,7 @@ export default function PestanasModulo<T extends string>({
 
   return (
     <div
+      ref={contenedor}
       role="tablist"
       aria-label={etiqueta}
       onKeyDown={(e) => {
@@ -49,7 +50,7 @@ export default function PestanasModulo<T extends string>({
         e.preventDefault();
         mover(e.key === "ArrowRight" ? 1 : -1);
       }}
-      className="table-scrollbar flex gap-1 overflow-x-auto border-b border-slate-200"
+      className="table-scrollbar relative flex gap-1 overflow-x-auto border-b border-slate-200"
     >
       {opciones.map((o) => {
         const seleccionada = o.id === activa;
@@ -66,10 +67,8 @@ export default function PestanasModulo<T extends string>({
             aria-controls={`panel-${nombre}`}
             tabIndex={seleccionada ? 0 : -1}
             onClick={() => onCambiar(o.id)}
-            className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-[13px] font-semibold transition-colors duration-150 ${
-              seleccionada
-                ? "border-unah-orange text-unah-navy"
-                : "border-transparent text-slate-500 hover:text-unah-navy"
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-[13px] font-semibold transition-colors duration-150 ${
+              seleccionada ? "text-unah-navy" : "text-slate-500 hover:text-unah-navy"
             }`}
           >
             {o.prefijo && (
@@ -90,6 +89,8 @@ export default function PestanasModulo<T extends string>({
           </button>
         );
       })}
+
+      <span aria-hidden="true" className={CLASE_INDICADOR} style={estilo} />
     </div>
   );
 }

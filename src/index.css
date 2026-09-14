@@ -129,6 +129,25 @@ body {
   animation: panel-entra 160ms var(--ease-suave) backwards;
 }
 
+/* Al cambiar de pestaña dentro de un módulo, el panel entra desde el lado del
+   que viene el cambio —igual que los apartados del tablero de estadísticas—,
+   para que se lea como un desplazamiento entre pantallas vecinas y no como un
+   parpadeo. */
+@keyframes panel-modulo-entra {
+  from {
+    opacity: 0;
+    transform: translate3d(calc(var(--direccion, 1) * 22px), 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.panel-modulo-entra {
+  animation: panel-modulo-entra 300ms var(--ease-suave) backwards;
+}
+
 /* Las tarjetas de una sección entran desde el lado del que viene el cambio:
    desde la derecha si la sección elegida esta a la derecha. Solo dentro del
    panel de secciones; la fila de cifras conserva su entrada hacia arriba. */

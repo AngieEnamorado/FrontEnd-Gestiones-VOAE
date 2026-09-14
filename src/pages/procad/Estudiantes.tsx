@@ -4,7 +4,6 @@ import LayoutModulo from "./LayoutModulo";
 import Condicionados from "./modulos/Condicionados";
 import Expulsiones from "./modulos/Expulsiones";
 import MatriculaExcepcional from "./modulos/MatriculaExcepcional";
-import Movilidad from "./modulos/Movilidad";
 import Solicitudes from "./modulos/Solicitudes";
 import Verificacion from "./modulos/Verificacion";
 import { useProcad } from "../../context/ProcadContext";
@@ -14,8 +13,7 @@ type Pestana =
   | "condicionados"
   | "expulsiones"
   | "matricula"
-  | "verificacion"
-  | "movilidad";
+  | "verificacion";
 
 /**
  * Todo lo que el administrador resuelve sobre un estudiante: su ingreso, las
@@ -46,7 +44,7 @@ export default function EstudiantesProcad() {
     <>
       <LayoutModulo
         titulo="Estudiantes"
-        descripcion="Resuelva solicitudes de ingreso de cualquier campus, autorice excepciones de talento, decida sobre expulsiones y genere los documentos de movilidad."
+        descripcion="Resuelva solicitudes de ingreso de cualquier campus, autorice excepciones de talento, y decida sobre expulsiones."
         nombre="estudiantes"
         activa={activa}
         onCambiar={setActiva}
@@ -58,7 +56,6 @@ export default function EstudiantesProcad() {
           { id: "expulsiones", label: "Expulsiones", pendientes: pendientes.expulsiones },
           { id: "matricula", label: "Matrícula excepcional" },
           { id: "verificacion", label: "Verificación" },
-          { id: "movilidad", label: "Movilidad" },
         ]}
       >
         {activa === "solicitudes" && <Solicitudes abrirDialogo={setDialogo} />}
@@ -66,7 +63,6 @@ export default function EstudiantesProcad() {
         {activa === "expulsiones" && <Expulsiones abrirDialogo={setDialogo} />}
         {activa === "matricula" && <MatriculaExcepcional abrirDialogo={setDialogo} />}
         {activa === "verificacion" && <Verificacion />}
-        {activa === "movilidad" && <Movilidad />}
       </LayoutModulo>
 
       <DialogoConfirmacion dialogo={dialogo} onCerrar={() => setDialogo(null)} />

@@ -687,7 +687,7 @@ export default function NuevaSolicitud() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {costos.map((costo) => (
-                  <tr key={costo.id}>
+                  <tr key={costo.id} className="transition-colors duration-150 hover:bg-slate-100">
                     <td className="px-4 py-3">
                       <input
                         type="text"
@@ -779,7 +779,7 @@ export default function NuevaSolicitud() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {documentos.map((documento) => (
-                <tr key={documento.id}>
+                <tr key={documento.id} className="transition-colors duration-150 hover:bg-slate-100">
                   <td className="px-4 py-3">
                     <input
                       type="text"

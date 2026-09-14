@@ -387,7 +387,7 @@ export default function ResumenGira() {
                   <tbody className="divide-y divide-slate-100">
                     {gira.docentesAcompanantes && gira.docentesAcompanantes.length > 0 ? (
                       gira.docentesAcompanantes.map((acompanante) => (
-                        <tr key={acompanante.nombre}>
+                        <tr key={acompanante.nombre} className="transition-colors duration-150 hover:bg-slate-100">
                           <td className="px-4 py-3 font-medium text-slate-700">
                             {acompanante.nombre}
                           </td>
@@ -466,7 +466,7 @@ export default function ResumenGira() {
                   <tbody className="divide-y divide-slate-100">
                     {gira.desgloseCostos && gira.desgloseCostos.length > 0 ? (
                       gira.desgloseCostos.map((linea) => (
-                        <tr key={`${linea.concepto}-${linea.detalle}`}>
+                        <tr key={`${linea.concepto}-${linea.detalle}`} className="transition-colors duration-150 hover:bg-slate-100">
                           <td className="px-4 py-3 font-medium text-slate-700">{linea.concepto}</td>
                           <td className="px-4 py-3 text-slate-600">{linea.detalle}</td>
                           <td className="px-4 py-3 text-slate-600">L {formatearMonto(linea.monto)}</td>

@@ -25,7 +25,7 @@ export default function SolicitudesGruposLista() {
               {solicitudesGrupoVoluntariado.map((s) => {
                 const solicitante = s.miembros.find((m) => m.numeroCuenta === s.solicitanteCuenta);
                 return (
-                  <tr key={s.id} className="hover:bg-slate-50">
+                  <tr key={s.id} className="transition-colors duration-150 hover:bg-slate-100">
                     <td className="px-5 py-3.5 text-slate-600">{nombreCampus(s.campusId)}</td>
                     <td className="px-5 py-3.5 font-semibold text-slate-800">{s.nombre}</td>
                     <td className="px-5 py-3.5 text-slate-600">{solicitante?.nombre}</td>

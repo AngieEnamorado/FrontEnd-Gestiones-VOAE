@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
 import {
@@ -10,6 +10,7 @@ import {
 } from "react-icons/hi2";
 import TarjetasOcultas from "./TarjetasOcultas";
 import DialogoFormatoPdf from "../../components/procad/DialogoFormatoPdf";
+import { CLASE_INDICADOR, useIndicadorPestanas } from "../../components/procad/indicadorPestanas";
 import { ProveedorVisibilidad, useVisibilidadTarjetas } from "./visibilidadTarjetas";
 import { ProveedorArrastre } from "./arrastreTarjetas";
 import SeccionA from "./secciones/SeccionA";
@@ -136,11 +137,10 @@ function PanelEstadisticas({
   const armando = seleccionadas !== null;
   /** Con qué modo se estaba viendo el reporte del que se volvió, si se volvió. */
   const [modoPrevio] = useState(() => modoDesdeParametros(params));
-  const refsPestanas = useRef<Record<string, HTMLButtonElement | null>>({});
+  const { contenedor: tiraPestanas, refs: refsPestanas, estilo: estiloIndicador } =
+    useIndicadorPestanas(seccionActiva, SECCIONES.length);
   /** +1 si la sección elegida está a la derecha de la anterior, -1 si a la izquierda. */
   const [direccion, setDireccion] = useState(1);
-  /** Posición y ancho de la pestaña activa, para el subrayado que se desliza. */
-  const [indicador, setIndicador] = useState({ x: 0, y: 0, ancho: 0 });
   /** Abierto mientras se elige con qué forma descargar la página. */
   const [eligiendoFormato, setEligiendoFormato] = useState(false);
 
@@ -151,25 +151,6 @@ function PanelEstadisticas({
     setDireccion(hasta > desde ? 1 : -1);
     setSeccionActiva(id);
   }
-
-  // El subrayado se mide del botón real en vez de dibujarse dentro de él: uno
-  // solo que se desplaza se lee como un objeto que viaja, mientras que un borde
-  // por botón solo puede aparecer y desaparecer. `useLayoutEffect` para medir
-  // antes de pintar y que nunca arranque desde una posición equivocada.
-  useLayoutEffect(() => {
-    function medir() {
-      const boton = refsPestanas.current[seccionActiva];
-      if (boton)
-        setIndicador({
-          x: boton.offsetLeft,
-          y: boton.offsetTop + boton.offsetHeight - 2,
-          ancho: boton.offsetWidth,
-        });
-    }
-    medir();
-    window.addEventListener("resize", medir);
-    return () => window.removeEventListener("resize", medir);
-  }, [seccionActiva]);
 
   // Cambiar tipo o centro puede dejar seleccionada una agrupación que ya no
   // existe en el recorte. En ese caso el filtro de agrupación vuelve a "todas"
@@ -475,6 +456,7 @@ function PanelEstadisticas({
         </p>
 
         <div
+          ref={tiraPestanas}
           role="tablist"
           aria-label="Secciones de estadísticas"
           onKeyDown={(e) => {
@@ -508,16 +490,7 @@ function PanelEstadisticas({
             );
           })}
 
-          {/* Se mueve con transform y no con `left`/`width`: así el navegador no
-              rehace el diseño en cada fotograma. El ancho sale de escalar una
-              barra de 1px, con el origen a la izquierda. */}
-          <span
-            aria-hidden="true"
-            className="absolute left-0 top-0 h-0.5 w-px origin-left rounded-full bg-unah-orange transition-transform duration-[280ms] ease-mueve"
-            style={{
-              transform: `translate3d(${indicador.x}px, ${indicador.y}px, 0) scaleX(${indicador.ancho})`,
-            }}
-          />
+          <span aria-hidden="true" className={CLASE_INDICADOR} style={estiloIndicador} />
         </div>
 
         <div

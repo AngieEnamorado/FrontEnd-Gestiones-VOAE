@@ -4,6 +4,9 @@ import { HiOutlineCheckCircle, HiOutlineExclamationTriangle } from "react-icons/
  * Lo que este módulo tiene sin resolver, arriba del contenido. Cada módulo
  * muestra solo sus propios pendientes: el contador del sidebar ya avisa de los
  * demás, y repetir la lista completa en cada pantalla la vuelve invisible.
+ *
+ * El color dice el estado antes que el texto: ámbar cuando hay trabajo
+ * esperando, verde cuando no queda nada.
  */
 export default function CajaPendientes({
   pendientes,

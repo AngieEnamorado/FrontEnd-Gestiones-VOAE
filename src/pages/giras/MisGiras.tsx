@@ -66,7 +66,7 @@ export default function MisGiras() {
           <button
             type="button"
             onClick={() => descargarExcel(filas)}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition-colors hover:bg-slate-50"
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition-colors transition-colors duration-150 hover:bg-slate-100"
           >
             <HiOutlineArrowDownTray className="h-4 w-4" />
             Descargar Excel
@@ -102,7 +102,7 @@ export default function MisGiras() {
             type="button"
             title="Limpiar filtros"
             onClick={() => setBusqueda("")}
-            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50"
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors transition-colors duration-150 hover:bg-slate-100"
           >
             <HiOutlineArrowPath className="h-4 w-4" />
           </button>
@@ -124,7 +124,7 @@ export default function MisGiras() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filas.map((fila) => (
-                <tr key={fila.id} className="bg-white hover:bg-slate-50">
+                <tr key={fila.id} className="bg-white transition-colors duration-150 hover:bg-slate-100">
                   <td className="px-4 py-4">
                     <span className="inline-block rounded-md bg-pink-100 px-2 py-1 font-mono text-xs font-semibold text-rose-800">
                       {fila.id}

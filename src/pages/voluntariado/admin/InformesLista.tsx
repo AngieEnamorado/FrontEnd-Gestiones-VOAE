@@ -68,14 +68,14 @@ export default function InformesLista() {
           <button
             type="button"
             onClick={descargarExcel}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-emerald-600 hover:bg-slate-50"
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-emerald-600 transition-colors duration-150 hover:bg-slate-100"
           >
             <HiOutlineArrowDownTray className="h-4 w-4" /> Exportar Excel
           </button>
           <button
             type="button"
             onClick={descargarPdf}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-slate-50"
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-rose-600 transition-colors duration-150 hover:bg-slate-100"
           >
             <HiOutlineDocumentText className="h-4 w-4" /> Exportar PDF
           </button>
@@ -98,7 +98,7 @@ export default function InformesLista() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filas().map((f) => (
-                <tr key={f.informe.id} className="hover:bg-slate-50">
+                <tr key={f.informe.id} className="transition-colors duration-150 hover:bg-slate-100">
                   <td className="px-5 py-3.5 text-slate-600">{nombreCampus(f.grupo?.campusId ?? "")}</td>
                   <td className="px-5 py-3.5 font-semibold text-slate-800">{f.grupo?.nombre}</td>
                   <td className="px-5 py-3.5"><BadgeEstadoInforme estado={f.informe.estado} /></td>
