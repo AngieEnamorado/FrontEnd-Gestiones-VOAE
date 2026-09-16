@@ -7,7 +7,6 @@ import {
   HiOutlineViewColumns,
   HiOutlineXMark,
 } from "react-icons/hi2";
-import IconoPin from "./IconoPin";
 import type { VistaTabla } from "./vistaTabla";
 
 /**
@@ -48,7 +47,7 @@ export default function PersonalizarTabla({ vista }: { vista: VistaTabla }) {
         type="button"
         onClick={() => setAbierto(true)}
         aria-expanded={abierto}
-        title="Elegir qué columnas se ven, en qué orden y cuáles quedan fijas"
+        title="Elegir qué columnas se ven y en qué orden"
         className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-slate-500 shadow-sm transition-colors duration-150 hover:border-slate-300 hover:text-slate-700"
       >
         <HiOutlineViewColumns className="h-3.5 w-3.5" />
@@ -83,7 +82,7 @@ export default function PersonalizarTabla({ vista }: { vista: VistaTabla }) {
                 <h2 className="text-base font-bold text-slate-800">Personalizar vista</h2>
                 <p className="mt-0.5 text-xs leading-snug text-slate-500">
                   Elige qué columnas ves y en qué orden; se guarda en este navegador.
-                  Lo que congeles dura mientras estés en la pantalla.
+                  Para congelar una columna, usa su chincheta en el encabezado de la tabla.
                 </p>
               </div>
               <button
@@ -252,37 +251,18 @@ function ListaColumnas({
               <span className="h-7 w-7 shrink-0" aria-hidden="true" />
             )}
 
+            {/* Congelar no se ofrece aquí: es algo que se decide mirando la
+                tabla —hasta dónde deja de verse lo que importa al deslizar—,
+                así que vive en la chincheta del encabezado y en ningún otro
+                sitio. Este panel responde a una sola pregunta: qué columnas
+                ves y en qué orden. */}
             <span
               className={`min-w-0 flex-1 truncate text-sm font-semibold ${
                 columna.oculta ? "text-slate-400" : "text-slate-700"
               }`}
             >
               {columna.label}
-              {columna.fijada && (
-                <span className="ml-2 rounded-md bg-unah-navy/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-unah-navy">
-                  congelada
-                </span>
-              )}
             </span>
-
-            <button
-              type="button"
-              onClick={() => vista.fijar(columna.label)}
-              aria-pressed={columna.fijada}
-              title={
-                columna.fijada
-                  ? "Soltar: la tabla vuelve a deslizarse entera"
-                  : "Congelar desde la primera columna hasta esta"
-              }
-              aria-label={`Congelar hasta la columna ${columna.label}`}
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
-                columna.fijada
-                  ? "bg-unah-navy/10 text-unah-navy"
-                  : "text-slate-300 hover:bg-slate-100 hover:text-slate-600"
-              }`}
-            >
-              <IconoPin className="h-4 w-4" />
-            </button>
 
             <Interruptor
               encendido={!columna.oculta}

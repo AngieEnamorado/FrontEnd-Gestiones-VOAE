@@ -15,6 +15,7 @@ import EstadisticasProcad from "./pages/procad/Estadisticas";
 import ReportePersonalizado from "./pages/procad/ReportePersonalizado";
 import EstudiantesProcad from "./pages/procad/Estudiantes";
 import AgrupacionesProcad from "./pages/procad/Agrupaciones";
+import GaleriaProcad from "./pages/procad/Galeria";
 import ConfiguracionProcad from "./pages/procad/Configuracion";
 import ReportesProcad from "./pages/procad/Reportes";
 import ModoDeVista from "./pages/procad/ModoDeVista";
@@ -112,6 +113,14 @@ export default function App() {
             element={
               <SoloAdministrador>
                 <AgrupacionesProcad />
+              </SoloAdministrador>
+            }
+          />
+          <Route
+            path="galeria"
+            element={
+              <SoloAdministrador>
+                <GaleriaProcad />
               </SoloAdministrador>
             }
           />

@@ -2,11 +2,11 @@ import { useEffect } from "react";
 import { motion } from "motion/react";
 import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineXMark } from "react-icons/hi2";
 import { urlFoto } from "../../data/mockProcadGaleria";
-import type { AlbumGaleria } from "../../types";
+import type { AlbumVisible } from "../../types";
 
 /** Qué foto se está mirando: el álbum y en qué posición de él. */
 export interface FotoAbierta {
-  album: AlbumGaleria;
+  album: AlbumVisible;
   indice: number;
 }
 
@@ -115,7 +115,7 @@ export default function VisorFoto({
         <figcaption className="w-full max-w-2xl text-center">
           <p className="text-sm font-bold text-white">{album.actividad}</p>
           <p className="mt-0.5 text-[13px] text-white/60">
-            {album.grupo} · {album.centro}
+            {album.grupo ? `${album.grupo} · ${album.centro}` : album.centro}
           </p>
           <p className="mt-2 text-xs leading-relaxed text-white/45">{actual.alt}</p>
           <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white/35">

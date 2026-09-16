@@ -1,6 +1,6 @@
 import type { ColumnaTabla } from "./TablaDatos";
 import type { VistaTabla } from "./vistaTabla";
-import { descargarCsv } from "../../utils/exportarCsv";
+import { descargarExcel } from "../../utils/exportarExcel";
 
 /**
  * Una columna de una tabla de PROCAD, con las dos formas del mismo dato: cómo
@@ -49,19 +49,25 @@ export function filasDe<T, A>(
 }
 
 /**
- * Descarga lo que se está viendo: las filas ya filtradas y las columnas
- * visibles en el orden actual, sin las que solo son botones.
+ * Descarga lo que se está viendo —las filas ya filtradas y las columnas
+ * visibles en el orden actual, sin las que solo son botones— como libro de
+ * Excel.
+ *
+ * @param titulo Cómo se llama la pestaña dentro del libro; por defecto,
+ * «Datos».
  */
 export function descargarTabla<T, A>(
   nombre: string,
   campos: CampoTabla<T, A>[],
   vista: VistaTabla,
   registros: T[],
+  titulo?: string,
 ) {
   const elegidos = vista.indices.map((i) => campos[i]).filter((c) => c.exportable !== false);
-  descargarCsv(
-    `${nombre}-${new Date().toISOString().slice(0, 10)}.csv`,
+  descargarExcel(
+    nombre,
     elegidos.map((c) => c.label),
     registros.map((registro) => elegidos.map((c) => c.texto(registro))),
+    titulo,
   );
 }

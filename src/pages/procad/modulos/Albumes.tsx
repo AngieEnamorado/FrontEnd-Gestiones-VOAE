@@ -2,8 +2,9 @@ import { useCallback, useMemo, useState } from "react";
 import { BotonLimpiar, BuscadorTabla } from "../../../components/procad/BarraTabla";
 import ChipsFiltro from "../../../components/procad/ChipsFiltro";
 import VisorFoto, { type FotoAbierta } from "../../../components/procad/VisorFoto";
-import { albumesGaleria, urlFoto } from "../../../data/mockProcadGaleria";
-import type { AlbumGaleria, TipoAgrupacion } from "../../../types";
+import { unirAlbumes, urlFoto } from "../../../data/mockProcadGaleria";
+import { useProcad } from "../../../context/ProcadContext";
+import type { AlbumVisible, TipoAgrupacion } from "../../../types";
 
 type FiltroTipo = TipoAgrupacion | "todos";
 
@@ -60,7 +61,7 @@ function Album({
   album,
   onAbrir,
 }: {
-  album: AlbumGaleria;
+  album: AlbumVisible;
   onAbrir: (foto: FotoAbierta) => void;
 }) {
   const fecha = new Date(`${album.fecha}T12:00:00`);
@@ -84,7 +85,7 @@ function Album({
             </p>
             <h3 className="mt-1 text-lg font-bold text-white sm:text-xl">{album.actividad}</h3>
             <p className="mt-0.5 text-[13px] text-white/55">
-              {album.grupo} · {album.centro}
+              {album.grupo ? `${album.grupo} · ${album.centro}` : album.centro}
             </p>
           </div>
         </div>
@@ -130,16 +131,23 @@ function Album({
 }
 
 /**
- * La galería de las actividades de las agrupaciones.
+ * El muro de la galería: las fotos de cada actividad, para mirarlas.
  *
  * Va sobre fondo oscuro y no sobre la tarjeta blanca del resto del panel: una
  * fotografía se ve mejor contra el negro, y el corte también avisa de que aquí
- * no se decide nada —es la única pantalla de PROCAD donde solo se mira—.
- *
- * Las fotos son de archivo mientras no exista el flujo de carga; lo que ya está
- * acordado es cómo se ven y cómo se recorren.
+ * no se toca nada —subir y quitar es la otra pestaña—. Separarlas no es una
+ * concesión: los marcos inclinados y el mosaico desigual son justo lo que no
+ * aguanta una botonera encima de cada foto.
  */
-export default function Galeria() {
+export default function Albumes() {
+  const { albumes: guardados, actividades } = useProcad();
+  // Un álbum sin fotos no se cuelga: en el muro sería un encabezado con un
+  // hueco debajo. Existe —se ve y se llena en «Administrar fotos»—, pero aquí
+  // no hay nada que mirar todavía.
+  const albumesGaleria = useMemo(
+    () => unirAlbumes(guardados, actividades).filter((a) => a.fotos.length > 0),
+    [guardados, actividades],
+  );
   const [tipo, setTipo] = useState<FiltroTipo>("todos");
   const [texto, setTexto] = useState("");
   const [abierta, setAbierta] = useState<FotoAbierta | null>(null);
@@ -157,7 +165,7 @@ export default function Galeria() {
       }
       return true;
     });
-  }, [tipo, texto]);
+  }, [albumesGaleria, tipo, texto]);
 
   const fotos = albumes.reduce((total, a) => total + a.fotos.length, 0);
   const hayFiltros = tipo !== "todos" || texto.trim() !== "";
@@ -175,9 +183,9 @@ export default function Galeria() {
   return (
     <div className="flex flex-col gap-4">
       <p className="max-w-3xl text-xs leading-relaxed text-slate-500">
-        Las fotos de cada actividad, agrupadas por el evento en que se tomaron. Mientras no exista
-        la carga desde el portal, las imágenes son de archivo: sirven para acordar cómo se ve la
-        galería, no son fotos de las agrupaciones.
+        Las fotos agrupadas por el evento en que se tomaron. Casi todos los álbumes son de una
+        actividad —y su primera foto sale de portada en la tarjeta—; los demás son sueltos, de algo
+        que no pasó por Actividades. Para subir o quitar fotos, vaya a «Administrar fotos».
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -211,15 +219,15 @@ export default function Galeria() {
 
         <p className="ml-auto text-xs font-semibold text-slate-400">
           {albumes.length === albumesGaleria.length
-            ? `${albumesGaleria.length} actividades · ${fotos} fotos`
-            : `${albumes.length} de ${albumesGaleria.length} actividades`}
+            ? `${albumesGaleria.length} ${albumesGaleria.length === 1 ? "álbum" : "álbumes"} · ${fotos} fotos`
+            : `${albumes.length} de ${albumesGaleria.length} álbumes`}
         </p>
       </div>
 
       <div className="rounded-3xl bg-unah-navy-dark px-5 py-8 shadow-sm sm:px-8 sm:py-10">
         {albumes.length === 0 ? (
-          <p className="py-10 text-center text-sm italic text-white/45">
-            Ninguna actividad coincide con lo que buscó.
+          <p className="py-10 text-center text-sm italic text-white/60">
+            Ningún álbum coincide con lo que buscó.
           </p>
         ) : (
           albumes.map((album) => (

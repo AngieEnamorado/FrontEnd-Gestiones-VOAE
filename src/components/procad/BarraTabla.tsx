@@ -98,7 +98,7 @@ export default function BarraTabla({
         type="button"
         onClick={onDescargar}
         disabled={!hayFilas}
-        title="Descargar lo que estás viendo: estas filas y estas columnas. Es un CSV, se abre con doble clic en Excel."
+        title="Descargar lo que estás viendo: estas filas y estas columnas, en un libro de Excel."
         className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-slate-500 shadow-sm transition-colors duration-150 hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
       >
         <HiOutlineArrowDownTray className="h-3.5 w-3.5" />

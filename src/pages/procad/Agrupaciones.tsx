@@ -2,12 +2,11 @@ import { useState } from "react";
 import DialogoConfirmacion, { type Dialogo } from "../../components/procad/DialogoConfirmacion";
 import LayoutModulo from "./LayoutModulo";
 import Actividades from "./modulos/Actividades";
-import Galeria from "./modulos/Galeria";
 import ListaAgrupaciones from "./modulos/ListaAgrupaciones";
 import Visorias from "./modulos/Visorias";
 import { useProcad } from "../../context/ProcadContext";
 
-type Pestana = "agrupaciones" | "actividades" | "visorias" | "galeria";
+type Pestana = "agrupaciones" | "actividades" | "visorias";
 
 /**
  * La vida de las agrupaciones: quiénes son, qué hicieron y a quién van a
@@ -41,13 +40,11 @@ export default function AgrupacionesProcad() {
           { id: "agrupaciones", label: "Agrupaciones" },
           { id: "actividades", label: "Actividades", pendientes: pendientes.actividades },
           { id: "visorias", label: "Visorías", pendientes: pendientes.visorias },
-          { id: "galeria", label: "Galería" },
         ]}
       >
         {activa === "agrupaciones" && <ListaAgrupaciones />}
         {activa === "actividades" && <Actividades abrirDialogo={setDialogo} />}
         {activa === "visorias" && <Visorias abrirDialogo={setDialogo} />}
-        {activa === "galeria" && <Galeria />}
       </LayoutModulo>
 
       <DialogoConfirmacion dialogo={dialogo} onCerrar={() => setDialogo(null)} />

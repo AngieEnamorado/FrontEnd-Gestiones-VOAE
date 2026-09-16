@@ -116,11 +116,23 @@ export default function Expulsiones({ abrirDialogo }: { abrirDialogo: (d: Dialog
         : `¿Rechazar la expulsión de ${x.nombre}?`,
       descripcion: aprobar
         ? `Motivo: ${x.motivo}. Su solicitud pasará a Expulsado de inmediato.`
-        : `Motivo: ${x.motivo}. La solicitud de expulsión queda cerrada, sin aplicarse.`,
+        : `Motivo: ${x.motivo}. El estudiante se queda; explique por qué la solicitud no procede.`,
       confirmar: aprobar ? "Sí, aprobar" : "Sí, rechazar",
       tono: aprobar ? "rechazar" : "aprobar",
+      // Rechazar deja al encargado con una expulsión negada: sin el motivo
+      // escrito no tiene cómo saber si el caso se rehace o se cierra.
+      campos: aprobar
+        ? undefined
+        : [
+            {
+              id: "motivo",
+              label: "Motivo del rechazo",
+              multilinea: true,
+              marcador: "Ej. La falta no amerita expulsión; corresponde una amonestación.",
+            },
+          ],
       nota: "Esta decisión no admite apelación.",
-      onConfirmar: () => resolverExpulsion(x.id, aprobar),
+      onConfirmar: (valores) => resolverExpulsion(x.id, aprobar, valores.motivo),
     });
   }
 
@@ -139,7 +151,7 @@ export default function Expulsiones({ abrirDialogo }: { abrirDialogo: (d: Dialog
         }
         vista={vista}
         hayFilas={filtradas.length > 0}
-        onDescargar={() => descargarTabla("expulsiones-procad", CAMPOS, vista, filtradas)}
+        onDescargar={() => descargarTabla("expulsiones-procad", CAMPOS, vista, filtradas, "Expulsiones")}
       >
         <BuscadorTabla
           valor={texto}

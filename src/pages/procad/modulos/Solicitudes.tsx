@@ -306,7 +306,7 @@ export default function Solicitudes({ abrirDialogo }: { abrirDialogo: (d: Dialog
    * mismas columnas, en el mismo orden, sin las que solo son botones.
    */
   function descargar() {
-    descargarTabla("solicitudes-procad", CAMPOS, vista, filtradas);
+    descargarTabla("solicitudes-procad", CAMPOS, vista, filtradas, "Solicitudes");
   }
 
   function limpiar() {

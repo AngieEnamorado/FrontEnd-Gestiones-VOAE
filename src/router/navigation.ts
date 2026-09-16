@@ -11,6 +11,7 @@ import {
   HiOutlineMap,
   HiOutlineTrophy,
   HiOutlineHandRaised,
+  HiOutlinePhoto,
   HiOutlinePresentationChartLine,
   HiOutlineUserGroup,
   HiOutlineDocumentChartBar,
@@ -130,6 +131,13 @@ export const navigationItems: NavItem[] = [
         path: "/procad/agrupaciones",
         icon: HiOutlineUserGroup,
         contador: "procadAgrupaciones",
+        roles: ["administrador"],
+      },
+      {
+        id: "galeria",
+        label: "Galería",
+        path: "/procad/galeria",
+        icon: HiOutlinePhoto,
         roles: ["administrador"],
       },
       {

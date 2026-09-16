@@ -112,11 +112,23 @@ export default function Condicionados({ abrirDialogo }: { abrirDialogo: (d: Dial
         : `¿Rechazar la propuesta para ${c.nombre}?`,
       descripcion: autorizar
         ? `Propuesto por ${c.propone}. Al autorizar, su solicitud queda aprobada con la doble firma completa.`
-        : `Propuesto por ${c.propone}. La propuesta no procede y la solicitud sigue su curso normal.`,
+        : `Propuesto por ${c.propone}. Explique por qué no procede: es lo que le queda a él —y a quien audite— para entender la decisión.`,
       confirmar: autorizar ? "Sí, autorizar" : "Sí, rechazar",
       tono: autorizar ? "aprobar" : "rechazar",
+      // Rechazar pide motivo; autorizar no. Negarle a alguien una excepción de
+      // talento sin decir por qué deja al encargado sin nada que corregir.
+      campos: autorizar
+        ? undefined
+        : [
+            {
+              id: "motivo",
+              label: "Motivo del rechazo",
+              multilinea: true,
+              marcador: "Ej. La justificación no acredita el talento alegado.",
+            },
+          ],
       nota: "Usted queda registrado como la segunda firma de esta decisión.",
-      onConfirmar: () => resolverCondicionado(c.id, autorizar),
+      onConfirmar: (valores) => resolverCondicionado(c.id, autorizar, valores.motivo),
     });
   }
 
@@ -135,7 +147,7 @@ export default function Condicionados({ abrirDialogo }: { abrirDialogo: (d: Dial
         }
         vista={vista}
         hayFilas={filtrados.length > 0}
-        onDescargar={() => descargarTabla("condicionados-procad", CAMPOS, vista, filtrados)}
+        onDescargar={() => descargarTabla("condicionados-procad", CAMPOS, vista, filtrados, "Condicionados")}
       >
         <BuscadorTabla
           valor={texto}

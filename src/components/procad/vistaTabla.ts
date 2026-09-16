@@ -50,7 +50,6 @@ function guardar(clave: string, valor: Guardado) {
 export interface ColumnaVista {
   label: string;
   oculta: boolean;
-  fijada: boolean;
   /** Su sitio en la lista original; con él se recorta cada fila. */
   indice: number;
 }
@@ -82,7 +81,7 @@ export interface VistaTabla {
    * No mueve nada de sitio —el orden es el que se eligió— y por eso fija un
    * bloque desde el borde y no columnas sueltas: una columna del medio pegada a
    * la izquierda tendría que saltarse las que tiene delante. Pulsar la misma
-   * suelta el bloque, y si estaba oculta se enciende antes.
+   * suelta el bloque.
    */
   fijar: (label: string) => void;
   /** Vuelve a las columnas y al orden con los que la tabla viene escrita. */
@@ -189,30 +188,19 @@ export function useVistaTabla(clave: string | undefined, columnas: ColumnaTabla[
 
   // Si se apagan columnas, el bloque congelado no puede pasarse del final.
   const cuantasFijadas = Math.min(hastaDonde, mostradas.length);
-  const congeladas = useMemo(
-    () => new Set(mostradas.slice(0, cuantasFijadas).map((c) => c.label)),
-    [mostradas, cuantasFijadas],
-  );
 
-  const todas = useMemo<ColumnaVista[]>(
-    () => enOrden.map((c) => ({ ...c, fijada: congeladas.has(c.label) })),
-    [enOrden, congeladas],
-  );
+  const todas: ColumnaVista[] = enOrden;
 
   const fijar = useCallback(
     (label: string) => {
+      // Solo se llama desde el encabezado de la tabla, así que la columna
+      // siempre se está viendo; una que no se ve no tiene chincheta que pulsar.
       const visible = mostradas.findIndex((c) => c.label === label);
-      if (visible !== -1) {
-        // Pulsar la última del bloque lo suelta; cualquier otra mueve la línea.
-        setHastaDonde((previo) => (previo === visible + 1 ? 0 : visible + 1));
-        return;
-      }
-      // Estaba apagada: se enciende y el bloque llega hasta donde queda.
-      const encendidas = enOrden.filter((c) => !c.oculta || c.label === label);
-      setHastaDonde(encendidas.findIndex((c) => c.label === label) + 1);
-      aplicar({ orden, ocultas: ocultas.filter((l) => l !== label) });
+      if (visible === -1) return;
+      // Pulsar la última del bloque lo suelta; cualquier otra mueve la línea.
+      setHastaDonde((previo) => (previo === visible + 1 ? 0 : visible + 1));
     },
-    [mostradas, enOrden, aplicar, orden, ocultas],
+    [mostradas],
   );
 
   const deSalida = useMemo(

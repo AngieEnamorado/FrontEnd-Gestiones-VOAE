@@ -7,11 +7,41 @@
  * ojo cuando se recorre la columna de arriba abajo.
  */
 
-/** Las dos primeras iniciales; con un solo nombre, la que haya. */
+/**
+ * Los tratamientos que preceden al nombre del personal de la universidad.
+ *
+ * Se descartan antes de sacar las iniciales: «Prof. Marco Aurelio Reyes» es
+ * MR y no PM. Casi todo el personal de PROCAD viene con tratamiento delante, y
+ * sin esta lista media plantilla acababa con la misma inicial.
+ */
+const TRATAMIENTOS = new Set([
+  "prof",
+  "profa",
+  "lic",
+  "lica",
+  "licda",
+  "ing",
+  "inga",
+  "mtro",
+  "mtra",
+  "msc",
+  "dr",
+  "dra",
+  "arq",
+  "abg",
+  "sr",
+  "sra",
+  "srta",
+]);
+
+/** Las dos primeras iniciales del nombre; con un solo nombre, la que haya. */
 export function iniciales(nombre: string): string {
-  return nombre
+  const partes = nombre
     .split(" ")
     .filter(Boolean)
+    .filter((parte) => !TRATAMIENTOS.has(parte.replace(/\.$/, "").toLowerCase()));
+
+  return partes
     .slice(0, 2)
     .map((parte) => parte[0]?.toUpperCase() ?? "")
     .join("");

@@ -107,7 +107,7 @@ export default function MatriculaExcepcional({
         }
         vista={vista}
         hayFilas={filtradas.length > 0}
-        onDescargar={() => descargarTabla("matriculas-excepcionales", CAMPOS, vista, filtradas)}
+        onDescargar={() => descargarTabla("matriculas-excepcionales", CAMPOS, vista, filtradas, "Matrícula excepcional")}
         accion={
           <button
             type="button"

@@ -1,30 +1,70 @@
-import type { AlbumGaleria } from "../types";
+import { aIso } from "../utils/fechas";
+import type { ActividadProcad, AlbumGaleria, AlbumVisible } from "../types";
 
 /**
- * Las fotos de las actividades de las agrupaciones, agrupadas por el evento en
- * que se tomaron.
+ * Las fotos de las actividades de las agrupaciones. Un álbum por actividad:
+ * el álbum no guarda de qué evento es, solo a qué actividad pertenece, y de
+ * ella salen el título, el grupo y la fecha que se enseñan encima.
  *
- * Las imágenes son de archivo mientras no exista el flujo de carga real: nadie
- * ha subido todavía una foto a esta plataforma, así que lo que se ve aquí son
- * fotografías libres que sirven para ver la pantalla funcionando y para acordar
- * cómo debe verse la galería. En cuanto se defina quién sube y con qué
- * permisos, este archivo se cambia por la respuesta del servidor y la pantalla
- * no se entera.
+ * Las que vienen aquí son imágenes de archivo: sirven para ver la pantalla
+ * llena antes de que exista el servidor. Las que suba el administrador viven
+ * en `ProcadContext` junto a estas y se distinguen solas —traen una URL
+ * entera en vez de un identificador del CDN—.
  */
 
-/** Una foto servida desde el CDN de archivo, recortada al ancho que se pide. */
-export function urlFoto(id: string, ancho: number): string {
-  return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${ancho}&q=70`;
+/**
+ * De dónde se pide una foto, al ancho que se necesite.
+ *
+ * Una foto de archivo es un identificador y se le pide al CDN ya recortada.
+ * Una que subió el administrador ya es una URL completa —`blob:` mientras la
+ * sesión viva, `https:` cuando haya servidor— y se devuelve tal cual: no hay
+ * a quién pedirle otro tamaño, y anteponerle el CDN la rompería.
+ */
+export function urlFoto(imagen: string, ancho: number): string {
+  if (/^(blob:|data:|https?:)/.test(imagen)) return imagen;
+  return `https://images.unsplash.com/${imagen}?auto=format&fit=crop&w=${ancho}&q=70`;
+}
+
+/**
+ * Deja cada álbum con sus datos ya resueltos, que es como se mira.
+ *
+ * Los de una actividad los toman de ella al dibujar, no copiados: si el título
+ * o la fecha vivieran guardados en el álbum, bastaría con corregir la
+ * actividad para que la galería quedara diciendo otra cosa. Un álbum cuya
+ * actividad ya no existe se cae de la lista en vez de dibujarse sin nombre.
+ *
+ * Los sueltos ya traen los suyos: no hay actividad de la que sacarlos.
+ */
+export function unirAlbumes(
+  albumes: AlbumGaleria[],
+  actividades: ActividadProcad[],
+): AlbumVisible[] {
+  const porId = new Map(actividades.map((a) => [a.id, a]));
+  return albumes.flatMap((album): AlbumVisible[] => {
+    if (album.origen === "suelto") {
+      const { titulo, ...resto } = album;
+      return [{ ...resto, actividad: titulo }];
+    }
+    const actividad = porId.get(album.actividadId);
+    if (!actividad) return [];
+    return [
+      {
+        ...album,
+        actividad: actividad.titulo,
+        grupo: actividad.grupo,
+        tipo: actividad.tipo,
+        centro: actividad.centro,
+        fecha: aIso(actividad.fecha),
+      },
+    ];
+  });
 }
 
 export const albumesGaleria: AlbumGaleria[] = [
   {
     id: "alb-1",
-    actividad: "Torneo interuniversitario de fútbol",
-    grupo: "Selección Universitaria de Fútbol 11",
-    tipo: "deportivo",
-    centro: "Ciudad Universitaria (CU)",
-    fecha: "2026-02-14",
+    origen: "actividad",
+    actividadId: 701,
     fotos: [
       { id: "f1", imagen: "photo-1522778119026-d647f0596c20", alt: "El estadio durante el partido, visto desde la grada", span: 6 },
       { id: "f2", imagen: "photo-1517927033932-b3d18e61fb3a", alt: "El balón entrando en la portería", span: 3 },
@@ -36,11 +76,8 @@ export const albumesGaleria: AlbumGaleria[] = [
   },
   {
     id: "alb-2",
-    actividad: "Presentación en el Festival Cultural",
-    grupo: "Banda Marcial Alma Mater",
-    tipo: "artistico",
-    centro: "Ciudad Universitaria (CU)",
-    fecha: "2026-02-20",
+    origen: "actividad",
+    actividadId: 702,
     fotos: [
       { id: "f7", imagen: "photo-1711336622443-d53a1f1156bc", alt: "Banda marcial en formación", span: 4 },
       { id: "f8", imagen: "photo-1616382519098-57806dfc551a", alt: "Sección de metales tocando", span: 2 },
@@ -53,11 +90,8 @@ export const albumesGaleria: AlbumGaleria[] = [
   },
   {
     id: "alb-3",
-    actividad: "Muestra de danza folclórica",
-    grupo: "Grupo de Danza Folclórica UNAH",
-    tipo: "artistico",
-    centro: "Campus Cortés / Valle de Sula (CURC)",
-    fecha: "2026-03-05",
+    origen: "actividad",
+    actividadId: 703,
     fotos: [
       { id: "f14", imagen: "photo-1585873587499-4c2b179c6c51", alt: "Pareja de baile folclórico en escena", span: 3 },
       { id: "f15", imagen: "photo-1634566520253-c6b8f84a0f60", alt: "Telas en movimiento durante el baile", span: 3 },
@@ -69,11 +103,8 @@ export const albumesGaleria: AlbumGaleria[] = [
   },
   {
     id: "alb-4",
-    actividad: "Cuadrangular de baloncesto",
-    grupo: "Baloncesto",
-    tipo: "deportivo",
-    centro: "Ciudad Universitaria (CU)",
-    fecha: "2026-03-12",
+    origen: "actividad",
+    actividadId: 704,
     fotos: [
       { id: "f20", imagen: "photo-1546519638-68e109498ffc", alt: "El balón atravesando el aro", span: 4 },
       { id: "f21", imagen: "photo-1627627256672-027a4613d028", alt: "El balón, antes de saltar a la cancha", span: 2 },
@@ -86,11 +117,8 @@ export const albumesGaleria: AlbumGaleria[] = [
   },
   {
     id: "alb-5",
-    actividad: "Concierto de fin de período",
-    grupo: "Coro de Cámara UNAH Cortés",
-    tipo: "artistico",
-    centro: "Campus Cortés / Valle de Sula (CURC)",
-    fecha: "2026-03-21",
+    origen: "actividad",
+    actividadId: 705,
     fotos: [
       { id: "f27", imagen: "photo-1610254449353-5698372fa83b", alt: "El coro cantando en el auditorio", span: 6 },
       { id: "f28", imagen: "photo-1726095091581-77f2877cba95", alt: "El atril del director antes de empezar", span: 3 },
@@ -102,11 +130,8 @@ export const albumesGaleria: AlbumGaleria[] = [
   },
   {
     id: "alb-6",
-    actividad: "Eliminatoria de voleibol",
-    grupo: "Voleibol (Choluteca)",
-    tipo: "deportivo",
-    centro: "Campus Choluteca (CURLP)",
-    fecha: "2026-04-02",
+    origen: "actividad",
+    actividadId: 706,
     fotos: [
       { id: "f33", imagen: "photo-1612872087720-bb876e2e67d1", alt: "Remate sobre la red", span: 3 },
       { id: "f34", imagen: "photo-1547347298-4074fc3086f0", alt: "Equipo de voleibol celebrando el punto", span: 3 },
@@ -117,11 +142,8 @@ export const albumesGaleria: AlbumGaleria[] = [
   },
   {
     id: "alb-7",
-    actividad: "Festival de teatro estudiantil",
-    grupo: "Teatro Universitario",
-    tipo: "artistico",
-    centro: "Ciudad Universitaria (CU)",
-    fecha: "2026-04-18",
+    origen: "actividad",
+    actividadId: 707,
     fotos: [
       { id: "f38", imagen: "photo-1603647228752-7637a91fc9c7", alt: "Escena de la obra bajo las luces", span: 4 },
       { id: "f39", imagen: "photo-1576724196706-3f23f51ea351", alt: "Escena de la obra con el elenco completo", span: 2 },
@@ -133,11 +155,8 @@ export const albumesGaleria: AlbumGaleria[] = [
   },
   {
     id: "alb-8",
-    actividad: "Encuentro de atletismo",
-    grupo: "Atletismo",
-    tipo: "deportivo",
-    centro: "Ciudad Universitaria (CU)",
-    fecha: "2026-04-25",
+    origen: "actividad",
+    actividadId: 708,
     fotos: [
       { id: "f44", imagen: "photo-1461896836934-ffe607ba8211", alt: "Salida de la carrera en la pista", span: 6 },
       { id: "f45", imagen: "photo-1461897104016-0b3b00cc81ee", alt: "Salida de los velocistas desde los tacos", span: 3 },

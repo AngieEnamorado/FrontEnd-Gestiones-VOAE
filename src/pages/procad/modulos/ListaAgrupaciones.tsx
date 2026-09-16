@@ -234,7 +234,7 @@ export default function ListaAgrupaciones() {
         }
         vista={vista}
         hayFilas={filtradas.length > 0}
-        onDescargar={() => descargarTabla("agrupaciones-procad", CAMPOS, vista, filtradas)}
+        onDescargar={() => descargarTabla("agrupaciones-procad", CAMPOS, vista, filtradas, "Agrupaciones")}
       >
         <ChipsFiltro
           etiqueta="Filtrar por clasificación"

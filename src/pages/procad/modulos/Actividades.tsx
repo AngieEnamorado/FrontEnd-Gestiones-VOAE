@@ -1,218 +1,254 @@
 import { useMemo, useState } from "react";
-import { HiOutlineCheck, HiOutlineXMark } from "react-icons/hi2";
-import BarraTabla, {
-  BotonLimpiar,
-  BuscadorTabla,
-  CLASE_FILTRO,
-} from "../../../components/procad/BarraTabla";
-import BotonDecision, { SinAccion } from "../../../components/procad/BotonDecision";
-import {
-  columnasDe,
-  descargarTabla,
-  filasDe,
-  type CampoTabla,
-} from "../../../components/procad/camposTabla";
-import PildoraEstado from "../../../components/procad/PildoraEstado";
-import TablaDatos from "../../../components/procad/TablaDatos";
-import { useVistaTabla } from "../../../components/procad/vistaTabla";
+import { BotonLimpiar, BuscadorTabla, CLASE_FILTRO } from "../../../components/procad/BarraTabla";
+import ChipsFiltro from "../../../components/procad/ChipsFiltro";
+import DetalleActividad from "../../../components/procad/DetalleActividad";
+import TarjetaActividad from "../../../components/procad/TarjetaActividad";
+import { ORDEN_ESTADOS } from "../../../components/procad/actividad";
 import type { Dialogo } from "../../../components/procad/DialogoConfirmacion";
 import { useProcad } from "../../../context/ProcadContext";
-import type { ActividadProcad, EstadoActividadProcad } from "../../../types";
+import type {
+  ActividadProcad,
+  EstadoActividadProcad,
+  FotoGaleria,
+  TipoAgrupacion,
+} from "../../../types";
 
-const ETIQUETA: Record<EstadoActividadProcad, string> = {
-  PENDIENTE_VALIDACION: "Pendiente de validar",
-  VALIDADA: "Validada",
-  RECHAZADA: "Rechazada",
+type Apartado = EstadoActividadProcad | "todas";
+
+/** El nombre del apartado en plural, que es como se lee en un chip. */
+const ETIQUETA_APARTADO: Record<EstadoActividadProcad, string> = {
+  PENDIENTE_VALIDACION: "Pendientes",
+  VALIDADA: "Validadas",
+  OBSERVADA: "Observadas",
+  RECHAZADA: "Rechazadas",
 };
 
-const TONO = {
-  PENDIENTE_VALIDACION: "pendiente",
-  VALIDADA: "activo",
-  RECHAZADA: "negativo",
-} as const;
-
-const ORDEN_ESTADOS: EstadoActividadProcad[] = [
-  "PENDIENTE_VALIDACION",
-  "VALIDADA",
-  "RECHAZADA",
-];
-
-interface AccionesCelda {
-  resolver: (a: ActividadProcad, estado: EstadoActividadProcad) => void;
-}
-
-const CAMPOS: CampoTabla<ActividadProcad, AccionesCelda>[] = [
-  {
-    label: "Actividad",
-    texto: (a) => a.titulo,
-    celda: (a) => (
-      <span className="block max-w-[280px] whitespace-normal font-medium text-slate-700">
-        {a.titulo}
-      </span>
-    ),
-  },
-  {
-    label: "Agrupación",
-    texto: (a) => a.grupo,
-    celda: (a) => <span className="whitespace-nowrap">{a.grupo}</span>,
-  },
-  {
-    label: "Fecha",
-    texto: (a) => a.fecha,
-    celda: (a) => <span className="whitespace-nowrap">{a.fecha}</span>,
-  },
-  {
-    label: "Inscritos",
-    numerica: true,
-    texto: (a) => String(a.inscritos),
-    celda: (a) => a.inscritos,
-  },
-  {
-    label: "Estado",
-    texto: (a) => ETIQUETA[a.estado],
-    celda: (a) => <PildoraEstado tono={TONO[a.estado]}>{ETIQUETA[a.estado]}</PildoraEstado>,
-  },
-  // Una columna por decisión, como en Estudiantes: la mano baja en vertical
-  // por la columna de lo que está haciendo en vez de buscar el botón fila a
-  // fila entre dos que miden lo mismo.
-  {
-    label: "Validar",
-    centrada: true,
-    exportable: false,
-    texto: () => "",
-    celda: (a, acciones) =>
-      a.estado === "PENDIENTE_VALIDACION" ? (
-        <BotonDecision
-          tono="aprobar"
-          etiqueta={`Validar «${a.titulo}»`}
-          onClick={() => acciones.resolver(a, "VALIDADA")}
-        >
-          <HiOutlineCheck className="h-4 w-4" />
-        </BotonDecision>
-      ) : (
-        <SinAccion />
-      ),
-  },
-  {
-    label: "Rechazar",
-    centrada: true,
-    exportable: false,
-    texto: () => "",
-    celda: (a, acciones) =>
-      a.estado === "PENDIENTE_VALIDACION" ? (
-        <BotonDecision
-          tono="rechazar"
-          etiqueta={`Rechazar «${a.titulo}»`}
-          onClick={() => acciones.resolver(a, "RECHAZADA")}
-        >
-          <HiOutlineXMark className="h-4 w-4" />
-        </BotonDecision>
-      ) : (
-        <SinAccion />
-      ),
-  },
-];
-
-const COLUMNAS = columnasDe(CAMPOS);
+/** Lo que se lee cuando un apartado no tiene nada, dicho desde su propio caso. */
+const VACIO: Record<Apartado, string> = {
+  PENDIENTE_VALIDACION: "No hay actividades esperando su decisión.",
+  VALIDADA: "Todavía no ha validado ninguna actividad.",
+  OBSERVADA: "No hay actividades devueltas a su encargado.",
+  RECHAZADA: "No ha rechazado ninguna actividad.",
+  todas: "Ningún encargado ha reportado actividades.",
+};
 
 /**
- * Las actividades que reportan los encargados. Solo las validadas cuentan para
- * la elegibilidad del estudiante, así que validar aquí mueve las cifras de
- * todo el programa.
+ * Las actividades que reportan los encargados de las agrupaciones.
+ *
+ * Se ven como fichas y no como filas porque una actividad es un evento —tuvo
+ * lugar, tiene fotos y alguien la organizó— y esas tres cosas no caben en una
+ * fila sin volverla ilegible. La rejilla sirve para reconocerlas; resolverlas
+ * se hace en el detalle, donde está la justificación.
+ *
+ * Los apartados son el estado: el administrador entra a lo que está pendiente,
+ * y lo ya resuelto queda a un chip de distancia por si hay que consultarlo.
  */
 export default function Actividades({ abrirDialogo }: { abrirDialogo: (d: Dialogo) => void }) {
-  const { actividades, resolverActividad } = useProcad();
-  const [estado, setEstado] = useState<EstadoActividadProcad | "todos">("todos");
+  const { actividades, albumes, resolverActividad } = useProcad();
+  const [apartado, setApartado] = useState<Apartado>("PENDIENTE_VALIDACION");
+  const [tipo, setTipo] = useState<TipoAgrupacion | "todos">("todos");
   const [texto, setTexto] = useState("");
-  const vista = useVistaTabla("agrupaciones:actividades", COLUMNAS);
+  const [abierta, setAbierta] = useState<ActividadProcad | null>(null);
 
-  const filtradas = useMemo(() => {
+  /**
+   * Las fotos de cada actividad, para no recorrer los álbumes por tarjeta. Los
+   * álbumes sueltos no cuelgan de ninguna actividad y por eso no entran: no
+   * hay tarjeta a la que puedan ponerle portada.
+   */
+  const fotosPorActividad = useMemo(() => {
+    const mapa = new Map<number, FotoGaleria[]>();
+    for (const album of albumes) {
+      if (album.origen === "actividad") mapa.set(album.actividadId, album.fotos);
+    }
+    return mapa;
+  }, [albumes]);
+
+  /** El filtro de texto y clasificación, antes de repartir por apartado. */
+  const buscadas = useMemo(() => {
     const busqueda = texto.trim().toLowerCase();
     return actividades.filter((a) => {
-      if (estado !== "todos" && a.estado !== estado) return false;
-      if (
-        busqueda &&
-        !a.titulo.toLowerCase().includes(busqueda) &&
-        !a.grupo.toLowerCase().includes(busqueda)
-      ) {
-        return false;
-      }
-      return true;
+      if (tipo !== "todos" && a.tipo !== tipo) return false;
+      if (!busqueda) return true;
+      return (
+        a.titulo.toLowerCase().includes(busqueda) ||
+        a.grupo.toLowerCase().includes(busqueda) ||
+        a.encargado.nombre.toLowerCase().includes(busqueda)
+      );
     });
-  }, [actividades, estado, texto]);
+  }, [actividades, tipo, texto]);
 
-  const hayFiltros = estado !== "todos" || texto.trim() !== "";
+  // Los conteos salen de lo ya buscado y no del total: un chip que promete
+  // cuatro pendientes y al pulsarlo enseña una es peor que no llevar número.
+  const conteos = useMemo(() => {
+    const cuenta = {} as Record<EstadoActividadProcad, number>;
+    for (const estado of ORDEN_ESTADOS) cuenta[estado] = 0;
+    for (const a of buscadas) cuenta[a.estado] += 1;
+    return cuenta;
+  }, [buscadas]);
+
+  const mostradas = useMemo(
+    () => (apartado === "todas" ? buscadas : buscadas.filter((a) => a.estado === apartado)),
+    [buscadas, apartado],
+  );
+
+  const hayFiltros = tipo !== "todos" || texto.trim() !== "";
 
   function confirmar(a: ActividadProcad, nuevoEstado: EstadoActividadProcad) {
-    const valida = nuevoEstado === "VALIDADA";
+    // Cerrar el detalle se hace al confirmar y no al pulsar: mientras el
+    // diálogo pregunta, detrás sigue estando lo que se está decidiendo.
+    const resolver = (motivo?: string) => {
+      resolverActividad(a.id, nuevoEstado, motivo);
+      setAbierta(null);
+    };
+
+    if (nuevoEstado === "OBSERVADA") {
+      abrirDialogo({
+        titulo: `Observar «${a.titulo}»`,
+        descripcion: `${a.grupo}. Explique qué debe corregir ${a.encargado.nombre} para que pueda validarla.`,
+        confirmar: "Observar",
+        tono: "primario",
+        campos: [
+          {
+            id: "motivo",
+            label: "Motivo",
+            multilinea: true,
+            marcador: "Ej. Falta la lista de asistencia firmada.",
+          },
+        ],
+        onConfirmar: (valores) => resolver(valores.motivo),
+      });
+      return;
+    }
+
+    if (nuevoEstado === "RECHAZADA") {
+      abrirDialogo({
+        titulo: `¿Rechazar «${a.titulo}»?`,
+        descripcion: `${a.grupo}. Al rechazarla no cuenta para la elegibilidad de nadie, y sus ${a.horas} h no se abonan. Diga por qué.`,
+        confirmar: "Sí, rechazar",
+        tono: "rechazar",
+        campos: [
+          {
+            id: "motivo",
+            label: "Motivo del rechazo",
+            multilinea: true,
+            marcador: "Ej. No estaba en el plan del período.",
+          },
+        ],
+        onConfirmar: (valores) => resolver(valores.motivo),
+      });
+      return;
+    }
+
+    if (nuevoEstado === "PENDIENTE_VALIDACION") {
+      abrirDialogo({
+        titulo: `¿Reabrir «${a.titulo}»?`,
+        descripcion: `${a.grupo}. Vuelve a quedar pendiente de su decisión y se deshace lo que la resolución anterior hizo con las horas.`,
+        confirmar: "Sí, reabrir",
+        tono: "primario",
+        onConfirmar: () => resolver(),
+      });
+      return;
+    }
+
     abrirDialogo({
-      titulo: valida ? `¿Validar «${a.titulo}»?` : `¿Rechazar «${a.titulo}»?`,
-      descripcion: valida
-        ? `Agrupación: ${a.grupo}. Al validarla, la asistencia de esta actividad empieza a contar para la elegibilidad de sus integrantes.`
-        : `Agrupación: ${a.grupo}. Al rechazarla, no cuenta para la elegibilidad de nadie.`,
-      confirmar: "Sí, confirmar",
-      tono: valida ? "aprobar" : "rechazar",
-      onConfirmar: () => resolverActividad(a.id, nuevoEstado),
+      titulo: `¿Validar «${a.titulo}»?`,
+      descripcion: `${a.grupo}. Al validarla, sus ${a.horas} h se abonan a los ${a.asistentes} que asistieron y la actividad empieza a contar para la elegibilidad de todos ellos.`,
+      confirmar: "Sí, validar",
+      tono: "aprobar",
+      onConfirmar: () => resolver(),
     });
   }
 
   return (
     <div className="flex flex-col gap-4">
       <p className="max-w-3xl text-xs leading-relaxed text-slate-500">
-        Las reporta el encargado de cada agrupación. Hasta que usted no la valide, la asistencia de
-        una actividad no cuenta para la elegibilidad de nadie.
+        Las reportan los encargados de cada agrupación. Hasta que usted no la valide, la asistencia
+        de una actividad no cuenta para la elegibilidad de nadie. Toque una para ver quién la mandó,
+        por qué se hizo y con qué la respalda.
       </p>
 
-      <BarraTabla
-        conteo={
-          filtradas.length === actividades.length
-            ? `${actividades.length} ${actividades.length === 1 ? "actividad" : "actividades"}`
-            : `${filtradas.length} de ${actividades.length}`
-        }
-        vista={vista}
-        hayFilas={filtradas.length > 0}
-        onDescargar={() => descargarTabla("actividades-procad", CAMPOS, vista, filtradas)}
-      >
+      <ChipsFiltro
+        etiqueta="Apartado de las actividades"
+        activa={apartado}
+        onCambiar={setApartado}
+        opciones={[
+          ...ORDEN_ESTADOS.map((estado) => ({
+            id: estado as Apartado,
+            label: ETIQUETA_APARTADO[estado],
+            conteo: conteos[estado],
+          })),
+          { id: "todas" as Apartado, label: "Todas", conteo: buscadas.length },
+        ]}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
         <select
-          value={estado}
-          onChange={(e) => setEstado(e.target.value as EstadoActividadProcad | "todos")}
-          aria-label="Estado de la actividad"
-          className={`${CLASE_FILTRO} w-[190px]`}
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value as TipoAgrupacion | "todos")}
+          aria-label="Clasificación de la agrupación"
+          className={`${CLASE_FILTRO} w-[170px]`}
         >
-          <option value="todos">Todo estado</option>
-          {ORDEN_ESTADOS.map((k) => (
-            <option key={k} value={k}>
-              {ETIQUETA[k]}
-            </option>
-          ))}
+          <option value="todos">Toda clasificación</option>
+          <option value="deportivo">Deportivas</option>
+          <option value="artistico">Artísticas</option>
         </select>
 
         <BuscadorTabla
           valor={texto}
           onCambiar={setTexto}
-          marcador="Actividad o agrupación"
-          etiqueta="Buscar por actividad o agrupación"
-          ancho="w-[230px]"
+          marcador="Actividad, grupo o encargado"
+          etiqueta="Buscar por actividad, agrupación o encargado"
+          ancho="w-[250px]"
         />
 
         {hayFiltros && (
           <BotonLimpiar
             onClick={() => {
-              setEstado("todos");
+              setTipo("todos");
               setTexto("");
             }}
           />
         )}
-      </BarraTabla>
 
-      <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
-        <TablaDatos
-          vista={vista}
-          anchoMinimo="940px"
-          columnas={COLUMNAS}
-          filas={filasDe(CAMPOS, filtradas, { resolver: confirmar })}
-        />
+        <p className="ml-auto text-xs font-semibold text-slate-500">
+          {mostradas.length === actividades.length
+            ? `${actividades.length} actividades`
+            : `${mostradas.length} de ${actividades.length}`}
+        </p>
       </div>
+
+      {mostradas.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center text-sm italic text-slate-500">
+          {hayFiltros ? "Ninguna actividad coincide con lo que buscó." : VACIO[apartado]}
+        </p>
+      ) : (
+        <div
+          // La `key` remonta la rejilla al cambiar de apartado: es lo que hace
+          // que las tarjetas vuelvan a entrar escalonadas y que el cambio de
+          // sección se lea como tal, y no como un cambio de contenido a secas.
+          key={apartado}
+          className="entra-escalonado grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {mostradas.map((actividad) => (
+            <TarjetaActividad
+              key={actividad.id}
+              actividad={actividad}
+              fotos={fotosPorActividad.get(actividad.id) ?? []}
+              onAbrir={() => setAbierta(actividad)}
+            />
+          ))}
+        </div>
+      )}
+
+      <DetalleActividad
+        // Se busca de nuevo en la lista para que el detalle siga al estado: si
+        // se reabre desde dentro, lo que se ve detrás del diálogo ya es lo
+        // nuevo, no la copia con la que se abrió.
+        actividad={abierta ? (actividades.find((a) => a.id === abierta.id) ?? null) : null}
+        fotos={abierta ? (fotosPorActividad.get(abierta.id) ?? []) : []}
+        onCerrar={() => setAbierta(null)}
+        onResolver={confirmar}
+      />
     </div>
   );
 }

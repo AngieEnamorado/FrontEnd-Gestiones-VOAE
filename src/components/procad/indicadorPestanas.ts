@@ -18,6 +18,11 @@ import { useLayoutEffect, useRef, useState } from "react";
  * barra de desplazamiento, al cargar las tarjetas de arriba—, y ninguna de esas
  * cosas es un `resize` de ventana. El `ResizeObserver` mira el contenedor y
  * cada botón, que es donde de verdad pasa.
+ *
+ * Se mide la caja del *contenido* del botón, no el botón entero: la barra tiene
+ * que empezar donde empieza la palabra y acabar donde acaba, no catorce píxeles
+ * antes y catorce después. Con el relleno dentro parecía descolocada hacia la
+ * izquierda en las pestañas largas.
  */
 export function useIndicadorPestanas(activa: string, cantidad: number) {
   const contenedor = useRef<HTMLDivElement>(null);
@@ -28,9 +33,12 @@ export function useIndicadorPestanas(activa: string, cantidad: number) {
     function medir() {
       const boton = refs.current[activa];
       if (!boton) return;
-      const x = boton.offsetLeft;
+      const estilo = getComputedStyle(boton);
+      const izquierda = parseFloat(estilo.paddingLeft);
+      const derecha = parseFloat(estilo.paddingRight);
+      const x = boton.offsetLeft + izquierda;
       const y = boton.offsetTop + boton.offsetHeight - 2;
-      const ancho = boton.offsetWidth;
+      const ancho = boton.clientWidth - izquierda - derecha;
       // Solo se guarda lo que cambió: el observador dispara con cada reajuste
       // y un `setState` incondicional lo volvería un bucle.
       setIndicador((previo) =>
@@ -59,16 +67,26 @@ export function useIndicadorPestanas(activa: string, cantidad: number) {
 
   /** Lista para pegar en el `style` de la barra. */
   const estilo = {
-    transform: `translate3d(${indicador.x}px, ${indicador.y}px, 0) scaleX(${indicador.ancho})`,
+    width: `${indicador.ancho}px`,
+    transform: `translate3d(${indicador.x}px, ${indicador.y}px, 0)`,
   };
 
   return { contenedor, refs, estilo };
 }
 
 /**
- * Las clases de la barra. La anchura sale de escalar una de 1px con el origen a
- * la izquierda, y se mueve con `transform` y no con `left`/`width` para que el
- * navegador no rehaga el diseño en cada fotograma.
+ * Las clases de la barra.
+ *
+ * El ancho es el ancho de verdad y no una barra de 1px estirada con `scaleX`,
+ * que es lo que hacía antes. Estirar deforma también el redondeo: el radio se
+ * calcula sobre la caja sin escalar —medio píxel— y al multiplicarlo por
+ * ciento y pico se convierte en una elipse larguísima, así que la barra dejaba
+ * de ser una barra y pasaba a ser una lente que se afila decenas de píxeles
+ * antes de sus extremos. De ahí venía la sensación de que no cuadraba con la
+ * palabra: los bordes no estaban donde parecían estar.
+ *
+ * Animar el ancho cuesta un reflujo por fotograma, pero de un solo elemento
+ * colocado en absoluto, que no empuja a nadie.
  */
 export const CLASE_INDICADOR =
-  "pointer-events-none absolute left-0 top-0 h-0.5 w-px origin-left rounded-full bg-unah-orange transition-transform duration-[280ms] ease-mueve";
+  "pointer-events-none absolute left-0 top-0 h-0.5 rounded-full bg-unah-orange transition-[transform,width] duration-[280ms] ease-mueve";

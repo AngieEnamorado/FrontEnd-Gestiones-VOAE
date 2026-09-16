@@ -1,5 +1,14 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import AvisoFlotante from "../components/procad/AvisoFlotante";
+import { enCorto } from "../utils/fechas";
 import { useUsuarioActual } from "./UserContext";
 import {
   actividadesProcad,
@@ -13,13 +22,17 @@ import {
   usuariosProcad,
   visoriasProcad,
 } from "../data/mockProcadAdmin";
+import { albumesGaleria } from "../data/mockProcadGaleria";
 import type {
   ActividadProcad,
+  AlbumGaleria,
+  DatosAlbumSuelto,
   CondicionadoPendiente,
   EmpleadoProcad,
   EstadoActividadProcad,
   EstadoSolicitudProcad,
   ExpulsionPendiente,
+  FotoGaleria,
   MatriculaExcepcional,
   PeriodoInscripcion,
   RegistroAuditoria,
@@ -58,6 +71,8 @@ interface ValorProcad {
   matriculas: MatriculaExcepcional[];
   actividades: ActividadProcad[];
   visorias: VisoriaProcad[];
+  /** Un álbum por actividad; las actividades sin fotos no tienen álbum. */
+  albumes: AlbumGaleria[];
   empleados: EmpleadoProcad[];
   usuarios: UsuarioProcad[];
   periodos: PeriodoInscripcion[];
@@ -69,16 +84,40 @@ interface ValorProcad {
   descartarAviso: () => void;
 
   resolverSolicitud: (id: number, estado: EstadoSolicitudProcad, motivo?: string) => void;
-  resolverCondicionado: (id: number, autorizar: boolean) => void;
-  resolverExpulsion: (id: number, aprobar: boolean) => void;
+  /** El motivo solo se pide al rechazar; autorizar no necesita explicación. */
+  resolverCondicionado: (id: number, autorizar: boolean, motivo?: string) => void;
+  resolverExpulsion: (id: number, aprobar: boolean, motivo?: string) => void;
   otorgarMatricula: (datos: { nombre: string; cuenta: string; motivo: string }) => void;
-  resolverActividad: (id: number, estado: EstadoActividadProcad) => void;
+  resolverActividad: (id: number, estado: EstadoActividadProcad, motivo?: string) => void;
   programarVisoria: (id: number) => void;
+
+  /**
+   * Añade fotos a una actividad —creando su álbum si aún no lo tenía— o a un
+   * álbum que ya existe, suelto o no.
+   */
+  agregarFotos: (destino: DestinoFotos, fotos: Omit<FotoGaleria, "id">[]) => void;
+  /** Abre un álbum que no cuelga de ninguna actividad; devuelve su id. */
+  crearAlbumSuelto: (datos: DatosAlbumSuelto) => string;
+  editarAlbumSuelto: (albumId: string, datos: DatosAlbumSuelto) => void;
+  eliminarAlbum: (albumId: string) => void;
+  quitarFoto: (albumId: string, fotoId: string) => void;
+  /** La pone primera, que es lo que la vuelve portada del álbum. */
+  ponerDePortada: (albumId: string, fotoId: string) => void;
+  describirFoto: (albumId: string, fotoId: string, alt: string) => void;
+  /** Cuántas columnas ocupa en el mosaico. */
+  redimensionarFoto: (albumId: string, fotoId: string, span: FotoGaleria["span"]) => void;
+
   alternarAcceso: (nombre: string) => void;
   activarPeriodo: (label: string) => void;
   cerrarPeriodo: (label: string) => void;
   alternarUsuario: (correo: string) => void;
 }
+
+/**
+ * A dónde van unas fotos que se suben: a una actividad (que puede no tener
+ * álbum todavía) o a un álbum que ya existe.
+ */
+export type DestinoFotos = { actividadId: number } | { albumId: string };
 
 const ProcadContext = createContext<ValorProcad | null>(null);
 
@@ -107,6 +146,7 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
   ]);
   const [actividades, setActividades] = useState<ActividadProcad[]>(() => [...actividadesProcad]);
   const [visorias, setVisorias] = useState<VisoriaProcad[]>(() => [...visoriasProcad]);
+  const [albumes, setAlbumes] = useState<AlbumGaleria[]>(() => albumesGaleria.map((a) => ({ ...a })));
   const [empleados, setEmpleados] = useState<EmpleadoProcad[]>(() => [...empleadosProcad]);
   const [usuarios, setUsuarios] = useState<UsuarioProcad[]>(() => [...usuariosProcad]);
   const [periodos, setPeriodos] = useState<PeriodoInscripcion[]>(() => [...periodosInscripcion]);
@@ -148,7 +188,7 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
   );
 
   const resolverCondicionado = useCallback(
-    (id: number, autorizar: boolean) => {
+    (id: number, autorizar: boolean, motivo?: string) => {
       const caso = condicionados.find((c) => c.id === id);
       if (!caso) return;
       setCondicionados((previos) => previos.filter((c) => c.id !== id));
@@ -162,21 +202,25 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       registrar(
         autorizar ? `Condicionado autorizado: ${caso.nombre}.` : `Propuesta rechazada: ${caso.nombre}.`,
         autorizar ? "Autorizó condicionado" : "Rechazó condicionado",
-        `${caso.nombre} — ${caso.grupo}`,
+        // El motivo del rechazo va al registro: es lo que le queda al encargado
+        // —y a quien audite— para saber por qué no procedió.
+        `${caso.nombre} — ${caso.grupo}${motivo ? ` · ${motivo}` : ""}`,
       );
     },
     [condicionados, registrar],
   );
 
   const resolverExpulsion = useCallback(
-    (id: number, aprobar: boolean) => {
+    (id: number, aprobar: boolean, motivo?: string) => {
       const caso = expulsiones.find((x) => x.id === id);
       if (!caso) return;
       setExpulsiones((previas) => previas.filter((x) => x.id !== id));
       registrar(
         aprobar ? `Expulsión aprobada: ${caso.nombre}.` : `Expulsión rechazada: ${caso.nombre}.`,
         "Resolvió expulsión",
-        `${aprobar ? "Aprobada" : "Rechazada"} — ${caso.nombre}, ${caso.grupo}`,
+        `${aprobar ? "Aprobada" : "Rechazada"} — ${caso.nombre}, ${caso.grupo}${
+          motivo ? ` · ${motivo}` : ""
+        }`,
       );
     },
     [expulsiones, registrar],
@@ -198,17 +242,35 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
   );
 
   const resolverActividad = useCallback(
-    (id: number, estado: EstadoActividadProcad) => {
+    (id: number, estado: EstadoActividadProcad, motivo?: string) => {
       const actividad = actividades.find((a) => a.id === id);
       if (!actividad) return;
-      setActividades((previas) => previas.map((a) => (a.id === id ? { ...a, estado } : a)));
+      // La resolución se guarda en la actividad, no solo en Auditoría: quien
+      // abra el detalle dentro de un mes tiene que ver quién decidió y qué
+      // contestó sin salir a buscarlo en otra pantalla.
+      const resolucion = { por: usuario.nombreCompleto, fecha: marcaDeTiempo(), motivo };
+      setActividades((previas) =>
+        previas.map((a) => (a.id === id ? { ...a, estado, resolucion } : a)),
+      );
+      const participio = {
+        PENDIENTE_VALIDACION: "devuelta a revisión",
+        VALIDADA: "validada",
+        OBSERVADA: "observada",
+        RECHAZADA: "rechazada",
+      }[estado];
+      const accion = {
+        PENDIENTE_VALIDACION: "Reabrió actividad",
+        VALIDADA: "Validó actividad",
+        OBSERVADA: "Observó actividad",
+        RECHAZADA: "Rechazó actividad",
+      }[estado];
       registrar(
-        `Actividad «${actividad.titulo}» ${estado === "VALIDADA" ? "validada" : "rechazada"}.`,
-        estado === "VALIDADA" ? "Validó actividad" : "Rechazó actividad",
-        `${actividad.titulo} — ${actividad.grupo}`,
+        `Actividad «${actividad.titulo}» ${participio}.`,
+        accion,
+        `${actividad.titulo} — ${actividad.grupo}${motivo ? ` · ${motivo}` : ""}`,
       );
     },
-    [actividades, registrar],
+    [actividades, registrar, usuario.nombreCompleto],
   );
 
   const programarVisoria = useCallback(
@@ -221,10 +283,177 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       registrar(
         `Visoría de ${visoria.grupo} programada.`,
         "Programó visoría",
-        `${visoria.grupo} — ${visoria.fecha}, ${visoria.hora}`,
+        `${visoria.grupo} — ${enCorto(visoria.fecha)}, ${visoria.hora}`,
       );
     },
     [visorias, registrar],
+  );
+
+  // ── Galería ───────────────────────────────────────────────────────────────
+  //
+  // Las fotos viven en el estado y no en el archivo de datos porque aquí sí se
+  // escribe: el administrador sube y quita, y la portada de la tarjeta de la
+  // actividad cambia en ese mismo momento. Mientras no exista el servidor, lo
+  // que sube es un `blob:` de esta sesión y se pierde al recargar; la pantalla
+  // lo dice, para que nadie lo descubra por las malas.
+
+  /**
+   * Aplica un cambio a las fotos de un álbum.
+   *
+   * Si el álbum de una actividad se queda sin fotos, desaparece: la actividad
+   * sigue estando en la lista y vuelve a mostrarse «sin fotos», así que el
+   * álbum vacío no representaría nada. Un álbum suelto, en cambio, se queda
+   * aunque se vacíe —es la única prueba de que existe— y solo se va cuando lo
+   * borran a mano.
+   */
+  const cambiarFotos = useCallback(
+    (albumId: string, cambio: (fotos: FotoGaleria[]) => FotoGaleria[]) => {
+      setAlbumes((previos) =>
+        previos
+          .map((a) => (a.id === albumId ? { ...a, fotos: cambio(a.fotos) } : a))
+          .filter((a) => a.origen === "suelto" || a.fotos.length > 0),
+      );
+    },
+    [],
+  );
+
+  /** Cómo se llama un álbum en el registro, venga de donde venga. */
+  const nombreDeAlbum = useCallback(
+    (albumId: string) => {
+      const album = albumes.find((a) => a.id === albumId);
+      if (!album) return "Álbum";
+      if (album.origen === "suelto") return album.titulo;
+      return actividades.find((a) => a.id === album.actividadId)?.titulo ?? "Álbum";
+    },
+    [albumes, actividades],
+  );
+
+  /** Ids que no se repiten aunque se suban dos tandas en el mismo milisegundo. */
+  const contador = useRef(0);
+  const nuevoId = useCallback((prefijo: string) => {
+    contador.current += 1;
+    return `${prefijo}-${Date.now()}-${contador.current}`;
+  }, []);
+
+  const crearAlbumSuelto = useCallback(
+    (datos: DatosAlbumSuelto) => {
+      const id = nuevoId("alb");
+      setAlbumes((previos) => [...previos, { id, origen: "suelto", ...datos, fotos: [] }]);
+      registrar(
+        `Álbum «${datos.titulo}» creado.`,
+        "Creó un álbum suelto",
+        `${datos.titulo} — ${datos.centro}`,
+      );
+      return id;
+    },
+    [nuevoId, registrar],
+  );
+
+  const editarAlbumSuelto = useCallback(
+    (albumId: string, datos: DatosAlbumSuelto) => {
+      setAlbumes((previos) =>
+        previos.map((a) => (a.id === albumId && a.origen === "suelto" ? { ...a, ...datos } : a)),
+      );
+      registrar(`Álbum «${datos.titulo}» actualizado.`, "Editó un álbum suelto", datos.titulo);
+    },
+    [registrar],
+  );
+
+  const eliminarAlbum = useCallback(
+    (albumId: string) => {
+      const nombre = nombreDeAlbum(albumId);
+      setAlbumes((previos) => previos.filter((a) => a.id !== albumId));
+      registrar(`Álbum «${nombre}» eliminado.`, "Eliminó un álbum suelto", nombre);
+    },
+    [nombreDeAlbum, registrar],
+  );
+
+  const agregarFotos = useCallback(
+    (destino: DestinoFotos, nuevas: Omit<FotoGaleria, "id">[]) => {
+      if (nuevas.length === 0) return;
+      const fotos = nuevas.map((foto) => ({ ...foto, id: nuevoId("f") }));
+      let nombre = "";
+
+      setAlbumes((previos) => {
+        // A un álbum que ya existe —suelto o de actividad— se le añaden y ya.
+        const existente =
+          "albumId" in destino
+            ? previos.find((a) => a.id === destino.albumId)
+            : previos.find(
+                (a) => a.origen === "actividad" && a.actividadId === destino.actividadId,
+              );
+
+        if (existente) {
+          return previos.map((a) => (a.id === existente.id ? { ...a, fotos: [...a.fotos, ...fotos] } : a));
+        }
+        // Solo aquí nace un álbum solo: la actividad recibe su primera foto.
+        if ("actividadId" in destino) {
+          return [
+            ...previos,
+            {
+              id: `alb-${destino.actividadId}`,
+              origen: "actividad" as const,
+              actividadId: destino.actividadId,
+              fotos,
+            },
+          ];
+        }
+        return previos;
+      });
+
+      if ("actividadId" in destino) {
+        nombre = actividades.find((a) => a.id === destino.actividadId)?.titulo ?? "la actividad";
+      } else {
+        nombre = nombreDeAlbum(destino.albumId);
+      }
+
+      registrar(
+        nuevas.length === 1
+          ? "Foto agregada a la galería."
+          : `${nuevas.length} fotos agregadas a la galería.`,
+        "Subió fotos a la galería",
+        `${nombre} — ${nuevas.length} ${nuevas.length === 1 ? "foto" : "fotos"}`,
+      );
+    },
+    [actividades, nombreDeAlbum, nuevoId, registrar],
+  );
+
+  const quitarFoto = useCallback(
+    (albumId: string, fotoId: string) => {
+      const nombre = nombreDeAlbum(albumId);
+      cambiarFotos(albumId, (fotos) => fotos.filter((f) => f.id !== fotoId));
+      registrar("Foto quitada de la galería.", "Quitó una foto de la galería", nombre);
+    },
+    [cambiarFotos, nombreDeAlbum, registrar],
+  );
+
+  const ponerDePortada = useCallback(
+    (albumId: string, fotoId: string) => {
+      cambiarFotos(albumId, (fotos) => {
+        const elegida = fotos.find((f) => f.id === fotoId);
+        if (!elegida) return fotos;
+        return [elegida, ...fotos.filter((f) => f.id !== fotoId)];
+      });
+      registrar("Portada cambiada.", "Cambió la portada de un álbum", nombreDeAlbum(albumId));
+    },
+    [cambiarFotos, nombreDeAlbum, registrar],
+  );
+
+  // Describir y redimensionar no avisan ni se anotan: se hacen mirando la foto,
+  // muchas veces seguidas, y un aviso flotante por cada letra escrita sería
+  // ruido. Lo que cambian tampoco decide nada sobre nadie.
+  const describirFoto = useCallback(
+    (albumId: string, fotoId: string, alt: string) => {
+      cambiarFotos(albumId, (fotos) => fotos.map((f) => (f.id === fotoId ? { ...f, alt } : f)));
+    },
+    [cambiarFotos],
+  );
+
+  const redimensionarFoto = useCallback(
+    (albumId: string, fotoId: string, span: FotoGaleria["span"]) => {
+      cambiarFotos(albumId, (fotos) => fotos.map((f) => (f.id === fotoId ? { ...f, span } : f)));
+    },
+    [cambiarFotos],
   );
 
   const alternarAcceso = useCallback(
@@ -322,6 +551,7 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       matriculas,
       actividades,
       visorias,
+      albumes,
       empleados,
       usuarios,
       periodos,
@@ -335,6 +565,14 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       otorgarMatricula,
       resolverActividad,
       programarVisoria,
+      agregarFotos,
+      crearAlbumSuelto,
+      editarAlbumSuelto,
+      eliminarAlbum,
+      quitarFoto,
+      ponerDePortada,
+      describirFoto,
+      redimensionarFoto,
       alternarAcceso,
       activarPeriodo,
       cerrarPeriodo,
@@ -347,6 +585,7 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       matriculas,
       actividades,
       visorias,
+      albumes,
       empleados,
       usuarios,
       periodos,
@@ -360,6 +599,14 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       otorgarMatricula,
       resolverActividad,
       programarVisoria,
+      agregarFotos,
+      crearAlbumSuelto,
+      editarAlbumSuelto,
+      eliminarAlbum,
+      quitarFoto,
+      ponerDePortada,
+      describirFoto,
+      redimensionarFoto,
       alternarAcceso,
       activarPeriodo,
       cerrarPeriodo,

@@ -368,23 +368,69 @@ export interface MatriculaExcepcional {
   periodo: string;
 }
 
-export type EstadoActividadProcad = "PENDIENTE_VALIDACION" | "VALIDADA" | "RECHAZADA";
+export type EstadoActividadProcad =
+  | "PENDIENTE_VALIDACION"
+  | "VALIDADA"
+  /** Devuelta al encargado con lo que debe corregir antes de reenviarla. */
+  | "OBSERVADA"
+  | "RECHAZADA";
 
+/** Quién cerró una actividad, cuándo y qué le contestó al encargado. */
+export interface ResolucionActividad {
+  por: string;
+  fecha: string;
+  /** Lo que se le escribió; al validar puede no haber nada que decir. */
+  motivo?: string;
+}
+
+/**
+ * Una actividad reportada por el encargado de una agrupación.
+ *
+ * Lleva mucho más de lo que cabe en su tarjeta a propósito: la tarjeta sirve
+ * para reconocerla de un vistazo, y el detalle para decidirla. Decidir sin la
+ * justificación ni el respaldo es firmar a ciegas.
+ */
 export interface ActividadProcad {
   id: number;
   titulo: string;
   grupo: string;
+  tipo: TipoAgrupacion;
+  centro: string;
+  /** Quien la reporta. Nunca es el administrador: él solo resuelve. */
+  encargado: { nombre: string; rol: string; correo: string };
+  /** Cuándo ocurrió, ya escrito como se enseña. */
   fecha: string;
+  hora: string;
+  lugar: string;
   inscritos: number;
+  /** Cuántos de los inscritos se presentaron: lo que de verdad cuenta. */
+  asistentes: number;
+  /** Horas que se le abonan a cada asistente si la actividad queda validada. */
+  horas: number;
+  /** Por qué se hizo y qué deja. Es el texto que se lee antes de decidir. */
+  justificacion: string;
+  adjuntos: string[];
+  /** Cuándo la envió el encargado. */
+  enviada: string;
   estado: EstadoActividadProcad;
+  resolucion?: ResolucionActividad;
 }
 
 export type EstadoVisoria = "BORRADOR" | "PROGRAMADA";
 
+/**
+ * Una prueba de ingreso: la agrupación cita aspirantes y los ve competir o
+ * actuar. En borrador solo existe para el administrador; al programarla, los
+ * citados quedan notificados.
+ */
 export interface VisoriaProcad {
   id: number;
   grupo: string;
   centro: string;
+  /**
+   * ISO («2026-02-17»), no el texto ya escrito: el calendario tiene que contar
+   * días para saber en qué casilla cae, y eso no se hace sobre «17 feb 2026».
+   */
   fecha: string;
   hora: string;
   citados: number;
@@ -599,16 +645,65 @@ export interface EstudianteVoluntariado {
  */
 export interface FotoGaleria {
   id: string;
-  /** Identificador de la imagen en el CDN de archivo. */
+  /**
+   * De dónde sale la imagen: el identificador en el CDN de archivo, o una URL
+   * entera —`blob:`, `data:`, `https:`— cuando la subió el administrador.
+   * `urlFoto` distingue las dos formas.
+   */
   imagen: string;
   /** Qué se ve, para quien no puede verla. */
   alt: string;
   span: 2 | 3 | 4 | 6;
 }
 
-/** Las fotos de una actividad, que es como se guardan y como se miran. */
-export interface AlbumGaleria {
+/**
+ * Las fotos de un evento, de una de dos procedencias.
+ *
+ * Casi siempre el evento es una actividad reportada por un encargado, y
+ * entonces el álbum no guarda ni título ni fecha: son de la actividad, y
+ * copiarlos aquí era abrir la puerta a que un día dijeran cosas distintas.
+ * Una actividad tiene como mucho un álbum, y su primera foto es la portada de
+ * su tarjeta.
+ *
+ * Pero no todo lo que la universidad fotografía pasó por Actividades —una
+ * premiación, una visita, el aniversario del programa—, así que un álbum
+ * también puede existir por su cuenta. Ese sí lleva sus propios datos, porque
+ * no hay de dónde sacarlos.
+ */
+export type AlbumGaleria = AlbumDeActividad | AlbumSuelto;
+
+export interface AlbumDeActividad {
   id: string;
+  origen: "actividad";
+  actividadId: number;
+  fotos: FotoGaleria[];
+}
+
+export interface AlbumSuelto {
+  id: string;
+  origen: "suelto";
+  titulo: string;
+  /** La agrupación, si el evento es de una; vacío si es del programa entero. */
+  grupo: string;
+  tipo: TipoAgrupacion;
+  centro: string;
+  /** ISO. */
+  fecha: string;
+  fotos: FotoGaleria[];
+}
+
+/** Lo que hace falta para abrir un álbum suelto; lo que el formulario pide. */
+export type DatosAlbumSuelto = Omit<AlbumSuelto, "id" | "origen" | "fotos">;
+
+/**
+ * Un álbum con sus datos ya resueltos —vengan de su actividad o de él mismo—,
+ * que es como se mira. Se arma con `unirAlbumes` y nunca se guarda así.
+ */
+export interface AlbumVisible {
+  id: string;
+  origen: "actividad" | "suelto";
+  /** Solo si sale de una actividad; es lo que permite volver a ella. */
+  actividadId?: number;
   actividad: string;
   grupo: string;
   tipo: TipoAgrupacion;
