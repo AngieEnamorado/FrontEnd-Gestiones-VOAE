@@ -173,6 +173,12 @@ export interface Inscripcion {
   observaciones?: string;
 }
 
+// Un borrador de inscripción a gira: mismos campos que Inscripcion, más el id
+// de la gira elegida, pero todos opcionales salvo el id — igual que
+// BorradorGira, porque se puede guardar antes de elegir la gira o de terminar
+// los datos del estudiante.
+export type BorradorInscripcion = { id: string; giraId?: string } & Partial<Omit<Inscripcion, "id">>;
+
 export interface EstadisticaSolicitudes {
   key: string;
   label: string;

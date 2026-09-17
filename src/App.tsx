@@ -10,6 +10,9 @@ import MisGiras from "./pages/giras/MisGiras";
 import ResumenGira from "./pages/giras/ResumenGira";
 import InscripcionesGira from "./pages/giras/InscripcionesGira";
 import DetalleInscripcion from "./pages/giras/DetalleInscripcion";
+import Inscripciones from "./pages/giras/Inscripciones";
+import NuevaInscripcion from "./pages/giras/NuevaInscripcion";
+import BorradoresInscripcion from "./pages/giras/BorradoresInscripcion";
 import Estadisticas from "./pages/giras/Estadisticas";
 import EstadisticasProcad from "./pages/procad/Estadisticas";
 import ReportePersonalizado from "./pages/procad/ReportePersonalizado";
@@ -92,6 +95,13 @@ export default function App() {
           <Route path="solicitudes/borradores" element={<BorradoresGira />} />
           <Route path="solicitudes/borradores/:borradorId/editar" element={<NuevaSolicitudGira />} />
           <Route path="solicitudes/:id" element={<DetalleSolicitudGira />} />
+          <Route path="inscripciones" element={<Inscripciones />} />
+          <Route path="inscripciones/nueva" element={<NuevaInscripcion />} />
+          <Route path="inscripciones/borradores" element={<BorradoresInscripcion />} />
+          <Route
+            path="inscripciones/borradores/:borradorId/editar"
+            element={<NuevaInscripcion />}
+          />
           <Route path="estadisticas" element={<Estadisticas />} />
         </Route>
         <Route path="/procad">

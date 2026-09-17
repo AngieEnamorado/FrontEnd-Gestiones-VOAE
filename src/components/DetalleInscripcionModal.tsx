@@ -6,12 +6,17 @@ import EstadoBadge from "./EstadoBadge";
 interface DetalleInscripcionModalProps {
   inscripcion: Inscripcion | null;
   giraId: string;
+  /** Destino de la gira asociada. Se muestra solo cuando se provee — útil en
+   * listados que combinan inscripciones de varias giras, donde no es obvio a
+   * cuál pertenece cada una. */
+  destino?: string;
   onClose: () => void;
 }
 
 export default function DetalleInscripcionModal({
   inscripcion,
   giraId,
+  destino,
   onClose,
 }: DetalleInscripcionModalProps) {
   const navigate = useNavigate();
@@ -58,6 +63,12 @@ export default function DetalleInscripcionModal({
               {inscripcion.nombreEstudiante}
             </span>
           </div>
+          {destino && (
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-sm text-slate-400">Gira / Destino</span>
+              <span className="text-right text-sm text-slate-600">{destino}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between py-2.5">
             <span className="text-sm text-slate-400">Estado</span>
             <EstadoBadge estado={inscripcion.estado} />

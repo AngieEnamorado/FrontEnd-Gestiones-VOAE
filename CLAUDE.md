@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-React + TypeScript + Vite frontend for "Becas VOAE" (UNAH), a management system covering three
+React + TypeScript + Vite frontend for "Becas VOAE" (UNAH), a management system covering four
 built subsystems reachable from the sidebar: Estudiantes (student scholarships), Giras (field
-trips) and PROCAD (sports/arts programme), plus several still-unbuilt sections (Voluntariado,
-Pagos, Mantenimientos, Seguridad).
+trips), PROCAD (sports/arts programme) and Voluntariado (volunteering), plus several still-unbuilt
+sections (Pagos, Mantenimientos, Seguridad).
 
 ## Commands
 
@@ -32,13 +32,14 @@ There is no test runner configured in this repo.
 When adding a new sidebar item, add it in both places, and either build a real page or wire it to
 `PaginaEnConstruccion`.
 
-**Data layer is mocked in `src/data/`** (`mockSolicitudes.ts`, `mockGirasSolicitudes.ts`,
-`mockMisGiras.ts`, `mockInscripciones.ts`, `mockProcadEstadisticas.ts`, `mockProcadAdmin.ts`,
-`currentUser.ts`). There is no backend/API integration
-yet — pages import mock arrays directly and filter/derive state client-side with
-`useMemo`/`useState`. `currentUser.ts`'s `obtenerUsuarioDeSesion()` simulates a session/auth call;
-when a real backend exists this is the function to replace with a real fetch, not the components
-that consume it.
+**Data layer is mocked in `src/data/`** (one `mock*.ts` file per domain, plus `currentUser.ts`).
+There is no backend/API integration yet — pages import mock arrays directly and filter/derive state
+client-side with `useMemo`/`useState`. `currentUser.ts`'s `obtenerUsuarioDeSesion()` simulates a
+session/auth call; when a real backend exists this is the function to replace with a real fetch,
+not the components that consume it. Derivations that several Voluntariado screens need in common
+(who coordinates which group, hours accumulated, attendance %, gender breakdown) are centralized as
+plain functions in `src/data/voluntariadoSelectors.ts` rather than recomputed per-page — follow that
+pattern for new cross-screen derivations instead of duplicating filter logic in components.
 
 **Giras data is split across two mock files by relationship to the current user:**
 `mockMisGiras.ts` (`misGiras`) holds giras where the user is docente/jefe de misión, while
@@ -46,6 +47,9 @@ that consume it.
 look up a gira by id (`ResumenGira.tsx`, `InscripcionesGira.tsx`) don't know which list it came
 from, so they search `[...misGiras, ...solicitudesGiras]` combined. `mockInscripciones.ts` is
 shaped differently — a `Record<string, Inscripcion[]>` keyed by gira id — rather than a flat array.
+Unsent requests are a third, separate list (`mockBorradoresGiras.ts` / `BorradorGira`, fields
+mostly optional since a draft can be saved half-filled) surfaced at `/giras/solicitudes/borradores`
+and edited by reusing `NuevaSolicitud.tsx` with a `:borradorId` param.
 
 **Current user access:** components never hardcode user info — they call `useUsuarioActual()` from
 `src/context/UserContext.tsx`, which wraps `obtenerUsuarioDeSesion()`. `UserProvider` wraps the app
@@ -64,18 +68,35 @@ and `src/router/SoloAdministrador.tsx` guards the routes so a direct URL can't b
 `src/pages/procad/ModoDeVista.tsx` switches the role — it is demo tooling for the no-backend stage
 and gets deleted, along with `cambiarRolProcad`, once the session supplies the real role.
 
-Its four admin modules (`Estudiantes`, `Agrupaciones`, `Configuracion`, `Reportes`) all render
-through `src/pages/procad/LayoutModulo.tsx` and keep their sub-screens in `pages/procad/modulos/`.
-The statistics dashboard is shared by both roles; its per-section derivations live in
-`pages/procad/secciones/datos.ts` and the PDF report is built from those same functions in
-`secciones/pdf.ts`, so the export can never disagree with the screen.
+Its five admin modules (`Estudiantes`, `Agrupaciones`, `Galeria`, `Configuracion`, `Reportes`) all
+render through `src/pages/procad/LayoutModulo.tsx` and keep their sub-screens in
+`pages/procad/modulos/`. `Galeria` is the photo archive (albums are either tied to an `Actividad`
+or standalone) and lives in `ProcadContext` alongside the case-management state even though it
+isn't a "pendiente" workflow. The statistics dashboard is shared by both roles; its per-section
+derivations live in `pages/procad/secciones/datos.ts` and the PDF report is built from those same
+functions in `secciones/pdf.ts`, so the export can never disagree with the screen.
+
+**Voluntariado spans two separate audiences under one sidebar entry, and only one of them lives in
+the sidebar's route tree.** VOAE staff screens (`pages/voluntariado/admin/`: `TableroNacional`,
+`Estadisticas`, group/activity approval, informes, `Diplomas`, `Catalogos`) render inside
+`MainLayout` like every other subsystem and are the routes listed in `navigationItems`. Students —
+a different audience entirely — get a separate mobile-width "Portal Estudiante"
+(`pages/voluntariado/estudiante/`) mounted at `/voluntariado/portal-estudiante` *outside*
+`MainLayout`, through `layouts/MobileShell.tsx` (fixed-width column, bottom `TabBarMovil` instead of
+Sidebar/Topbar) — it's reached by a link from the admin Tablero, not the sidebar, so it deliberately
+has no `navigationItems` entries of its own. Its "current user" is a separate mock
+(`data/mockEstudianteVoluntariado.ts`'s `estudianteActual`), not `useUsuarioActual()`, and pages
+inside it switch between a regular-member view and a coordinator view (`PanelCoordinador` and its
+sub-pages) based on that mock rather than PROCAD-style role guarding.
 
 **Types live centrally in `src/types/index.ts`** (`Solicitud`, `SolicitudGira`, `EstadoSolicitud`,
 `UsuarioActual`, etc.) and are shared across pages/components/mock data rather than redefined
 per-file.
 
 **Layout shell:** `MainLayout.tsx` renders `Sidebar` + `Topbar` around an `<Outlet />`, and owns the
-sidebar collapsed/expanded state. Route pages only render their own content area, not chrome.
+sidebar collapsed/expanded state. Route pages only render their own content area, not chrome. The
+Portal Estudiante (see Voluntariado above) is the one route tree that opts out of `MainLayout` and
+uses `MobileShell.tsx` instead.
 
 **Confirmation dialogs (PROCAD):** actions that change state open
 `components/procad/DialogoConfirmacion.tsx`, which follows the modal convention below — it takes a
@@ -95,6 +116,12 @@ closes it. Follow this shape rather than adding local `isOpen` booleans. Some li
 have a full dedicated route (e.g. `/giras/mis-giras/:id/resumen`) for a deeper view than the modal
 offers — those routes aren't in `navigationItems` since they're reached by clicking a row, not the
 sidebar.
+
+**Report export is centralized in `src/utils/`**: `exportarPdf.ts` builds the institutional PDF
+layout (navy/orange header, `jspdf-autotable` tables, paginated footer) shared by Giras, PROCAD and
+Voluntariado reports, `exportarGraficasPdf.ts` handles exporting a single chart/section, and
+`exportarExcel.ts` covers the Excel counterpart — new report/export features should extend these
+rather than building PDF/Excel generation per-page.
 
 ## Conventions
 

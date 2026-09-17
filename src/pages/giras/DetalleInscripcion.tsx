@@ -1,11 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { HiOutlineArrowLeft, HiOutlineArrowTopRightOnSquare } from "react-icons/hi2";
-import SelectorEstado from "../../components/SelectorEstado";
 import { misGiras } from "../../data/mockMisGiras";
 import { solicitudesGiras } from "../../data/mockGirasSolicitudes";
 import { inscripcionesPorGira } from "../../data/mockInscripciones";
-import type { EstadoSolicitud, FichaSalud } from "../../types";
+import type { FichaSalud } from "../../types";
 
 const todasLasGiras = [...misGiras, ...solicitudesGiras];
 
@@ -105,10 +104,6 @@ export default function DetalleInscripcion() {
     [id, inscripcionId],
   );
 
-  const [estadoActual, setEstadoActual] = useState<EstadoSolicitud | null>(
-    inscripcion?.estado ?? null,
-  );
-
   const totalCostos = useMemo(
     () => (gira?.desgloseCostos ?? []).reduce((acc, linea) => acc + linea.monto, 0),
     [gira],
@@ -117,10 +112,13 @@ export default function DetalleInscripcion() {
     gira && gira.estudiantesAproximados ? totalCostos / gira.estudiantesAproximados : null;
 
   function regresarAInscripciones() {
-    navigate(`/giras/mis-giras/${id}/inscripciones`);
+    // navigate(-1) en vez de una ruta fija: esta página se abre tanto desde el
+    // roster de una gira puntual como desde el listado global de Inscripciones,
+    // y debe regresar a la que corresponda según de dónde vino el usuario.
+    navigate(-1);
   }
 
-  if (!gira || !inscripcion || !estadoActual) {
+  if (!gira || !inscripcion) {
     return (
       <div className="flex flex-col gap-6">
         <button
@@ -141,18 +139,14 @@ export default function DetalleInscripcion() {
   return (
     <div className="flex flex-col gap-6">
       {/* Encabezado */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <button
-          type="button"
-          onClick={regresarAInscripciones}
-          className="flex items-center gap-2 rounded-lg bg-[#003366] px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90"
-        >
-          <HiOutlineArrowLeft className="h-4 w-4" />
-          Regresar
-        </button>
-
-        <SelectorEstado estado={estadoActual} onCambiar={setEstadoActual} />
-      </div>
+      <button
+        type="button"
+        onClick={regresarAInscripciones}
+        className="flex w-fit items-center gap-2 rounded-lg bg-[#003366] px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90"
+      >
+        <HiOutlineArrowLeft className="h-4 w-4" />
+        Regresar
+      </button>
 
       <div>
         <p className="text-xs font-bold tracking-wider text-[#D97706]">ESTUDIANTES</p>

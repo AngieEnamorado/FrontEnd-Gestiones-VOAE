@@ -16,6 +16,7 @@ import {
   HiOutlineUserGroup,
   HiOutlineDocumentChartBar,
   HiOutlineArrowsRightLeft,
+  HiOutlineClipboardDocumentCheck,
 } from "react-icons/hi2";
 import type { IconType } from "react-icons";
 import type { RolProcad } from "../types";
@@ -96,6 +97,12 @@ export const navigationItems: NavItem[] = [
         label: "Solicitudes",
         path: "/giras/solicitudes",
         icon: HiOutlineClipboardDocumentList,
+      },
+      {
+        id: "inscripciones",
+        label: "Inscripciones",
+        path: "/giras/inscripciones",
+        icon: HiOutlineClipboardDocumentCheck,
       },
       {
         id: "estadisticas",
