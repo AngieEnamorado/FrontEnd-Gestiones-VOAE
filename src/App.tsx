@@ -22,7 +22,10 @@ import GaleriaProcad from "./pages/procad/Galeria";
 import ConfiguracionProcad from "./pages/procad/Configuracion";
 import ReportesProcad from "./pages/procad/Reportes";
 import ModoDeVista from "./pages/procad/ModoDeVista";
+import ModoDeVistaGiras from "./pages/giras/ModoDeVista";
+import ConfiguracionGiras from "./pages/giras/Configuracion";
 import SoloAdministrador from "./router/SoloAdministrador";
+import AccesoGiras from "./router/AccesoGiras";
 import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 import TableroNacional from "./pages/voluntariado/admin/TableroNacional";
@@ -81,8 +84,11 @@ export default function App() {
           />
         </Route>
 
-        <Route path="/giras">
-          <Route index element={<Navigate to="mis-giras" replace />} />
+        {/* AccesoGiras hace de guardia y de índice: `/giras` a secas no es una
+            página, así que lo manda a la primera que le toca al rol activo. */}
+        <Route path="/giras" element={<AccesoGiras />}>
+          <Route path="modo" element={<ModoDeVistaGiras />} />
+          <Route path="configuracion" element={<ConfiguracionGiras />} />
           <Route path="mis-giras" element={<MisGiras />} />
           <Route path="mis-giras/:id/resumen" element={<ResumenGira />} />
           <Route path="mis-giras/:id/inscripciones" element={<InscripcionesGira />} />

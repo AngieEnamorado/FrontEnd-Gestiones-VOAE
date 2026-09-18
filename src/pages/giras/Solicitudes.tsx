@@ -16,11 +16,13 @@ import {
 import EstadoBadge from "../../components/EstadoBadge";
 import EstadisticaCard from "../../components/EstadisticaCard";
 import DetalleSolicitudGiraModal from "../../components/DetalleSolicitudGiraModal";
+import { useRolGira } from "../../context/UserContext";
 import { solicitudesGiras } from "../../data/mockGirasSolicitudes";
 import type { SolicitudGira } from "../../types";
 
 export default function Solicitudes() {
   const navigate = useNavigate();
+  const { rol } = useRolGira();
   const [busqueda, setBusqueda] = useState("");
   const [seleccionada, setSeleccionada] = useState<SolicitudGira | null>(null);
 
@@ -84,49 +86,52 @@ export default function Solicitudes() {
           </div>
         </div>
 
-        {/* Tarjetas de resumen */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <EstadisticaCard
-            icon={HiOutlineListBullet}
-            label="Total"
-            valor={estadisticas.total}
-            colorFondo="bg-blue-50"
-            colorIcono="text-blue-500"
-            colorTexto="text-blue-700"
-          />
-          <EstadisticaCard
-            icon={HiOutlineCheckCircle}
-            label="Aprobadas"
-            valor={estadisticas.aprobadas}
-            colorFondo="bg-emerald-50"
-            colorIcono="text-emerald-500"
-            colorTexto="text-emerald-700"
-          />
-          <EstadisticaCard
-            icon={HiOutlineClock}
-            label="Pendientes"
-            valor={estadisticas.pendientes}
-            colorFondo="bg-amber-50"
-            colorIcono="text-amber-500"
-            colorTexto="text-amber-700"
-          />
-          <EstadisticaCard
-            icon={HiOutlineMagnifyingGlassCircle}
-            label="En revisión"
-            valor={estadisticas.enRevision}
-            colorFondo="bg-purple-50"
-            colorIcono="text-purple-500"
-            colorTexto="text-purple-700"
-          />
-          <EstadisticaCard
-            icon={HiOutlineXCircle}
-            label="Rechazadas"
-            valor={estadisticas.rechazadas}
-            colorFondo="bg-rose-50"
-            colorIcono="text-rose-500"
-            colorTexto="text-rose-700"
-          />
-        </div>
+        {/* Tarjetas de resumen: el jefe de misión no las ve, el título baja
+            directo a la búsqueda. */}
+        {rol !== "jefe-mision" && (
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <EstadisticaCard
+              icon={HiOutlineListBullet}
+              label="Total"
+              valor={estadisticas.total}
+              colorFondo="bg-blue-50"
+              colorIcono="text-blue-500"
+              colorTexto="text-blue-700"
+            />
+            <EstadisticaCard
+              icon={HiOutlineCheckCircle}
+              label="Aprobadas"
+              valor={estadisticas.aprobadas}
+              colorFondo="bg-emerald-50"
+              colorIcono="text-emerald-500"
+              colorTexto="text-emerald-700"
+            />
+            <EstadisticaCard
+              icon={HiOutlineClock}
+              label="Pendientes"
+              valor={estadisticas.pendientes}
+              colorFondo="bg-amber-50"
+              colorIcono="text-amber-500"
+              colorTexto="text-amber-700"
+            />
+            <EstadisticaCard
+              icon={HiOutlineMagnifyingGlassCircle}
+              label="En revisión"
+              valor={estadisticas.enRevision}
+              colorFondo="bg-purple-50"
+              colorIcono="text-purple-500"
+              colorTexto="text-purple-700"
+            />
+            <EstadisticaCard
+              icon={HiOutlineXCircle}
+              label="Rechazadas"
+              valor={estadisticas.rechazadas}
+              colorFondo="bg-rose-50"
+              colorIcono="text-rose-500"
+              colorTexto="text-rose-700"
+            />
+          </div>
+        )}
 
         {/* Búsqueda y filtros */}
         <div className="mt-6 flex flex-wrap items-center gap-3">

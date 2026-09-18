@@ -18,7 +18,21 @@ npm run lint      # oxlint
 npm run preview   # preview a production build
 ```
 
-There is no test runner configured in this repo.
+There is no test runner configured in this repo. Type-check alone: `npx tsc -b`.
+
+`tsconfig.app.json` is strict in ways that fail `npm run build` (not just lint): `noUnusedLocals` /
+`noUnusedParameters` (an unused import or param is a build error), `verbatimModuleSyntax` (type-only
+imports must use `import type`), and `erasableSyntaxOnly` (no `enum`, namespaces, or constructor
+parameter properties — use union types / `as const` objects).
+
+## Repo context
+
+The git root is this `FrontEnd-Gestiones-VOAE/` folder; its parent `proyecto-giras/` is not a repo.
+Two sibling folders there are backend-side and not wired to this frontend: `bd_voae_script/DbVoae_final.sql`
+(unified SQL Server schema, one schema each for Catalogo/Voluntariado/Procad/Giras — useful reference
+when shaping types or replacing mocks) and `FuncionesLambdaGestionesVOAE/` (AWS Lambda, README is
+empty). `LOCAL PROCAD/` (HTML prototypes) is gitignored reference material. `README.md` is the Vite
+template and currently contains unresolved merge-conflict markers — don't treat it as documentation.
 
 ## Architecture
 
@@ -67,6 +81,55 @@ optional `roles` array (no array = everyone sees it), `Sidebar` filters children
 and `src/router/SoloAdministrador.tsx` guards the routes so a direct URL can't bypass the menu.
 `src/pages/procad/ModoDeVista.tsx` switches the role — it is demo tooling for the no-backend stage
 and gets deleted, along with `cambiarRolProcad`, once the session supplies the real role.
+
+**Giras has its own demo role switcher, separate from PROCAD's** (`pages/giras/ModoDeVista.tsx`, at
+`/giras/modo`). Five roles (`RolGira` in `types`: vicerrectoria, jefe-mision, jefe-aprobacion,
+estudiante, administrador) live in `UsuarioActual.rolGira`, read through `useRolGira()`. What each
+role sees is declared once, as `rolesGira` on the Giras children in `navigation.ts`; the Sidebar
+filter, the role cards' page badges, and `router/AccesoGiras.tsx` (a layout route wrapping all of
+`/giras` that redirects URLs the role can't open) all derive from it via `router/rolesGira.ts`. The
+order of the Giras children in `navigation.ts` is also the "first page of the role" the switcher
+redirects to. "Modo de vista" has no `rolesGira` on purpose so it is never hidden — otherwise a role
+with no pages would have no way to switch back. Default role is `jefe-mision`. Like PROCAD's, this is
+deleted once the session supplies the real role.
+
+`administrador` has one Giras page, "Configuraciones" (`giras/Configuracion.tsx`, `/giras/configuracion`):
+two tabs, "Configuraciones" (tablas tipo: CRUD over five catalogs, `configuracion/TablasTipo.tsx` +
+`ModalRegistro.tsx`) and "Parámetros del Sistema" (`configuracion/ParametrosSistema.tsx`, one card and
+one save button per parameter; the card title is `etiqueta`, the technical `clave` is not shown). Both
+are seeded from `data/mockCatalogosGiras.ts` and their edited state lives in the page component so it
+survives a tab switch but not a reload. **Nothing reads them yet**: the Giras forms still hardcode their
+own option lists (`NuevaSolicitud.tsx`, `NuevaInscripcion.tsx`) and limits (e.g. 2 acompañantes), so
+editing a catalog or parameter here changes nothing elsewhere until those are wired to this data.
+
+Only `jefe-mision` and `jefe-aprobacion` can open Giras > Solicitudes, and some screens change by
+`rolGira` beyond the menu. `giras/Solicitudes.tsx` hides the stat cards for `jefe-mision` and shows
+them for `jefe-aprobacion`; `giras/MisGiras.tsx` adds an intro line for `jefe-aprobacion` only. Both
+roles open the same read-only `components/FichaSolicitudGira.tsx` from `giras/DetalleSolicitud.tsx`
+(key/value blocks, no inputs, status as a plain field). It takes an optional `cambioDeEstado`:
+`jefe-aprobacion` passes it and gets the status control at the bottom; `jefe-mision` doesn't, and
+instead gets the same control at the bottom of `giras/DetalleInscripcion.tsx` (estudiante and
+jefe-aprobacion get none there). Both use `components/BloqueCambioEstado.tsx` (wraps
+`SelectorEstado`, opens upward via its `direccion` prop) so the two look identical. Status changes are
+local `useState`, not written back to the mock, so the lists show the original status after returning.
+
+`estudiante` sees Inscripciones and Mis giras only, and only their own data. Identity is a separate
+mock student (`obtenerEstudianteDeSesion()` in `data/currentUser.ts`, read via `useEstudianteActual()`),
+not the Erin Matute `usuario`; inscriptions are linked to a person by `Inscripcion.numeroCuenta`, never
+by name (every row in `mockInscripciones.ts` needs one). The "is this theirs" rules live in
+`data/inscripcionesSelectors.ts`: `giras/Inscripciones.tsx` and `giras/MisGiras.tsx` filter through
+it for `estudiante`, and `giras/DetalleInscripcion.tsx` treats someone else's inscription as not found.
+In Mis giras they get no roster access: `MisGiras.tsx` hides the per-row inscripciones button and
+passes `permiteVerInscripciones={false}` to `DetalleGiraModal` (single "Ver detalles" button), and
+`RUTAS_VEDADAS` in `router/rolesGira.ts` makes `AccesoGiras` redirect the roster URL
+`/giras/mis-giras/:id/inscripciones` only — the detail route `…/inscripciones/:id` must stay open,
+because it is where "Ver detalles" on their own inscription goes. Use that map for "role sees the page
+but not some of its sub-routes". `giras/NuevaInscripcion.tsx` (new and draft-edit) is a 6-step form using the shared
+`components/StepperFormulario.tsx`; step 5 (companion's health file) stays in the bar but is disabled
+and skipped in both directions unless `tieneAcompanante`. Its fields are controlled state rather than
+`defaultValue` because only the active step is mounted. `NuevaSolicitud.tsx` still has its own inline
+copy of the stepper, and many of its inputs use `defaultValue` with only the active step mounted, so
+typed values there probably reset when changing step (read from the code, not tested).
 
 Its five admin modules (`Estudiantes`, `Agrupaciones`, `Galeria`, `Configuracion`, `Reportes`) all
 render through `src/pages/procad/LayoutModulo.tsx` and keep their sub-screens in
@@ -130,5 +193,8 @@ rather than building PDF/Excel generation per-page.
 - Styling is Tailwind CSS v4 (via `@tailwindcss/vite`, configured through `@theme` in
   `src/index.css`, no `tailwind.config.js`). Institutional brand colors are exposed as Tailwind
   tokens: `unah-navy`, `unah-navy-dark`, `unah-navy-light`, `unah-orange`, `unah-orange-dark`.
-- Icons come from `react-icons/hi2` (Heroicons outline set).
+- Icons come from `react-icons/hi2` (the only react-icons set in use).
+- Charts use `recharts`; animation uses `motion`. PDF export should go through `src/utils/` (see
+  above); `pages/giras/ResumenGira.tsx` still calls `jspdf` directly, which is the exception, not
+  the pattern to copy.
 - Path aliases: none configured — imports use relative paths (`../../components/...`).

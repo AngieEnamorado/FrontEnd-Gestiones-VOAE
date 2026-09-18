@@ -1,10 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { HiOutlineArrowLeft, HiOutlineArrowTopRightOnSquare } from "react-icons/hi2";
+import BloqueCambioEstado from "../../components/BloqueCambioEstado";
+import { useEstudianteActual, useRolGira } from "../../context/UserContext";
+import { esInscripcionDe } from "../../data/inscripcionesSelectors";
 import { misGiras } from "../../data/mockMisGiras";
 import { solicitudesGiras } from "../../data/mockGirasSolicitudes";
 import { inscripcionesPorGira } from "../../data/mockInscripciones";
-import type { FichaSalud } from "../../types";
+import type { EstadoSolicitud, FichaSalud } from "../../types";
 
 const todasLasGiras = [...misGiras, ...solicitudesGiras];
 
@@ -98,10 +101,27 @@ export default function DetalleInscripcion() {
   const navigate = useNavigate();
   const { id, inscripcionId } = useParams();
 
+  const { rol } = useRolGira();
+  const { numeroCuenta } = useEstudianteActual();
+
   const gira = useMemo(() => todasLasGiras.find((g) => g.id === id), [id]);
-  const inscripcion = useMemo(
-    () => (id ? (inscripcionesPorGira[id] ?? []).find((i) => i.id === inscripcionId) : undefined),
-    [id, inscripcionId],
+  const inscripcion = useMemo(() => {
+    const encontrada = id
+      ? (inscripcionesPorGira[id] ?? []).find((i) => i.id === inscripcionId)
+      : undefined;
+    // Un estudiante solo abre sus propias inscripciones: si escribe la URL de la
+    // de otra persona, para él es como si no existiera.
+    if (encontrada && rol === "estudiante" && !esInscripcionDe(encontrada, numeroCuenta)) {
+      return undefined;
+    }
+    return encontrada;
+  }, [id, inscripcionId, rol, numeroCuenta]);
+
+  // Aprobar o rechazar la inscripción le toca al jefe de misión. Esta ruta
+  // también la abren el estudiante y el jefe de aprobación, y ellos solo leen.
+  const puedeCambiarEstado = rol === "jefe-mision";
+  const [estadoActual, setEstadoActual] = useState<EstadoSolicitud>(
+    () => inscripcion?.estado ?? "PENDIENTE",
   );
 
   const totalCostos = useMemo(
@@ -285,6 +305,14 @@ export default function DetalleInscripcion() {
       <Tarjeta numero={inscripcion.tieneAcompanante ? 6 : 5} titulo="Observaciones">
         <p className="text-sm text-slate-700">{inscripcion.observaciones || NO_ESPECIFICADO}</p>
       </Tarjeta>
+
+      {puedeCambiarEstado && (
+        <BloqueCambioEstado
+          titulo="Estado de la inscripción"
+          estado={estadoActual}
+          onCambiar={setEstadoActual}
+        />
+      )}
     </div>
   );
 }

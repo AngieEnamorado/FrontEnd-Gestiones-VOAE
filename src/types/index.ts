@@ -198,6 +198,69 @@ export interface UsuarioActual {
    * este decide qué se puede abrir.
    */
   rolProcad: RolProcad;
+  /**
+   * Con qué ojos se ve el módulo de Giras. Igual que `rolProcad`, decide qué
+   * páginas del menú se pueden abrir y no tiene relación con el cargo `rol`.
+   */
+  rolGira: RolGira;
+}
+
+/**
+ * La persona detrás de la vista de Estudiante. El número de cuenta es lo que
+ * enlaza a alguien con sus inscripciones (`Inscripcion.numeroCuenta`), no el nombre.
+ */
+export interface PerfilEstudiante {
+  nombreCompleto: string;
+  numeroCuenta: string;
+}
+
+// ---- Giras · Configuración de tablas tipo y parámetros -------------------
+
+export interface RegistroCatalogo {
+  id: number;
+  /** Clave corta y única dentro de su catálogo, en mayúsculas (p. ej. `BUS_UNI`). */
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  activo: boolean;
+}
+
+export type IdCatalogoGira =
+  | "transporte"
+  | "facultades"
+  | "carreras"
+  | "financiamiento"
+  | "finalidades";
+
+/** Una tabla tipo: la lista cerrada de opciones que ofrecen los formularios de Giras. */
+export interface CatalogoGira {
+  id: IdCatalogoGira;
+  nombre: string;
+  descripcion: string;
+  registros: RegistroCatalogo[];
+}
+
+export type CategoriaParametro = "giras" | "sistema";
+
+export type ValorParametro = number | string | boolean;
+
+/** Un parámetro global del sistema: un valor que se ajusta sin tocar código. */
+export interface ParametroSistema {
+  /** Nombre técnico, tal como lo leería el código (`maxDocentesPorGira`). No se muestra en pantalla. */
+  clave: string;
+  /** El nombre con que se ve en la pantalla de configuración. */
+  etiqueta: string;
+  categoria: CategoriaParametro;
+  descripcion: string;
+  tipo: "numero" | "texto" | "booleano";
+  valor: ValorParametro;
+  /** Solo numéricos: unidad que se muestra junto al valor. */
+  unidad?: string;
+  /** Solo numéricos: rango permitido, ambos incluidos. */
+  min?: number;
+  max?: number;
+  /** Solo texto: formato que debe cumplir. */
+  formato?: "correo";
 }
 
 /** Los dos roles de PROCAD que existen dentro de esta plataforma. */
@@ -206,6 +269,22 @@ export type RolProcad = "administrador" | "vicerrector";
 export const ETIQUETA_ROL_PROCAD: Record<RolProcad, string> = {
   administrador: "Administrador PROCAD",
   vicerrector: "Vicerrectoría",
+};
+
+/** Los cinco roles con los que se puede ver el módulo de Giras. */
+export type RolGira =
+  | "vicerrectoria"
+  | "jefe-mision"
+  | "jefe-aprobacion"
+  | "estudiante"
+  | "administrador";
+
+export const ETIQUETA_ROL_GIRA: Record<RolGira, string> = {
+  vicerrectoria: "Vicerrectoría",
+  "jefe-mision": "Jefe de misión",
+  "jefe-aprobacion": "Jefe de aprobación",
+  estudiante: "Estudiante",
+  administrador: "Administrador",
 };
 
 // ===========================================================================

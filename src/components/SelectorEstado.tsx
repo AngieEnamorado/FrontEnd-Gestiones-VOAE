@@ -7,6 +7,8 @@ interface SelectorEstadoProps {
   estado: EstadoSolicitud;
   onCambiar: (nuevoEstado: EstadoSolicitud) => void;
   opciones?: EstadoSolicitud[];
+  /** Hacia dónde se despliega la lista. "arriba" para un selector al pie de la página. */
+  direccion?: "abajo" | "arriba";
 }
 
 const OPCIONES_POR_DEFECTO: EstadoSolicitud[] = ["APROBADA", "PENDIENTE", "EN REVISIÓN", "RECHAZADA"];
@@ -74,6 +76,7 @@ export default function SelectorEstado({
   estado,
   onCambiar,
   opciones = OPCIONES_POR_DEFECTO,
+  direccion = "abajo",
 }: SelectorEstadoProps) {
   const [abierto, setAbierto] = useState(false);
   const [pendiente, setPendiente] = useState<EstadoSolicitud | null>(null);
@@ -108,7 +111,11 @@ export default function SelectorEstado({
             onClick={() => setAbierto(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
-          <div className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-slate-100 bg-white p-1.5 shadow-lg">
+          <div
+            className={`absolute right-0 z-50 w-52 rounded-xl border border-slate-100 bg-white p-1.5 shadow-lg ${
+              direccion === "arriba" ? "bottom-full mb-2" : "mt-2"
+            }`}
+          >
             {opciones.map((opcion) => (
               <button
                 key={opcion}

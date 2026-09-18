@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { HiChevronRight } from "react-icons/hi2";
 import { navigationItems } from "../router/navigation";
 import { useProcad } from "../context/ProcadContext";
-import { useRolProcad } from "../context/UserContext";
+import { useRolGira, useRolProcad } from "../context/UserContext";
 import logoUnahBlanco from "../assets/Logos/LogoUnahBlanco.png";
 
 interface SidebarProps {
@@ -14,6 +14,7 @@ export default function Sidebar({ colapsado }: SidebarProps) {
   const location = useLocation();
   const { pendientes } = useProcad();
   const { rol } = useRolProcad();
+  const { rol: rolGira } = useRolGira();
 
   // Cuántos casos esperan decisión detrás de cada entrada del menú. Se resuelve
   // aquí y no en `navigation.ts` porque esa lista describe la estructura del
@@ -116,7 +117,11 @@ export default function Sidebar({ colapsado }: SidebarProps) {
                 {tieneHijos && abierto && (
                   <ul className="mt-1 flex flex-col gap-1">
                     {item
-                      .children!.filter((hijo) => !hijo.roles || hijo.roles.includes(rol))
+                      .children!.filter(
+                        (hijo) =>
+                          (!hijo.roles || hijo.roles.includes(rol)) &&
+                          (!hijo.rolesGira || hijo.rolesGira.includes(rolGira)),
+                      )
                       .map((hijo) => (
                       <li key={hijo.id}>
                         <NavLink

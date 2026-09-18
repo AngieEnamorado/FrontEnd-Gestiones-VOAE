@@ -1,4 +1,5 @@
 import {
+  HiOutlineAdjustmentsHorizontal,
   HiOutlineUser,
   HiOutlineCurrencyDollar,
   HiOutlineCog6Tooth,
@@ -19,7 +20,7 @@ import {
   HiOutlineClipboardDocumentCheck,
 } from "react-icons/hi2";
 import type { IconType } from "react-icons";
-import type { RolProcad } from "../types";
+import type { RolGira, RolProcad } from "../types";
 
 /**
  * Este archivo es "la idea del routeo": describe qué páginas existirá
@@ -45,7 +46,16 @@ export interface NavItem {
    * cualquiera — que es el caso de todo lo que está fuera de PROCAD.
    */
   roles?: RolProcad[];
+  /**
+   * Roles de Giras que pueden ver esta entrada. Omitirlo significa que la ven
+   * todos, que es lo que debe pasar con "Modo de vista": sin él, quien elige un
+   * rol sin páginas no tendría cómo volver a cambiarlo.
+   */
+  rolesGira?: RolGira[];
 }
+
+/** La pantalla de demostración para cambiar de rol en Giras. Nunca se oculta. */
+export const RUTA_MODO_GIRAS = "/giras/modo";
 
 export const navigationItems: NavItem[] = [
   {
@@ -85,30 +95,50 @@ export const navigationItems: NavItem[] = [
     label: "Giras",
     path: "/giras",
     icon: HiOutlineMapPin,
+    // El orden de esta lista es el orden del menú y también el de "primera
+    // página del rol" (ver `rutaInicialGira`): por eso Solicitudes e
+    // Inscripciones van antes que Mis giras.
     children: [
-      {
-        id: "mis-giras",
-        label: "Mis giras",
-        path: "/giras/mis-giras",
-        icon: HiOutlineMap,
-      },
       {
         id: "solicitudes",
         label: "Solicitudes",
         path: "/giras/solicitudes",
         icon: HiOutlineClipboardDocumentList,
+        rolesGira: ["jefe-mision", "jefe-aprobacion"],
       },
       {
         id: "inscripciones",
         label: "Inscripciones",
         path: "/giras/inscripciones",
         icon: HiOutlineClipboardDocumentCheck,
+        rolesGira: ["estudiante"],
+      },
+      {
+        id: "mis-giras",
+        label: "Mis giras",
+        path: "/giras/mis-giras",
+        icon: HiOutlineMap,
+        rolesGira: ["jefe-mision", "jefe-aprobacion", "estudiante"],
       },
       {
         id: "estadisticas",
         label: "Estadísticas",
         path: "/giras/estadisticas",
         icon: HiOutlinePresentationChartLine,
+        rolesGira: ["vicerrectoria", "jefe-mision", "jefe-aprobacion"],
+      },
+      {
+        id: "configuracion",
+        label: "Configuraciones",
+        path: "/giras/configuracion",
+        icon: HiOutlineAdjustmentsHorizontal,
+        rolesGira: ["administrador"],
+      },
+      {
+        id: "modo",
+        label: "Modo de vista",
+        path: RUTA_MODO_GIRAS,
+        icon: HiOutlineArrowsRightLeft,
       },
     ],
   },

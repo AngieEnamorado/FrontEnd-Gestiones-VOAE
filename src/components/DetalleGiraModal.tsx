@@ -6,9 +6,15 @@ import EstadoBadge from "./EstadoBadge";
 interface DetalleGiraModalProps {
   gira: SolicitudGira | null;
   onClose: () => void;
+  /** Ofrece también "Ver inscripciones". Un estudiante no ve el roster de la gira. */
+  permiteVerInscripciones?: boolean;
 }
 
-export default function DetalleGiraModal({ gira, onClose }: DetalleGiraModalProps) {
+export default function DetalleGiraModal({
+  gira,
+  onClose,
+  permiteVerInscripciones = true,
+}: DetalleGiraModalProps) {
   const navigate = useNavigate();
 
   if (!gira) return null;
@@ -86,22 +92,32 @@ export default function DetalleGiraModal({ gira, onClose }: DetalleGiraModalProp
         </div>
 
         {/* Acciones */}
-        <div className="mt-6 grid grid-cols-2 gap-3">
+        {permiteVerInscripciones ? (
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={verDetalles}
+              className="rounded-xl border border-unah-navy py-3 text-sm font-semibold text-unah-navy transition-colors hover:bg-slate-50"
+            >
+              Ver detalles
+            </button>
+            <button
+              type="button"
+              onClick={verInscripciones}
+              className="rounded-xl bg-unah-navy py-3 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
+            >
+              Ver inscripciones
+            </button>
+          </div>
+        ) : (
           <button
             type="button"
             onClick={verDetalles}
-            className="rounded-xl border border-unah-navy py-3 text-sm font-semibold text-unah-navy transition-colors hover:bg-slate-50"
+            className="mt-6 w-full rounded-xl bg-unah-navy py-3 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
           >
             Ver detalles
           </button>
-          <button
-            type="button"
-            onClick={verInscripciones}
-            className="rounded-xl bg-unah-navy py-3 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
-          >
-            Ver inscripciones
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );

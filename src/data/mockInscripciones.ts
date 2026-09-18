@@ -1,6 +1,9 @@
 import type { Inscripcion } from "../types";
 
 // Inscripciones de estudiantes por gira, indexadas por el ID de la gira (misGiras).
+// Cada inscripción lleva el `numeroCuenta` de quien la hizo: es lo que usa la
+// vista de Estudiante para mostrar solo las suyas (ver inscripcionesSelectors.ts).
+// La estudiante de sesión de la demo (20191005678) tiene inscripciones en varias giras.
 export const inscripcionesPorGira: Record<string, Inscripcion[]> = {
   "GR-2026-021": [
     {
@@ -87,6 +90,7 @@ export const inscripcionesPorGira: Record<string, Inscripcion[]> = {
     {
       id: "INS-2026-043",
       nombreEstudiante: "FRANCISCO JAVIER MEJIA SOSA",
+      numeroCuenta: "20181003321",
       estado: "RECHAZADA",
       fecha: "2026-08-22",
       periodo: "II Periodo 2026",
@@ -96,6 +100,7 @@ export const inscripcionesPorGira: Record<string, Inscripcion[]> = {
     {
       id: "INS-2026-051",
       nombreEstudiante: "DANIELA ALEJANDRA PAZ MATAMOROS",
+      numeroCuenta: "20211004455",
       estado: "APROBADA",
       fecha: "2026-09-10",
       periodo: "II Periodo 2026",
@@ -103,15 +108,31 @@ export const inscripcionesPorGira: Record<string, Inscripcion[]> = {
     {
       id: "INS-2026-052",
       nombreEstudiante: "JOSUE ANTONIO CASTELLANOS RIVERA",
+      numeroCuenta: "20221006677",
       estado: "PENDIENTE",
       fecha: "2026-09-11",
       periodo: "II Periodo 2026",
+    },
+    {
+      id: "INS-2026-053",
+      nombreEstudiante: "MARIAJOSE BERGANZA DOMINGUEZ",
+      numeroCuenta: "20191005678",
+      estado: "PENDIENTE",
+      fecha: "2026-09-12",
+      periodo: "II Periodo 2026",
+      carreraFacultad: "Arqueología — Facultad de Ciencias Sociales",
+      correoInstitucional: "mariajose.berganza@unah.hn",
+      telefonoContacto: "+504 9988-1122",
+      esExcepcional: false,
+      tieneAcompanante: false,
+      observaciones: "Interesada en el módulo de muestreo de coral.",
     },
   ],
   "GR-2026-023": [
     {
       id: "INS-2026-061",
       nombreEstudiante: "GABRIELA MARIA DUBON PORTILLO",
+      numeroCuenta: "20201009988",
       estado: "PENDIENTE",
       fecha: "2026-04-02",
       periodo: "I Periodo 2026",
@@ -119,15 +140,30 @@ export const inscripcionesPorGira: Record<string, Inscripcion[]> = {
     {
       id: "INS-2026-062",
       nombreEstudiante: "OSCAR EDUARDO MEZA VELASQUEZ",
+      numeroCuenta: "20191002211",
       estado: "APROBADA",
       fecha: "2026-04-03",
       periodo: "I Periodo 2026",
+    },
+    {
+      id: "INS-2026-063",
+      nombreEstudiante: "MARIAJOSE BERGANZA DOMINGUEZ",
+      numeroCuenta: "20191005678",
+      estado: "APROBADA",
+      fecha: "2026-04-04",
+      periodo: "I Periodo 2026",
+      carreraFacultad: "Arqueología — Facultad de Ciencias Sociales",
+      correoInstitucional: "mariajose.berganza@unah.hn",
+      telefonoContacto: "+504 9988-1122",
+      esExcepcional: false,
+      tieneAcompanante: false,
     },
   ],
   "GR-2026-024": [
     {
       id: "INS-2026-071",
       nombreEstudiante: "KATHERINE NICOLE ALVARADO CRUZ",
+      numeroCuenta: "20211008833",
       estado: "RECHAZADA",
       fecha: "2026-03-15",
       periodo: "I Periodo 2026",
@@ -137,6 +173,7 @@ export const inscripcionesPorGira: Record<string, Inscripcion[]> = {
     {
       id: "INS-2026-081",
       nombreEstudiante: "LUIS FERNANDO ORELLANA TORRES",
+      numeroCuenta: "20201004466",
       estado: "APROBADA",
       fecha: "2026-10-25",
       periodo: "II Periodo 2026",
@@ -144,6 +181,7 @@ export const inscripcionesPorGira: Record<string, Inscripcion[]> = {
     {
       id: "INS-2026-082",
       nombreEstudiante: "ANDREA SOFIA MARTINEZ FLORES",
+      numeroCuenta: "20221001199",
       estado: "PENDIENTE",
       fecha: "2026-10-26",
       periodo: "II Periodo 2026",

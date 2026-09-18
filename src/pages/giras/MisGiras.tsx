@@ -9,6 +9,8 @@ import {
   HiOutlineUserGroup,
 } from "react-icons/hi2";
 import DetalleGiraModal from "../../components/DetalleGiraModal";
+import { useEstudianteActual, useRolGira } from "../../context/UserContext";
+import { girasDelEstudiante } from "../../data/inscripcionesSelectors";
 import { misGiras } from "../../data/mockMisGiras";
 import type { SolicitudGira } from "../../types";
 
@@ -31,18 +33,23 @@ function descargarExcel(filas: SolicitudGira[]) {
 
 export default function MisGiras() {
   const navigate = useNavigate();
+  const { rol } = useRolGira();
+  // El estudiante solo consulta el detalle de la gira: el roster de inscritos
+  // (y la tabla de inscripciones de cada gira) no es para él.
+  const verInscripciones = rol !== "estudiante";
+  const { numeroCuenta } = useEstudianteActual();
   const [busqueda, setBusqueda] = useState("");
   const [seleccionada, setSeleccionada] = useState<SolicitudGira | null>(null);
 
-  const filas = useMemo(
-    () =>
-      misGiras.filter(
-        (g) =>
-          g.id.toLowerCase().includes(busqueda.toLowerCase()) ||
-          g.destino.toLowerCase().includes(busqueda.toLowerCase()),
-      ),
-    [busqueda],
-  );
+  // Para un estudiante, "mis giras" son solo aquellas en las que está inscrito.
+  const filas = useMemo(() => {
+    const propias = rol === "estudiante" ? girasDelEstudiante(numeroCuenta) : misGiras;
+    return propias.filter(
+      (g) =>
+        g.id.toLowerCase().includes(busqueda.toLowerCase()) ||
+        g.destino.toLowerCase().includes(busqueda.toLowerCase()),
+    );
+  }, [busqueda, rol, numeroCuenta]);
 
   return (
     <>
@@ -61,6 +68,11 @@ export default function MisGiras() {
           <div>
             <p className="text-xs font-bold tracking-wider text-unah-orange">GIRAS</p>
             <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">Mis Giras</h1>
+            {rol === "jefe-aprobacion" && (
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">
+                Estas son las giras en las que has participado como jefe de misión.
+              </p>
+            )}
           </div>
 
           <button
@@ -145,14 +157,16 @@ export default function MisGiras() {
                       >
                         <HiOutlineEye className="h-4 w-4" />
                       </button>
-                      <button
-                        type="button"
-                        title="Inscripciones de la gira"
-                        onClick={() => navigate(`/giras/mis-giras/${fila.id}/inscripciones`)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"
-                      >
-                        <HiOutlineUserGroup className="h-4 w-4" />
-                      </button>
+                      {verInscripciones && (
+                        <button
+                          type="button"
+                          title="Inscripciones de la gira"
+                          onClick={() => navigate(`/giras/mis-giras/${fila.id}/inscripciones`)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"
+                        >
+                          <HiOutlineUserGroup className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -170,7 +184,11 @@ export default function MisGiras() {
         </div>
       </div>
 
-      <DetalleGiraModal gira={seleccionada} onClose={() => setSeleccionada(null)} />
+      <DetalleGiraModal
+        gira={seleccionada}
+        onClose={() => setSeleccionada(null)}
+        permiteVerInscripciones={verInscripciones}
+      />
     </>
   );
 }

@@ -10,6 +10,8 @@ import {
 } from "react-icons/hi2";
 import EstadoBadge from "../../components/EstadoBadge";
 import DetalleInscripcionModal from "../../components/DetalleInscripcionModal";
+import { useEstudianteActual, useRolGira } from "../../context/UserContext";
+import { esInscripcionDe } from "../../data/inscripcionesSelectors";
 import { misGiras } from "../../data/mockMisGiras";
 import { solicitudesGiras } from "../../data/mockGirasSolicitudes";
 import { inscripcionesPorGira } from "../../data/mockInscripciones";
@@ -43,18 +45,23 @@ const todasLasInscripciones: InscripcionConGira[] = Object.entries(inscripciones
 
 export default function Inscripciones() {
   const navigate = useNavigate();
+  const { rol } = useRolGira();
+  const { numeroCuenta } = useEstudianteActual();
   const [busqueda, setBusqueda] = useState("");
   const [seleccionada, setSeleccionada] = useState<InscripcionConGira | null>(null);
 
-  const filas = useMemo(
-    () =>
-      todasLasInscripciones.filter(
-        (i) =>
-          i.id.toLowerCase().includes(busqueda.toLowerCase()) ||
-          i.destino.toLowerCase().includes(busqueda.toLowerCase()),
-      ),
-    [busqueda],
-  );
+  // Un estudiante solo ve su propio historial, nunca el de los demás.
+  const filas = useMemo(() => {
+    const propias =
+      rol === "estudiante"
+        ? todasLasInscripciones.filter((i) => esInscripcionDe(i, numeroCuenta))
+        : todasLasInscripciones;
+    return propias.filter(
+      (i) =>
+        i.id.toLowerCase().includes(busqueda.toLowerCase()) ||
+        i.destino.toLowerCase().includes(busqueda.toLowerCase()),
+    );
+  }, [busqueda, rol, numeroCuenta]);
 
   return (
     <>
