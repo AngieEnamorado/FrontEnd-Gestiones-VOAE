@@ -1,51 +1,46 @@
 import { useEffect, useId, useState } from "react";
 import { HiOutlineXMark } from "react-icons/hi2";
 import Interruptor from "../../../components/Interruptor";
-import type { CatalogoGira, RegistroCatalogo } from "../../../types";
+import { mensajeDeError } from "../../../api/cliente";
+import type { RegistroCatalogoApi } from "../../../types/giras";
+import { APLICA_A, type DefinicionTablaTipo } from "./catalogosGira";
 
 const claseInput =
   "w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-unah-orange focus:ring-1 focus:ring-unah-orange";
 const claseLabel = "mb-1.5 block text-xs font-semibold text-slate-500";
 
-/** Lo que se captura en el formulario; ya viene limpio (código en mayúsculas, sin espacios sobrantes). */
-export interface DatosRegistro {
-  codigo: string;
-  nombre: string;
-  descripcion: string;
-  activo: boolean;
-}
-
 /** Qué abrió la modal: un registro nuevo (sin `registro`) o la edición de uno. */
 export interface DialogoRegistro {
-  registro?: RegistroCatalogo;
+  registro?: RegistroCatalogoApi;
 }
-
-const FORMATO_CODIGO = /^[A-Z0-9_-]+$/;
 
 function FormularioRegistro({
   dialogo,
-  catalogo,
+  tabla,
   onGuardar,
   onClose,
 }: {
   dialogo: DialogoRegistro;
-  catalogo: CatalogoGira;
-  onGuardar: (datos: DatosRegistro) => void;
+  tabla: DefinicionTablaTipo;
+  onGuardar: (datos: Record<string, unknown>) => Promise<void>;
   onClose: () => void;
 }) {
   const editando = dialogo.registro;
   const idTitulo = useId();
-  const idCodigo = useId();
   const idNombre = useId();
   const idDescripcion = useId();
+  const idAplicaA = useId();
 
-  const [codigo, setCodigo] = useState(editando?.codigo ?? "");
   const [nombre, setNombre] = useState(editando?.nombre ?? "");
   const [descripcion, setDescripcion] = useState(editando?.descripcion ?? "");
+  const [aplicaA, setAplicaA] = useState(String(editando?.["aplicaA"] ?? "AMBAS"));
+  const [requiereMotivo, setRequiereMotivo] = useState(editando?.["requiereMotivo"] === true);
   const [activo, setActivo] = useState(editando?.activo ?? true);
   // Los errores no aparecen mientras la persona todavía está escribiendo por
   // primera vez: solo después de intentar guardar.
   const [intentoGuardar, setIntentoGuardar] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [errorApi, setErrorApi] = useState<string | null>(null);
 
   useEffect(() => {
     function alPulsar(e: KeyboardEvent) {
@@ -55,32 +50,29 @@ function FormularioRegistro({
     return () => document.removeEventListener("keydown", alPulsar);
   }, [onClose]);
 
-  const otros = catalogo.registros.filter((r) => r.id !== editando?.id);
-  const codigoLimpio = codigo.trim().toUpperCase();
   const nombreLimpio = nombre.trim();
+  const errorNombre = nombreLimpio ? "" : "El nombre es obligatorio.";
 
-  let errorCodigo = "";
-  if (!codigoLimpio) errorCodigo = "El código es obligatorio.";
-  else if (!FORMATO_CODIGO.test(codigoLimpio))
-    errorCodigo = "Usa solo letras, números, guion y guion bajo, sin espacios.";
-  else if (otros.some((r) => r.codigo === codigoLimpio))
-    errorCodigo = "Ya existe un registro con ese código en este catálogo.";
-
-  let errorNombre = "";
-  if (!nombreLimpio) errorNombre = "El nombre es obligatorio.";
-  else if (otros.some((r) => r.nombre.toLowerCase() === nombreLimpio.toLowerCase()))
-    errorNombre = "Ya existe un registro con ese nombre en este catálogo.";
-
-  function enviar(e: React.FormEvent) {
+  async function enviar(e: React.FormEvent) {
     e.preventDefault();
     setIntentoGuardar(true);
-    if (errorCodigo || errorNombre) return;
-    onGuardar({
-      codigo: codigoLimpio,
-      nombre: nombreLimpio,
-      descripcion: descripcion.trim(),
-      activo,
-    });
+    if (errorNombre || guardando) return;
+
+    const datos: Record<string, unknown> = { nombre: nombreLimpio };
+    if (tabla.conDescripcion) datos["descripcion"] = descripcion.trim();
+    if (tabla.extras?.includes("aplicaA")) datos["aplicaA"] = aplicaA;
+    if (tabla.extras?.includes("requiereMotivo")) datos["requiereMotivo"] = requiereMotivo;
+    if (tabla.conEstado) datos["activo"] = activo;
+
+    setGuardando(true);
+    setErrorApi(null);
+    try {
+      await onGuardar(datos);
+    } catch (causa) {
+      // Un nombre repetido, por ejemplo, vuelve como 409 con su mensaje.
+      setErrorApi(mensajeDeError(causa));
+      setGuardando(false);
+    }
   }
 
   return (
@@ -102,7 +94,7 @@ function FormularioRegistro({
             <h2 id={idTitulo} className="text-xl font-bold text-slate-800 sm:text-2xl">
               {editando ? "Editar registro" : "Nuevo registro"}
             </h2>
-            <p className="mt-1 text-sm text-slate-400">{catalogo.nombre}</p>
+            <p className="mt-1 text-sm text-slate-400">{tabla.nombre}</p>
           </div>
           <button
             type="button"
@@ -116,32 +108,12 @@ function FormularioRegistro({
 
         <div className="mt-6 flex flex-col gap-4">
           <div>
-            <label htmlFor={idCodigo} className={claseLabel}>
-              Código
-            </label>
-            <input
-              id={idCodigo}
-              autoFocus
-              type="text"
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
-              placeholder="Ej. BUS_UNI"
-              aria-invalid={intentoGuardar && !!errorCodigo}
-              className={`${claseInput} font-mono uppercase ${
-                intentoGuardar && errorCodigo ? "border-rose-300" : "border-slate-200"
-              }`}
-            />
-            {intentoGuardar && errorCodigo && (
-              <p className="mt-1.5 text-xs font-medium text-rose-600">{errorCodigo}</p>
-            )}
-          </div>
-
-          <div>
             <label htmlFor={idNombre} className={claseLabel}>
               Nombre
             </label>
             <input
               id={idNombre}
+              autoFocus
               type="text"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
@@ -155,32 +127,74 @@ function FormularioRegistro({
             )}
           </div>
 
-          <div>
-            <label htmlFor={idDescripcion} className={claseLabel}>
-              Descripción <span className="font-normal text-slate-400">(opcional)</span>
-            </label>
-            <textarea
-              id={idDescripcion}
-              rows={3}
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              className={`${claseInput} resize-none border-slate-200`}
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3">
+          {tabla.conDescripcion && (
             <div>
-              <p className="text-sm font-semibold text-slate-700">Registro activo</p>
-              <p className="text-xs text-slate-500">
-                Un registro inactivo deja de ofrecerse en los formularios.
-              </p>
+              <label htmlFor={idDescripcion} className={claseLabel}>
+                Descripción <span className="font-normal text-slate-400">(opcional)</span>
+              </label>
+              <textarea
+                id={idDescripcion}
+                rows={3}
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                className={`${claseInput} resize-none border-slate-200`}
+              />
             </div>
-            <Interruptor
-              encendido={activo}
-              etiqueta="Registro activo"
-              onCambiar={() => setActivo((v) => !v)}
-            />
-          </div>
+          )}
+
+          {tabla.extras?.includes("aplicaA") && (
+            <div>
+              <label htmlFor={idAplicaA} className={claseLabel}>
+                Se puede usar en
+              </label>
+              <select
+                id={idAplicaA}
+                value={aplicaA}
+                onChange={(e) => setAplicaA(e.target.value)}
+                className={`${claseInput} border-slate-200`}
+              >
+                {APLICA_A.map((opcion) => (
+                  <option key={opcion.valor} value={opcion.valor}>
+                    {opcion.etiqueta}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {tabla.extras?.includes("requiereMotivo") && (
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Exige motivo</p>
+                <p className="text-xs text-slate-500">
+                  Quien inscribe debe indicar quién es y por qué (inscripción excepcional).
+                </p>
+              </div>
+              <Interruptor
+                encendido={requiereMotivo}
+                etiqueta="Exige motivo"
+                onCambiar={() => setRequiereMotivo((v) => !v)}
+              />
+            </div>
+          )}
+
+          {tabla.conEstado && (
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Registro activo</p>
+                <p className="text-xs text-slate-500">
+                  Un registro inactivo deja de ofrecerse en los formularios.
+                </p>
+              </div>
+              <Interruptor encendido={activo} etiqueta="Registro activo" onCambiar={() => setActivo((v) => !v)} />
+            </div>
+          )}
+
+          {errorApi && (
+            <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+              {errorApi}
+            </p>
+          )}
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -193,9 +207,10 @@ function FormularioRegistro({
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-[#003366] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#00264d]"
+            disabled={guardando}
+            className="rounded-lg bg-[#003366] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#00264d] disabled:opacity-60"
           >
-            {editando ? "Guardar cambios" : "Crear registro"}
+            {guardando ? "Guardando…" : editando ? "Guardar cambios" : "Crear registro"}
           </button>
         </div>
       </form>
@@ -206,17 +221,18 @@ function FormularioRegistro({
 /**
  * Crear o editar un registro de una tabla tipo. Devuelve `null` con el diálogo
  * cerrado, y el formulario se monta de nuevo en cada apertura, así que nunca
- * arrastra lo que se escribió la vez anterior.
+ * arrastra lo que se escribió la vez anterior. `onGuardar` habla con la API y
+ * cierra el diálogo si sale bien; si falla, el mensaje se muestra aquí mismo.
  */
 export default function ModalRegistro({
   dialogo,
-  catalogo,
+  tabla,
   onGuardar,
   onClose,
 }: {
   dialogo: DialogoRegistro | null;
-  catalogo: CatalogoGira;
-  onGuardar: (datos: DatosRegistro) => void;
+  tabla: DefinicionTablaTipo;
+  onGuardar: (datos: Record<string, unknown>) => Promise<void>;
   onClose: () => void;
 }) {
   if (!dialogo) return null;
@@ -224,7 +240,7 @@ export default function ModalRegistro({
     <FormularioRegistro
       key={dialogo.registro?.id ?? "nuevo"}
       dialogo={dialogo}
-      catalogo={catalogo}
+      tabla={tabla}
       onGuardar={onGuardar}
       onClose={onClose}
     />

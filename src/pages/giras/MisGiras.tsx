@@ -9,15 +9,32 @@ import {
   HiOutlineUserGroup,
 } from "react-icons/hi2";
 import DetalleGiraModal from "../../components/DetalleGiraModal";
-import { useEstudianteActual, useRolGira } from "../../context/UserContext";
-import { girasDelEstudiante } from "../../data/inscripcionesSelectors";
-import { misGiras } from "../../data/mockMisGiras";
-import type { SolicitudGira } from "../../types";
+import EstadoGiraBadge from "../../components/giras/EstadoGiraBadge";
+import SinIdentidad from "../../components/giras/SinIdentidad";
+import { listarGiras } from "../../api/giras";
+import { useConsulta } from "../../api/useConsulta";
+import { useEstudianteActual, useIdentidadGira, useRolGira } from "../../context/UserContext";
+import { etiquetaPeriodo, fechaCorta } from "../../utils/girasFormato";
+import type { GiraApi } from "../../types/giras";
 
-function descargarExcel(filas: SolicitudGira[]) {
-  const encabezados = ["ID", "Destino", "Categoría", "Centro", "Período", "Fecha"];
+const PERIODOS = [
+  { valor: 1, etiqueta: "I Periodo" },
+  { valor: 2, etiqueta: "II Periodo" },
+  { valor: 3, etiqueta: "III Periodo" },
+];
+
+function descargarExcel(filas: GiraApi[]) {
+  const encabezados = ["ID", "Destino", "Centro", "Período", "Fecha de salida", "Estado", "Inscritos"];
   const lineas = filas.map((fila) =>
-    [fila.id, fila.destino, fila.categoria, fila.centro, fila.periodo, fila.fecha]
+    [
+      `GIR-${fila.idGira}`,
+      fila.destinoGira ?? "",
+      fila.nombreCampus,
+      etiquetaPeriodo(fila.anioPeriodo, fila.numeroPac),
+      fechaCorta(fila.fechaSalidaConfirmada),
+      fila.nombreEstado,
+      `${fila.totalInscritos}/${fila.totalInscripciones}`,
+    ]
       .map((valor) => `"${valor.replace(/"/g, '""')}"`)
       .join(","),
   );
@@ -34,22 +51,51 @@ function descargarExcel(filas: SolicitudGira[]) {
 export default function MisGiras() {
   const navigate = useNavigate();
   const { rol } = useRolGira();
+  const estudiante = useEstudianteActual();
+  const identidad = useIdentidadGira();
   // El estudiante solo consulta el detalle de la gira: el roster de inscritos
   // (y la tabla de inscripciones de cada gira) no es para él.
   const verInscripciones = rol !== "estudiante";
-  const { numeroCuenta } = useEstudianteActual();
   const [busqueda, setBusqueda] = useState("");
-  const [seleccionada, setSeleccionada] = useState<SolicitudGira | null>(null);
+  const [anio, setAnio] = useState("");
+  const [periodo, setPeriodo] = useState("");
+  const [seleccionada, setSeleccionada] = useState<GiraApi | null>(null);
 
-  // Para un estudiante, "mis giras" son solo aquellas en las que está inscrito.
+  const numeroCuenta = estudiante?.numeroCuenta;
+  const idUsuario = identidad?.idUsuarioUnidad;
+  const necesitaIdentidad = rol === "estudiante" || rol === "jefe-mision" || rol === "jefe-aprobacion";
+  const sinIdentidad = necesitaIdentidad && (rol === "estudiante" ? !estudiante : !identidad);
+
+  // Cada rol ve las suyas: el estudiante, aquellas en las que está inscrito; el
+  // jefe de misión, las que organiza; el de aprobación, las que aprobó.
+  const { datos, cargando, error } = useConsulta(async () => {
+    if (rol === "estudiante") return numeroCuenta ? listarGiras({ numeroCuenta }) : [];
+    if (rol === "jefe-mision") return idUsuario === undefined ? [] : listarGiras({ usuario: idUsuario });
+    const todas = await listarGiras();
+    return rol === "jefe-aprobacion" ? todas.filter((g) => g.idJefeAprobacion === idUsuario) : todas;
+  }, [rol, numeroCuenta, idUsuario]);
+  const giras = useMemo(() => datos ?? [], [datos]);
+
+  const aniosDisponibles = useMemo(
+    () => [...new Set(giras.map((g) => g.anioPeriodo).filter((a): a is number => a !== null))].sort((a, b) => b - a),
+    [giras],
+  );
+
   const filas = useMemo(() => {
-    const propias = rol === "estudiante" ? girasDelEstudiante(numeroCuenta) : misGiras;
-    return propias.filter(
+    const texto = busqueda.trim().toLowerCase();
+    return giras.filter(
       (g) =>
-        g.id.toLowerCase().includes(busqueda.toLowerCase()) ||
-        g.destino.toLowerCase().includes(busqueda.toLowerCase()),
+        (!texto || `gir-${g.idGira}`.includes(texto) || (g.destinoGira ?? "").toLowerCase().includes(texto)) &&
+        (!anio || g.anioPeriodo === Number(anio)) &&
+        (!periodo || g.numeroPac === Number(periodo)),
     );
-  }, [busqueda, rol, numeroCuenta]);
+  }, [giras, busqueda, anio, periodo]);
+
+  function limpiarFiltros() {
+    setBusqueda("");
+    setAnio("");
+    setPeriodo("");
+  }
 
   return (
     <>
@@ -70,7 +116,7 @@ export default function MisGiras() {
             <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">Mis Giras</h1>
             {rol === "jefe-aprobacion" && (
               <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">
-                Estas son las giras en las que has participado como jefe de misión.
+                Estas son las giras que has aprobado como jefe de aprobación.
               </p>
             )}
           </div>
@@ -78,110 +124,156 @@ export default function MisGiras() {
           <button
             type="button"
             onClick={() => descargarExcel(filas)}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition-colors transition-colors duration-150 hover:bg-slate-100"
+            disabled={filas.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition-colors duration-150 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <HiOutlineArrowDownTray className="h-4 w-4" />
             Descargar Excel
           </button>
         </div>
 
-        {/* Búsqueda y filtros */}
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[220px]">
-            <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por ID o destino..."
-              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-unah-orange focus:ring-1 focus:ring-unah-orange"
+        {sinIdentidad ? (
+          <div className="mt-6">
+            <SinIdentidad
+              rol={rol === "estudiante" ? "Estudiante" : rol === "jefe-mision" ? "Jefe de misión" : "Jefe de aprobación"}
             />
           </div>
+        ) : (
+          <>
+            {/* Búsqueda y filtros */}
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[220px] flex-1">
+                <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar por ID o destino..."
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-unah-orange focus:ring-1 focus:ring-unah-orange"
+                />
+              </div>
 
-          <select className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-unah-orange">
-            <option>Todos los años</option>
-            <option>2026</option>
-            <option>2025</option>
-          </select>
+              <select
+                value={anio}
+                onChange={(e) => setAnio(e.target.value)}
+                aria-label="Filtrar por año"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-unah-orange"
+              >
+                <option value="">Todos los años</option>
+                {aniosDisponibles.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
 
-          <select className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-unah-orange">
-            <option>Todos los períodos</option>
-            <option>I Periodo</option>
-            <option>II Periodo</option>
-            <option>III Periodo</option>
-          </select>
+              <select
+                value={periodo}
+                onChange={(e) => setPeriodo(e.target.value)}
+                aria-label="Filtrar por período"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-unah-orange"
+              >
+                <option value="">Todos los períodos</option>
+                {PERIODOS.map((p) => (
+                  <option key={p.valor} value={p.valor}>
+                    {p.etiqueta}
+                  </option>
+                ))}
+              </select>
 
-          <button
-            type="button"
-            title="Limpiar filtros"
-            onClick={() => setBusqueda("")}
-            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors transition-colors duration-150 hover:bg-slate-100"
-          >
-            <HiOutlineArrowPath className="h-4 w-4" />
-          </button>
-        </div>
+              <button
+                type="button"
+                title="Limpiar filtros"
+                onClick={limpiarFiltros}
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors duration-150 hover:bg-slate-100"
+              >
+                <HiOutlineArrowPath className="h-4 w-4" />
+              </button>
+            </div>
 
-        {/* Tabla */}
-        <div className="table-scrollbar mt-4 overflow-x-auto rounded-xl border border-slate-100">
-          <table className="w-full min-w-[880px] text-left text-sm">
-            <thead>
-              <tr className="bg-[#003366] text-xs font-semibold uppercase tracking-wide text-white">
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Destino</th>
-                <th className="px-4 py-3">Categoría</th>
-                <th className="px-4 py-3">Centro</th>
-                <th className="px-4 py-3">Período</th>
-                <th className="px-4 py-3">Fecha</th>
-                <th className="px-4 py-3 text-center">Opciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filas.map((fila) => (
-                <tr key={fila.id} className="bg-white transition-colors duration-150 hover:bg-slate-100">
-                  <td className="px-4 py-4">
-                    <span className="inline-block rounded-md bg-pink-100 px-2 py-1 font-mono text-xs font-semibold text-rose-800">
-                      {fila.id}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 font-medium text-slate-700">{fila.destino}</td>
-                  <td className="px-4 py-4 text-slate-600">{fila.categoria}</td>
-                  <td className="px-4 py-4 text-slate-600">{fila.centro}</td>
-                  <td className="px-4 py-4 text-slate-600">{fila.periodo}</td>
-                  <td className="px-4 py-4 text-slate-500">{fila.fecha}</td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        title="Ver"
-                        onClick={() => setSeleccionada(fila)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                      >
-                        <HiOutlineEye className="h-4 w-4" />
-                      </button>
-                      {verInscripciones && (
-                        <button
-                          type="button"
-                          title="Inscripciones de la gira"
-                          onClick={() => navigate(`/giras/mis-giras/${fila.id}/inscripciones`)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"
-                        >
-                          <HiOutlineUserGroup className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            {/* Tabla */}
+            <div className="table-scrollbar mt-4 overflow-x-auto rounded-xl border border-slate-100">
+              <table className="w-full min-w-[880px] text-left text-sm">
+                <thead>
+                  <tr className="bg-[#003366] text-xs font-semibold uppercase tracking-wide text-white">
+                    <th className="px-4 py-3">ID</th>
+                    <th className="px-4 py-3">Destino</th>
+                    <th className="px-4 py-3">Centro</th>
+                    <th className="px-4 py-3">Período</th>
+                    <th className="px-4 py-3">Fecha</th>
+                    <th className="px-4 py-3">Estado</th>
+                    <th className="px-4 py-3 text-center">Opciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filas.map((fila) => (
+                    <tr key={fila.idGira} className="bg-white transition-colors duration-150 hover:bg-slate-100">
+                      <td className="px-4 py-4">
+                        <span className="inline-block rounded-md bg-pink-100 px-2 py-1 font-mono text-xs font-semibold text-rose-800">
+                          GIR-{fila.idGira}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 font-medium text-slate-700">{fila.destinoGira ?? "—"}</td>
+                      <td className="px-4 py-4 text-slate-600">{fila.nombreCampus}</td>
+                      <td className="px-4 py-4 text-slate-600">{etiquetaPeriodo(fila.anioPeriodo, fila.numeroPac)}</td>
+                      <td className="px-4 py-4 text-slate-500">{fechaCorta(fila.fechaSalidaConfirmada)}</td>
+                      <td className="px-4 py-4">
+                        <EstadoGiraBadge codigo={fila.codigoEstado} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            title="Ver"
+                            onClick={() => setSeleccionada(fila)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                          >
+                            <HiOutlineEye className="h-4 w-4" />
+                          </button>
+                          {verInscripciones && (
+                            <button
+                              type="button"
+                              title="Inscripciones de la gira"
+                              onClick={() => navigate(`/giras/mis-giras/${fila.idGira}/inscripciones`)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"
+                            >
+                              <HiOutlineUserGroup className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
 
-              {filas.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">
-                    No se encontraron giras con los filtros seleccionados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  {cargando && giras.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">
+                        Cargando giras…
+                      </td>
+                    </tr>
+                  )}
+
+                  {error && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm font-medium text-rose-600">
+                        {error}
+                      </td>
+                    </tr>
+                  )}
+
+                  {!cargando && !error && filas.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">
+                        {giras.length === 0
+                          ? "Todavía no hay giras. Una gira se crea cuando se aprueba una solicitud."
+                          : "No se encontraron giras con los filtros seleccionados."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       <DetalleGiraModal

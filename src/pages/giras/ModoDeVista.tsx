@@ -8,10 +8,65 @@ import {
   HiOutlineEye,
 } from "react-icons/hi2";
 import type { IconType } from "react-icons";
-import { useRolGira } from "../../context/UserContext";
+import { useId } from "react";
+import { listarUsuarios, ROL_API_DE_ROL_GIRA } from "../../api/giras";
+import { useConsulta } from "../../api/useConsulta";
+import { useIdentidadesGira, useRolGira } from "../../context/UserContext";
 import { paginasGira, rutaInicialGira } from "../../router/rolesGira";
 import { ETIQUETA_ROL_GIRA } from "../../types";
 import type { RolGira } from "../../types";
+
+/**
+ * "Actuar como": con qué usuario de la base de datos se hace todo lo que ese
+ * rol crea o dictamina (el jefe de misión que firma una solicitud, el
+ * estudiante que se inscribe...). Sale de la API, no de datos escritos aquí.
+ */
+function SelectorIdentidad({ rol }: { rol: RolGira }) {
+  const idSelector = useId();
+  const rolApi = ROL_API_DE_ROL_GIRA[rol];
+  const { identidades, elegir } = useIdentidadesGira();
+  const { datos: usuarios, cargando, error } = useConsulta(
+    () => (rolApi ? listarUsuarios({ rol: rolApi }) : Promise.resolve([])),
+    [rolApi],
+  );
+
+  if (!rolApi) return null;
+  const elegido = identidades[rol];
+
+  return (
+    <div className="mt-5 border-t border-slate-100 pt-4">
+      <label htmlFor={idSelector} className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+        Actuar como
+      </label>
+      <select
+        id={idSelector}
+        value={elegido?.idUsuarioUnidad ?? ""}
+        disabled={cargando || !!error}
+        onChange={(e) => {
+          const id = Number(e.target.value);
+          elegir(rol, (usuarios ?? []).find((u) => u.idUsuarioUnidad === id) ?? null);
+        }}
+        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-unah-orange disabled:bg-slate-50 disabled:text-slate-400"
+      >
+        <option value="">{cargando ? "Cargando usuarios…" : "Sin elegir"}</option>
+        {(usuarios ?? []).map((u) => (
+          <option key={u.idUsuarioUnidad} value={u.idUsuarioUnidad}>
+            {u.nombreCompleto}
+            {u.numeroCuenta ? ` · ${u.numeroCuenta}` : ""}
+            {u.nombreCampus ? ` · ${u.nombreCampus}` : ""}
+          </option>
+        ))}
+      </select>
+      {error && <p className="mt-1.5 text-xs font-medium text-rose-600">{error}</p>}
+      {!cargando && !error && (usuarios ?? []).length === 0 && (
+        <p className="mt-1.5 text-xs font-medium text-amber-700">
+          No hay usuarios con este rol en la base de datos. Hay que cargarlos primero (ver el script de
+          datos de prueba).
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface OpcionModo {
   id: RolGira;
@@ -58,9 +113,10 @@ const MODOS: OpcionModo[] = [
  * Elige con qué rol se ve Giras.
  *
  * Es una herramienta de demostración, no parte del producto: mientras no haya
- * backend, es la única forma de mostrar las vistas de cada rol. El día que la
- * sesión traiga el rol real, esta página, `cambiarRolGira`, `AccesoGiras` y el
- * campo `rolesGira` del menú se borran y nada más cambia.
+ * sesión, es la única forma de mostrar las vistas de cada rol y de decir con
+ * qué usuario de la base se actúa. El día que la sesión traiga el rol y el
+ * usuario reales, esta página, `cambiarRolGira`, `elegirIdentidadGira`,
+ * `AccesoGiras` y el campo `rolesGira` del menú se borran y nada más cambia.
  */
 export default function ModoDeVista() {
   const { rol, cambiarRol } = useRolGira();
@@ -86,8 +142,9 @@ export default function ModoDeVista() {
 
       <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] leading-relaxed text-slate-500">
         <b className="font-semibold text-slate-600">Herramienta de demostración.</b> Sirve para
-        enseñar las distintas vistas mientras no hay backend. Cuando el sistema de sesión entregue
-        el rol real de cada usuario, esta pantalla desaparece.
+        ver las distintas vistas y elegir con qué usuario de la base se actúa mientras no hay
+        sesión. Cuando el sistema de sesión entregue el rol y el usuario reales, esta pantalla
+        desaparece.
       </p>
 
       <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -157,6 +214,8 @@ export default function ModoDeVista() {
                   </li>
                 )}
               </ul>
+
+              <SelectorIdentidad rol={modo.id} />
             </article>
           );
         })}

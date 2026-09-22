@@ -1,17 +1,6 @@
 import { useRef, useState } from "react";
 import ParametrosSistema from "./configuracion/ParametrosSistema";
 import TablasTipo from "./configuracion/TablasTipo";
-import {
-  catalogosGirasIniciales,
-  parametrosSistemaIniciales,
-} from "../../data/mockCatalogosGiras";
-import type {
-  CatalogoGira,
-  IdCatalogoGira,
-  ParametroSistema,
-  RegistroCatalogo,
-  ValorParametro,
-} from "../../types";
 
 type Pestana = "tablas" | "parametros";
 
@@ -22,23 +11,12 @@ const PESTANAS: { id: Pestana; label: string }[] = [
 
 /**
  * Configuración de Giras para el administrador: las tablas tipo que alimentan
- * los formularios y los parámetros globales del módulo. Lo editado vive aquí,
- * en la página, para que un cambio de pestaña no lo pierda; sin backend, se
- * pierde al recargar.
+ * los formularios y los parámetros globales del módulo. Todo se lee y se guarda
+ * en la API; cada pestaña carga lo suyo al abrirse.
  */
 export default function ConfiguracionGiras() {
   const [pestana, setPestana] = useState<Pestana>("tablas");
-  const [catalogos, setCatalogos] = useState<CatalogoGira[]>(catalogosGirasIniciales);
-  const [parametros, setParametros] = useState<ParametroSistema[]>(parametrosSistemaIniciales);
   const botones = useRef<Record<Pestana, HTMLButtonElement | null>>({ tablas: null, parametros: null });
-
-  function cambiarRegistros(id: IdCatalogoGira, registros: RegistroCatalogo[]) {
-    setCatalogos((prev) => prev.map((c) => (c.id === id ? { ...c, registros } : c)));
-  }
-
-  function guardarParametro(clave: string, valor: ValorParametro) {
-    setParametros((prev) => prev.map((p) => (p.clave === clave ? { ...p, valor } : p)));
-  }
 
   // Un tablist se recorre con las flechas: una pulsación de Tab llega al grupo y
   // las flechas mueven entre pestañas.
@@ -100,9 +78,9 @@ export default function ConfiguracionGiras() {
         aria-labelledby={`config-giras-${pestana}`}
       >
         {pestana === "tablas" ? (
-          <TablasTipo catalogos={catalogos} onCambiarRegistros={cambiarRegistros} />
+          <TablasTipo />
         ) : (
-          <ParametrosSistema parametros={parametros} onGuardar={guardarParametro} />
+          <ParametrosSistema />
         )}
       </div>
     </div>

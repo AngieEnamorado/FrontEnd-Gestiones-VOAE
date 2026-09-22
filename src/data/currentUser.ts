@@ -1,4 +1,4 @@
-import type { PerfilEstudiante, UsuarioActual } from "../types";
+import type { UsuarioActual } from "../types";
 
 // Esto simula la respuesta de un servicio de autenticación / sesión.
 // El UserContext "jala" al usuario desde aquí en vez de tenerlo
@@ -13,19 +13,8 @@ export function obtenerUsuarioDeSesion(): UsuarioActual {
     rol: "Administrador VOAE",
     iniciales: "ER",
     rolProcad: "administrador",
-    // Jefe de misión es el rol para el que están armados los datos de prueba de
-    // Giras (`misGiras`), así que es el que deja todas esas pantallas a mano.
+    // Jefe de misión es el rol con el que arranca Giras; quién es esa persona en
+    // la base de datos se elige en "Modo de vista" (ver UserContext).
     rolGira: "jefe-mision",
-  };
-}
-
-// Con el modo de vista "Estudiante", la persona que usa el sistema es un
-// estudiante, no el usuario Erin Matute de arriba. Mientras no haya sesión real
-// esa persona se simula aquí; cuando exista, esta función se reemplaza por lo
-// que devuelva el servicio de sesión y el resto no cambia.
-export function obtenerEstudianteDeSesion(): PerfilEstudiante {
-  return {
-    nombreCompleto: "Mariajose Berganza Domínguez",
-    numeroCuenta: "20191005678",
   };
 }

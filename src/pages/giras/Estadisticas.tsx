@@ -25,9 +25,9 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import EstadisticaCard from "../../components/EstadisticaCard";
-import { registrosGiras, CAMPUS } from "../../data/mockEstadisticasGiras";
+import { cargarRegistrosAnaliticos } from "../../api/estadisticasGiras";
+import { useConsulta } from "../../api/useConsulta";
 import { generarReportePdf, type SeccionReportePdf } from "../../utils/exportarPdf";
-import type { AlcanceViaje, EstadoSolicitud, FinalidadGira } from "../../types";
 
 const COLOR_BLUE = "#2563eb";
 const COLOR_EMERALD = "#10b981";
@@ -37,34 +37,21 @@ const COLOR_ROSE = "#f43f5e";
 
 const MESES_CORTOS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-const FACULTAD_CORTA: Record<string, string> = {
-  "Ciencias Espaciales": "C. Espaciales",
-  "Ciencias Económicas, Administrativas y Contables": "C. Económicas",
-  "Ciencias Sociales": "C. Sociales",
-  "Ciencias Médicas": "C. Médicas",
-  Ingeniería: "Ingeniería",
-  "Humanidades y Artes": "Humanidades",
-};
+// Los colores se asignan por la posición de cada finalidad en la lista ordenada de
+// TODAS las que hay (no de las filtradas), para que una finalidad conserve su
+// color al cambiar los filtros.
+const PALETA = [COLOR_BLUE, COLOR_EMERALD, COLOR_AMBER, COLOR_VIOLET, COLOR_ROSE];
 
-// Orden fijo de identidad para las 5 finalidades — nunca se reasigna según los
-// datos filtrados, para que un color siempre represente la misma finalidad.
-const FINALIDAD_COLOR: Record<FinalidadGira, string> = {
-  Académica: COLOR_BLUE,
-  Social: COLOR_EMERALD,
-  Cultural: COLOR_AMBER,
-  Deportiva: COLOR_VIOLET,
-  Recreativa: COLOR_ROSE,
-};
-const ORDEN_FINALIDADES: FinalidadGira[] = ["Académica", "Social", "Cultural", "Deportiva", "Recreativa"];
+/** Nombres largos de facultad no caben en el eje del gráfico. */
+function abreviar(nombre: string): string {
+  return nombre.length > 18 ? `${nombre.slice(0, 16)}…` : nombre;
+}
 
-const ESTADOS_FILTRO: EstadoSolicitud[] = [
-  "APROBADA",
-  "PENDIENTE",
-  "RECHAZADA",
-  "EN REVISIÓN",
-  "ESPERA INF. SOCIAL",
-];
-const ALCANCES_FILTRO: AlcanceViaje[] = ["Local", "Nacional", "Internacional"];
+const PERIODOS_FILTRO = ["I Periodo", "II Periodo", "III Periodo"];
+
+function ordenados<T extends string | number>(valores: T[]): T[] {
+  return [...new Set(valores)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
 
 interface Filtros {
   año: string;
@@ -196,7 +183,7 @@ interface PuntoFacultad {
 }
 
 interface PuntoFinalidad {
-  finalidad: FinalidadGira;
+  finalidad: string;
   valor: number;
   porcentaje: number;
   color: string;
@@ -205,6 +192,21 @@ interface PuntoFinalidad {
 export default function Estadisticas() {
   const [borrador, setBorrador] = useState<Filtros>(FILTROS_INICIALES);
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_INICIALES);
+
+  const { datos, cargando, error } = useConsulta(cargarRegistrosAnaliticos, []);
+  const registrosGiras = useMemo(() => datos ?? [], [datos]);
+
+  // Las opciones de cada filtro salen de lo que hay, no de listas escritas a mano.
+  const opciones = useMemo(
+    () => ({
+      años: ordenados(registrosGiras.flatMap((r) => (r.año === null ? [] : [r.año]))).reverse(),
+      alcances: ordenados(registrosGiras.map((r) => r.alcance)),
+      campus: ordenados(registrosGiras.map((r) => r.campus)),
+      estados: ordenados(registrosGiras.map((r) => r.estado)),
+      finalidades: ordenados(registrosGiras.map((r) => r.finalidad)),
+    }),
+    [registrosGiras],
+  );
 
   const registrosFiltrados = useMemo(
     () =>
@@ -216,11 +218,11 @@ export default function Estadisticas() {
           (filtros.campus === "Todos" || r.campus === filtros.campus) &&
           (filtros.estado === "Todos" || r.estado === filtros.estado),
       ),
-    [filtros],
+    [filtros, registrosGiras],
   );
 
   const totalGiras = registrosFiltrados.length;
-  const girasAprobadas = registrosFiltrados.filter((r) => r.estado === "APROBADA").length;
+  const girasAprobadas = registrosFiltrados.filter((r) => r.estado === "Aprobada").length;
   const estudiantesParticipantes = registrosFiltrados.reduce((acc, r) => acc + r.estudiantes, 0);
   const inversionTotal = registrosFiltrados.reduce((acc, r) => acc + r.costo, 0);
 
@@ -242,29 +244,29 @@ export default function Estadisticas() {
     }
     const puntos: PuntoFacultad[] = Array.from(mapa.entries()).map(([facultad, valores]) => ({
       facultad,
-      facultadCorta: FACULTAD_CORTA[facultad] ?? facultad,
+      facultadCorta: abreviar(facultad),
       ...valores,
     }));
     return puntos.sort((a, b) => b.estudiantes - a.estudiantes);
   }, [registrosFiltrados]);
 
   const porFinalidad = useMemo(() => {
-    const mapa = new Map<FinalidadGira, number>();
+    const mapa = new Map<string, number>();
     for (const r of registrosFiltrados) {
       mapa.set(r.finalidad, (mapa.get(r.finalidad) ?? 0) + 1);
     }
     const total = registrosFiltrados.length || 1;
-    const puntos: PuntoFinalidad[] = ORDEN_FINALIDADES.map((finalidad) => {
+    const puntos: PuntoFinalidad[] = opciones.finalidades.map((finalidad, indice) => {
       const valor = mapa.get(finalidad) ?? 0;
       return {
         finalidad,
         valor,
         porcentaje: Math.round((valor / total) * 100),
-        color: FINALIDAD_COLOR[finalidad],
+        color: PALETA[indice % PALETA.length],
       };
     });
     return puntos;
-  }, [registrosFiltrados]);
+  }, [registrosFiltrados, opciones.finalidades]);
 
   const topDestinos = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -426,6 +428,20 @@ export default function Estadisticas() {
         </button>
       </div>
 
+      {cargando && !datos && (
+        <p className="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">Calculando estadísticas…</p>
+      )}
+      {error && (
+        <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm font-medium text-rose-700">
+          {error}
+        </p>
+      )}
+      {!cargando && !error && registrosGiras.length === 0 && (
+        <p className="rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm">
+          Todavía no hay solicitudes enviadas: las gráficas aparecerán cuando las haya.
+        </p>
+      )}
+
       {/* Filtros */}
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">
@@ -437,8 +453,9 @@ export default function Estadisticas() {
               className={claseSelect}
             >
               <option>Todos</option>
-              <option>2026</option>
-              <option>2025</option>
+              {opciones.años.map((año) => (
+                <option key={año}>{año}</option>
+              ))}
             </select>
           </div>
 
@@ -450,8 +467,9 @@ export default function Estadisticas() {
               className={claseSelect}
             >
               <option>Todos</option>
-              <option>I Periodo</option>
-              <option>II Periodo</option>
+              {PERIODOS_FILTRO.map((periodo) => (
+                <option key={periodo}>{periodo}</option>
+              ))}
             </select>
           </div>
 
@@ -463,7 +481,7 @@ export default function Estadisticas() {
               className={claseSelect}
             >
               <option>Todas</option>
-              {ALCANCES_FILTRO.map((alcance) => (
+              {opciones.alcances.map((alcance) => (
                 <option key={alcance}>{alcance}</option>
               ))}
             </select>
@@ -477,7 +495,7 @@ export default function Estadisticas() {
               className={claseSelect}
             >
               <option>Todos</option>
-              {CAMPUS.map((campus) => (
+              {opciones.campus.map((campus) => (
                 <option key={campus}>{campus}</option>
               ))}
             </select>
@@ -491,7 +509,7 @@ export default function Estadisticas() {
               className={claseSelect}
             >
               <option>Todos</option>
-              {ESTADOS_FILTRO.map((estado) => (
+              {opciones.estados.map((estado) => (
                 <option key={estado}>{estado}</option>
               ))}
             </select>

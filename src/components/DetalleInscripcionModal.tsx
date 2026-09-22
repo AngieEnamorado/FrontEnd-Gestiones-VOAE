@@ -1,22 +1,28 @@
 import { useNavigate } from "react-router-dom";
 import { HiOutlineXMark } from "react-icons/hi2";
-import type { Inscripcion } from "../types";
-import EstadoBadge from "./EstadoBadge";
+import type { InscripcionGiraResumen } from "../types/giras";
+import { etiquetaPeriodo, fechaCorta } from "../utils/girasFormato";
+import EstadoGiraBadge from "./giras/EstadoGiraBadge";
 
 interface DetalleInscripcionModalProps {
-  inscripcion: Inscripcion | null;
-  giraId: string;
-  /** Destino de la gira asociada. Se muestra solo cuando se provee — útil en
-   * listados que combinan inscripciones de varias giras, donde no es obvio a
-   * cuál pertenece cada una. */
-  destino?: string;
+  inscripcion: InscripcionGiraResumen | null;
+  /** Muestra el destino de la gira: útil en listados que combinan giras distintas. */
+  mostrarDestino?: boolean;
   onClose: () => void;
+}
+
+function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <span className="text-sm text-slate-400">{etiqueta}</span>
+      <span className="text-right text-sm text-slate-600">{children}</span>
+    </div>
+  );
 }
 
 export default function DetalleInscripcionModal({
   inscripcion,
-  giraId,
-  destino,
+  mostrarDestino = false,
   onClose,
 }: DetalleInscripcionModalProps) {
   const navigate = useNavigate();
@@ -26,7 +32,7 @@ export default function DetalleInscripcionModal({
   function verDetalles() {
     if (!inscripcion) return;
     onClose();
-    navigate(`/giras/mis-giras/${giraId}/inscripciones/${inscripcion.id}`);
+    navigate(`/giras/mis-giras/${inscripcion.idGira}/inscripciones/${inscripcion.idInscripcion}`);
   }
 
   return (
@@ -53,34 +59,18 @@ export default function DetalleInscripcionModal({
 
         {/* Cuerpo: pares clave-valor */}
         <div className="mt-6 divide-y divide-slate-100">
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">ID Inscripción</span>
-            <span className="text-sm font-semibold text-blue-500">{inscripcion.id}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Estudiante</span>
-            <span className="text-right text-sm font-bold text-slate-900">
-              {inscripcion.nombreEstudiante}
-            </span>
-          </div>
-          {destino && (
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-sm text-slate-400">Gira / Destino</span>
-              <span className="text-right text-sm text-slate-600">{destino}</span>
-            </div>
-          )}
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Estado</span>
-            <EstadoBadge estado={inscripcion.estado} />
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Fecha</span>
-            <span className="text-right text-sm text-slate-600">{inscripcion.fecha}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Período</span>
-            <span className="text-right text-sm text-slate-600">{inscripcion.periodo}</span>
-          </div>
+          <Fila etiqueta="ID Inscripción">
+            <span className="font-semibold text-blue-500">INS-{inscripcion.idInscripcion}</span>
+          </Fila>
+          <Fila etiqueta="Estudiante">
+            <span className="font-bold text-slate-900">{inscripcion.nombreViajero}</span>
+          </Fila>
+          {mostrarDestino && <Fila etiqueta="Gira / Destino">{inscripcion.destinoGira ?? "—"}</Fila>}
+          <Fila etiqueta="Estado">
+            <EstadoGiraBadge codigo={inscripcion.codigoEstado} />
+          </Fila>
+          <Fila etiqueta="Fecha">{fechaCorta(inscripcion.fechaEnvio ?? inscripcion.fechaRegistro)}</Fila>
+          <Fila etiqueta="Período">{etiquetaPeriodo(inscripcion.anioPeriodo, inscripcion.numeroPac)}</Fila>
         </div>
 
         {/* Acción */}

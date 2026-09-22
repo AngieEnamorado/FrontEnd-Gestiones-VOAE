@@ -1,20 +1,26 @@
 import { useNavigate } from "react-router-dom";
 import { HiOutlineXMark } from "react-icons/hi2";
-import type { SolicitudGira } from "../types";
-import EstadoBadge from "./EstadoBadge";
+import type { GiraApi } from "../types/giras";
+import { etiquetaPeriodo, fechaCorta } from "../utils/girasFormato";
+import EstadoGiraBadge from "./giras/EstadoGiraBadge";
 
 interface DetalleGiraModalProps {
-  gira: SolicitudGira | null;
+  gira: GiraApi | null;
   onClose: () => void;
   /** Ofrece también "Ver inscripciones". Un estudiante no ve el roster de la gira. */
   permiteVerInscripciones?: boolean;
 }
 
-export default function DetalleGiraModal({
-  gira,
-  onClose,
-  permiteVerInscripciones = true,
-}: DetalleGiraModalProps) {
+function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <span className="text-sm text-slate-400">{etiqueta}</span>
+      <span className="text-right text-sm text-slate-600">{children}</span>
+    </div>
+  );
+}
+
+export default function DetalleGiraModal({ gira, onClose, permiteVerInscripciones = true }: DetalleGiraModalProps) {
   const navigate = useNavigate();
 
   if (!gira) return null;
@@ -22,13 +28,13 @@ export default function DetalleGiraModal({
   function verDetalles() {
     if (!gira) return;
     onClose();
-    navigate(`/giras/mis-giras/${gira.id}/resumen`);
+    navigate(`/giras/mis-giras/${gira.idGira}/resumen`);
   }
 
   function verInscripciones() {
     if (!gira) return;
     onClose();
-    navigate(`/giras/mis-giras/${gira.id}/inscripciones`);
+    navigate(`/giras/mis-giras/${gira.idGira}/inscripciones`);
   }
 
   return (
@@ -55,40 +61,28 @@ export default function DetalleGiraModal({
 
         {/* Cuerpo: pares clave-valor */}
         <div className="mt-6 divide-y divide-slate-100">
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">ID</span>
-            <span className="text-sm font-semibold text-blue-500">{gira.id}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Estudiante</span>
-            <span className="text-right text-sm font-bold text-slate-900">{gira.estudiante}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Curso / Categoría</span>
-            <span className="text-right text-sm text-slate-600">{gira.categoria}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Docente</span>
-            <span className="text-right text-sm text-slate-600">{gira.docente}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Destino</span>
-            <span className="text-right text-sm text-slate-600">{gira.destino}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Fecha</span>
-            <span className="text-right text-sm text-slate-600">{gira.fecha}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Estado</span>
-            <EstadoBadge estado={gira.estado} />
-          </div>
+          <Fila etiqueta="ID">
+            <span className="font-semibold text-blue-500">GIR-{gira.idGira}</span>
+          </Fila>
+          <Fila etiqueta="Destino">
+            <span className="font-bold text-slate-900">{gira.destinoGira ?? "—"}</span>
+          </Fila>
+          <Fila etiqueta="Jefe de misión">{gira.nombreJefeMision ?? "—"}</Fila>
+          <Fila etiqueta="Campus">{gira.nombreCampus}</Fila>
+          <Fila etiqueta="Período">{etiquetaPeriodo(gira.anioPeriodo, gira.numeroPac)}</Fila>
+          <Fila etiqueta="Fecha de salida">{fechaCorta(gira.fechaSalidaConfirmada)}</Fila>
+          <Fila etiqueta="Inscritos">
+            {gira.totalInscritos} de {gira.totalInscripciones}
+          </Fila>
+          <Fila etiqueta="Estado">
+            <EstadoGiraBadge codigo={gira.codigoEstado} />
+          </Fila>
         </div>
 
         {/* Descripción */}
         <div className="mt-4">
-          <p className="text-sm text-slate-400">Descripción</p>
-          <p className="mt-1 text-left text-sm text-slate-700">{gira.descripcion}</p>
+          <p className="text-sm text-slate-400">Objetivo académico</p>
+          <p className="mt-1 text-left text-sm text-slate-700">{gira.objetivoAcademico ?? "No especificado"}</p>
         </div>
 
         {/* Acciones */}

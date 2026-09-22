@@ -1,17 +1,24 @@
 import { useNavigate } from "react-router-dom";
 import { HiOutlineXMark } from "react-icons/hi2";
-import type { SolicitudGira } from "../types";
-import EstadoBadge from "./EstadoBadge";
+import type { SolicitudGiraResumen } from "../types/giras";
+import { fechaCorta } from "../utils/girasFormato";
+import EstadoGiraBadge from "./giras/EstadoGiraBadge";
 
 interface DetalleSolicitudGiraModalProps {
-  solicitud: SolicitudGira | null;
+  solicitud: SolicitudGiraResumen | null;
   onClose: () => void;
 }
 
-export default function DetalleSolicitudGiraModal({
-  solicitud,
-  onClose,
-}: DetalleSolicitudGiraModalProps) {
+function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <span className="text-sm text-slate-400">{etiqueta}</span>
+      <span className="text-right text-sm text-slate-600">{children}</span>
+    </div>
+  );
+}
+
+export default function DetalleSolicitudGiraModal({ solicitud, onClose }: DetalleSolicitudGiraModalProps) {
   const navigate = useNavigate();
 
   if (!solicitud) return null;
@@ -19,7 +26,7 @@ export default function DetalleSolicitudGiraModal({
   function verDetalleCompleto() {
     if (!solicitud) return;
     onClose();
-    navigate(`/giras/solicitudes/${solicitud.id}`);
+    navigate(`/giras/solicitudes/${solicitud.idSolicitud}`);
   }
 
   return (
@@ -46,42 +53,25 @@ export default function DetalleSolicitudGiraModal({
 
         {/* Cuerpo: pares clave-valor */}
         <div className="mt-6 divide-y divide-slate-100">
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">ID</span>
-            <span className="text-sm font-semibold text-blue-500">{solicitud.id}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Estudiante</span>
-            <span className="text-right text-sm font-bold text-slate-900">
-              {solicitud.estudiante}
-            </span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Curso / Categoría</span>
-            <span className="text-right text-sm text-slate-600">{solicitud.categoria}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Docente</span>
-            <span className="text-right text-sm text-slate-600">{solicitud.docente}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Destino</span>
-            <span className="text-right text-sm text-slate-600">{solicitud.destino}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Fecha</span>
-            <span className="text-right text-sm text-slate-600">{solicitud.fecha}</span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="text-sm text-slate-400">Estado</span>
-            <EstadoBadge estado={solicitud.estado} />
-          </div>
+          <Fila etiqueta="ID">
+            <span className="font-semibold text-blue-500">SOL-{solicitud.idSolicitud}</span>
+          </Fila>
+          <Fila etiqueta="Jefe de misión">
+            <span className="font-bold text-slate-900">{solicitud.nombreJefeMision ?? "—"}</span>
+          </Fila>
+          <Fila etiqueta="Categorías">{solicitud.categorias ?? "—"}</Fila>
+          <Fila etiqueta="Jefe de aprobación">{solicitud.nombreJefeAprobacion ?? "—"}</Fila>
+          <Fila etiqueta="Destino">{solicitud.destinoGira ?? "—"}</Fila>
+          <Fila etiqueta="Fecha de salida">{fechaCorta(solicitud.fechaSalidaPropuesta)}</Fila>
+          <Fila etiqueta="Estado">
+            <EstadoGiraBadge codigo={solicitud.codigoEstado} />
+          </Fila>
         </div>
 
         {/* Descripción */}
         <div className="mt-4">
-          <p className="text-sm text-slate-400">Descripción</p>
-          <p className="mt-1 text-left text-sm text-slate-700">{solicitud.descripcion}</p>
+          <p className="text-sm text-slate-400">Objetivo académico</p>
+          <p className="mt-1 text-left text-sm text-slate-700">{solicitud.objetivoAcademico ?? "No especificado"}</p>
         </div>
 
         {/* Acción */}
