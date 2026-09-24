@@ -1,10 +1,17 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { HiOutlineArrowLeft, HiOutlineArrowDownTray, HiOutlineMagnifyingGlass, HiOutlineEye } from "react-icons/hi2";
+import {
+  HiOutlineArrowLeft,
+  HiOutlineArrowDownTray,
+  HiOutlineMagnifyingGlass,
+  HiOutlineEye,
+  HiOutlinePlus,
+} from "react-icons/hi2";
 import DetalleInscripcionModal from "../../components/DetalleInscripcionModal";
 import EstadoGiraBadge from "../../components/giras/EstadoGiraBadge";
 import { listarInscripcionesDeGira, obtenerGira } from "../../api/giras";
 import { useConsulta } from "../../api/useConsulta";
+import { useRolGira } from "../../context/UserContext";
 import { etiquetaPeriodo, fechaCorta } from "../../utils/girasFormato";
 import type { InscripcionGiraResumen } from "../../types/giras";
 
@@ -44,6 +51,7 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactN
 export default function InscripcionesGira() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { rol } = useRolGira();
   const [busqueda, setBusqueda] = useState("");
   const [seleccionada, setSeleccionada] = useState<InscripcionGiraResumen | null>(null);
 
@@ -76,15 +84,27 @@ export default function InscripcionesGira() {
           Regresar
         </button>
 
-        <button
-          type="button"
-          onClick={() => descargarExcel(idGira, filas)}
-          disabled={filas.length === 0}
-          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition-colors duration-150 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <HiOutlineArrowDownTray className="h-4 w-4" />
-          Descargar Excel
-        </button>
+        <div className="flex items-center gap-2">
+          {rol === "jefe-mision" && (
+            <button
+              type="button"
+              onClick={() => navigate(`/giras/mis-giras/${idGira}/inscripciones/nueva`)}
+              className="flex items-center gap-2 rounded-lg bg-unah-navy px-4 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:bg-unah-navy-dark"
+            >
+              <HiOutlinePlus className="h-4 w-4" />
+              Inscripción Excepcional
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => descargarExcel(idGira, filas)}
+            disabled={filas.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition-colors duration-150 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <HiOutlineArrowDownTray className="h-4 w-4" />
+            Descargar Excel
+          </button>
+        </div>
       </div>
 
       {gira.cargando && !gira.datos ? (

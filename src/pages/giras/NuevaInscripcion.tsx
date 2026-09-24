@@ -67,6 +67,9 @@ interface Contexto {
   tiposDeSangre: RegistroCatalogoApi[];
   viajeros: UsuarioUnidadGira[];
   quienInscribe: UsuarioUnidadGira;
+  /** Si se entró desde el roster de una gira ("+ Inscripción Excepcional" en Mis Giras),
+   * esa gira ya viene fija y no se navega a las listas generales de inscripciones. */
+  idGiraDesdeRuta: number | null;
 }
 
 function Formulario({
@@ -80,7 +83,9 @@ function Formulario({
   contexto: Contexto;
 }) {
   const navigate = useNavigate();
-  const { esExcepcional, giras, tiposDeSangre, viajeros, quienInscribe } = contexto;
+  const { esExcepcional, giras, tiposDeSangre, viajeros, quienInscribe, idGiraDesdeRuta } = contexto;
+  /** A dónde volver: al roster de la gira si se entró desde ahí, o a las listas generales. */
+  const rutaListaDestino = idGiraDesdeRuta !== null ? `/giras/mis-giras/${idGiraDesdeRuta}/inscripciones` : null;
 
   const [f, setF] = useState<FormularioInscripcion>(inicial);
   const [pasoActivo, setPasoActivo] = useState(0);
@@ -158,7 +163,7 @@ function Formulario({
           enviar,
         });
       }
-      navigate(enviar || enCorreccion ? "/giras/inscripciones" : "/giras/inscripciones/borradores");
+      navigate(rutaListaDestino ?? (enviar || enCorreccion ? "/giras/inscripciones" : "/giras/inscripciones/borradores"));
     } catch (causa) {
       setMostrarConfirmacionEnvio(false);
       setError(mensajeDeError(causa));
@@ -168,7 +173,10 @@ function Formulario({
   }
 
   function regresar() {
-    navigate(inscripcion && !enCorreccion ? "/giras/inscripciones/borradores" : "/giras/inscripciones");
+    navigate(
+      rutaListaDestino ??
+        (inscripcion && !enCorreccion ? "/giras/inscripciones/borradores" : "/giras/inscripciones"),
+    );
   }
 
   function cambiarFicha(cual: "fichaEstudiante" | "fichaAcompanante", campo: keyof FichaForm, valor: string) {
@@ -236,7 +244,7 @@ function Formulario({
               id="gira"
               value={f.idGira}
               onChange={(e) => cambiar({ idGira: e.target.value })}
-              disabled={!!inscripcion}
+              disabled={!!inscripcion || idGiraDesdeRuta !== null}
               className={claseInput}
             >
               <option value="" disabled>
@@ -613,9 +621,12 @@ function Formulario({
  * solo; el jefe de misión inscribe a nombre de un estudiante (excepcional).
  */
 export default function NuevaInscripcion() {
-  const { borradorId } = useParams();
+  const { borradorId, id } = useParams();
   const { rol } = useRolGira();
   const identidad = useIdentidadGira();
+  // Presente solo en /giras/mis-giras/:id/inscripciones/nueva (el botón
+  // "Inscripción Excepcional" del roster de una gira).
+  const idGiraDesdeRuta = id ? Number(id) : null;
 
   const esExcepcional = rol === "jefe-mision";
   const puedeInscribir = rol === "estudiante" || rol === "jefe-mision";
@@ -668,7 +679,7 @@ export default function NuevaInscripcion() {
   return (
     <Formulario
       key={editando?.idInscripcion ?? "nueva"}
-      inicial={editando ? formularioDesde(editando) : formularioVacio()}
+      inicial={editando ? formularioDesde(editando) : formularioVacio(idGiraDesdeRuta)}
       inscripcion={editando}
       contexto={{
         esExcepcional,
@@ -677,6 +688,7 @@ export default function NuevaInscripcion() {
         tiposDeSangre: catalogos.datos["sangre"] ?? [],
         viajeros: viajeros.datos,
         quienInscribe: identidad,
+        idGiraDesdeRuta,
       }}
     />
   );

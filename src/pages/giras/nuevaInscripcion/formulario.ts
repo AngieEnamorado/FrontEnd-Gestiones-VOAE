@@ -68,9 +68,13 @@ export const fichaVacia = (): FichaForm => ({
   contactoTelefono: "",
 });
 
-export function formularioVacio(): FormularioInscripcion {
+/**
+ * @param idGiraPreseleccionada Cuando se entra desde el roster de una gira
+ * (botón "Inscripción Excepcional" en Mis Giras), esa gira ya viene elegida.
+ */
+export function formularioVacio(idGiraPreseleccionada: number | null = null): FormularioInscripcion {
   return {
-    idGira: "",
+    idGira: idGiraPreseleccionada === null ? "" : String(idGiraPreseleccionada),
     idViajero: "",
     motivoExcepcion: "",
     tieneAcompanante: false,

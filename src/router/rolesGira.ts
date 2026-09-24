@@ -26,12 +26,14 @@ export function rutaInicialGira(rol: RolGira): string {
 /**
  * Rutas que cuelgan de una página que el rol sí ve, pero que ese rol no abre.
  * El estudiante tiene Mis giras, pero no el roster de inscritos de cada gira
- * (`.../inscripciones`). Sí abre el detalle de una inscripción
+ * (`.../inscripciones`) ni el alta excepcional que cuelga de él
+ * (`.../inscripciones/nueva`, el botón "Inscripción Excepcional" que solo usa
+ * el jefe de misión). Sí abre el detalle de una inscripción
  * (`.../inscripciones/:id`): es el "Ver detalles" de su propio historial, y
  * esa página verifica por su cuenta que la inscripción sea suya.
  */
 const RUTAS_VEDADAS: Partial<Record<RolGira, RegExp[]>> = {
-  estudiante: [/^\/giras\/mis-giras\/[^/]+\/inscripciones\/?$/],
+  estudiante: [/^\/giras\/mis-giras\/[^/]+\/inscripciones(\/nueva)?\/?$/],
 };
 
 /**

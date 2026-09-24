@@ -92,6 +92,7 @@ export default function App() {
           <Route path="mis-giras" element={<MisGiras />} />
           <Route path="mis-giras/:id/resumen" element={<ResumenGira />} />
           <Route path="mis-giras/:id/inscripciones" element={<InscripcionesGira />} />
+          <Route path="mis-giras/:id/inscripciones/nueva" element={<NuevaInscripcion />} />
           <Route
             path="mis-giras/:id/inscripciones/:inscripcionId"
             element={<DetalleInscripcion />}

@@ -21,6 +21,7 @@ import {
   HiOutlineUserGroup,
   HiOutlineBanknotes,
   HiOutlineDocumentArrowDown,
+  HiOutlineTableCells,
   HiOutlineFunnel,
   HiOutlineXMark,
 } from "react-icons/hi2";
@@ -28,6 +29,7 @@ import EstadisticaCard from "../../components/EstadisticaCard";
 import { cargarRegistrosAnaliticos } from "../../api/estadisticasGiras";
 import { useConsulta } from "../../api/useConsulta";
 import { generarReportePdf, type SeccionReportePdf } from "../../utils/exportarPdf";
+import { descargarExcel } from "../../utils/exportarExcel";
 
 const COLOR_BLUE = "#2563eb";
 const COLOR_EMERALD = "#10b981";
@@ -80,12 +82,14 @@ const claseSelect =
 function TarjetaGrafico({
   titulo,
   subtitulo,
-  onDescargar,
+  onDescargarPdf,
+  onDescargarExcel,
   children,
 }: {
   titulo: string;
   subtitulo: string;
-  onDescargar: () => void;
+  onDescargarPdf: () => void;
+  onDescargarExcel: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -95,14 +99,24 @@ function TarjetaGrafico({
           <h3 className="text-base font-bold text-slate-800">{titulo}</h3>
           <p className="mt-0.5 text-xs text-slate-400">{subtitulo}</p>
         </div>
-        <button
-          type="button"
-          onClick={onDescargar}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-50"
-        >
-          <HiOutlineDocumentArrowDown className="h-3.5 w-3.5" />
-          Descargar PDF
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onDescargarPdf}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-50"
+          >
+            <HiOutlineDocumentArrowDown className="h-3.5 w-3.5" />
+            PDF
+          </button>
+          <button
+            type="button"
+            onClick={onDescargarExcel}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-slate-50"
+          >
+            <HiOutlineTableCells className="h-3.5 w-3.5" />
+            Excel
+          </button>
+        </div>
       </div>
       <div className="mt-4 h-72">{children}</div>
     </div>
@@ -318,6 +332,15 @@ export default function Estadisticas() {
     );
   }
 
+  function descargarTendenciaExcel() {
+    descargarExcel(
+      "giras-tendencia-mensual",
+      ["Mes", "Giras"],
+      tendenciaMensual.map((p) => [p.mes, String(p.giras)]),
+      "Tendencia mensual",
+    );
+  }
+
   function descargarFacultadPdf() {
     generarReportePdf(
       "GIRAS",
@@ -331,6 +354,15 @@ export default function Estadisticas() {
         },
       ],
       "giras-por-facultad.pdf",
+    );
+  }
+
+  function descargarFacultadExcel() {
+    descargarExcel(
+      "giras-por-facultad",
+      ["Facultad", "Giras", "Estudiantes"],
+      porFacultad.map((p) => [p.facultad, String(p.giras), String(p.estudiantes)]),
+      "Por facultad",
     );
   }
 
@@ -350,6 +382,15 @@ export default function Estadisticas() {
     );
   }
 
+  function descargarFinalidadExcel() {
+    descargarExcel(
+      "giras-por-finalidad",
+      ["Finalidad", "Giras", "Porcentaje"],
+      porFinalidad.map((p) => [p.finalidad, String(p.valor), `${p.porcentaje}%`]),
+      "Por finalidad",
+    );
+  }
+
   function descargarDestinosPdf() {
     generarReportePdf(
       "GIRAS",
@@ -363,6 +404,15 @@ export default function Estadisticas() {
         },
       ],
       "giras-top-destinos.pdf",
+    );
+  }
+
+  function descargarDestinosExcel() {
+    descargarExcel(
+      "giras-top-destinos",
+      ["Destino", "Giras"],
+      topDestinos.map((p) => [p.destino, String(p.giras)]),
+      "Top destinos",
     );
   }
 
@@ -577,7 +627,8 @@ export default function Estadisticas() {
         <TarjetaGrafico
           titulo="Tendencia de Giras por Mes"
           subtitulo="Volumen de giras realizadas a lo largo del año"
-          onDescargar={descargarTendenciaPdf}
+          onDescargarPdf={descargarTendenciaPdf}
+          onDescargarExcel={descargarTendenciaExcel}
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={tendenciaMensual} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
@@ -618,7 +669,8 @@ export default function Estadisticas() {
         <TarjetaGrafico
           titulo="Giras y Estudiantes por Facultad"
           subtitulo="Qué facultades organizan más giras y movilizan más estudiantes"
-          onDescargar={descargarFacultadPdf}
+          onDescargarPdf={descargarFacultadPdf}
+          onDescargarExcel={descargarFacultadExcel}
         >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={porFacultad} margin={{ top: 20, right: 8, left: -16, bottom: 0 }}>
@@ -653,7 +705,8 @@ export default function Estadisticas() {
         <TarjetaGrafico
           titulo="Distribución por Alcance y Finalidad"
           subtitulo="Proporción de giras académicas, sociales, culturales, deportivas y recreativas"
-          onDescargar={descargarFinalidadPdf}
+          onDescargarPdf={descargarFinalidadPdf}
+          onDescargarExcel={descargarFinalidadExcel}
         >
           <div className="flex h-full flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative h-44 flex-1 sm:h-full">
@@ -702,7 +755,8 @@ export default function Estadisticas() {
         <TarjetaGrafico
           titulo="Top Destinos Más Frecuentados"
           subtitulo="Ciudades y lugares más visitados en las giras académicas"
-          onDescargar={descargarDestinosPdf}
+          onDescargarPdf={descargarDestinosPdf}
+          onDescargarExcel={descargarDestinosExcel}
         >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
