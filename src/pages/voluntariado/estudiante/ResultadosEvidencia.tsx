@@ -5,6 +5,7 @@ import HeaderMovilDetalle from "../../../components/voluntariado/HeaderMovilDeta
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi, type ActividadDetalleApi, type RequisitoApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
+import { subirArchivo } from "../../../api/archivosVoluntariado";
 import { useApi } from "../../../utils/useApi";
 
 export default function ResultadosEvidencia() {
@@ -51,18 +52,15 @@ function Formulario({
   const totalFotos = actividad.fotos.length;
   const cumpleMinimo = totalFotos >= minimo;
 
-  // Todavía no hay subida a S3 (URL prefirmada): se registra el nombre del
-  // archivo como referencia para que el flujo y el conteo funcionen.
+  // La foto va directo a S3 con una subida firmada; después se registra la
+  // llave del objeto como evidencia de la actividad.
   async function agregarFoto(archivo: File | undefined) {
     if (!archivo) return;
     setSubiendo(true);
     setError(null);
     try {
-      await voluntariadoApi.agregarFoto(
-        actividad.idActividad,
-        `prototipo/actividades/${actividad.idActividad}/${archivo.name}`,
-        requisito?.idRequisitoAdjunto ?? null,
-      );
+      const llave = await subirArchivo("ACTIVIDAD", actividad.idActividad, archivo);
+      await voluntariadoApi.agregarFoto(actividad.idActividad, llave, requisito?.idRequisitoAdjunto ?? null);
       onFotoAgregada();
     } catch (e) {
       setError(mensajeDeError(e));
@@ -111,10 +109,22 @@ function Formulario({
               return (
                 <div
                   key={foto.idFotoActividad}
-                  className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 p-2"
+                  className="relative flex aspect-square flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 p-2"
                 >
-                  <HiOutlineCheck className="h-6 w-6 text-emerald-600" />
-                  <span className="w-full truncate text-center text-[10.5px] font-semibold text-emerald-600">
+                  {foto.urlDescarga ? (
+                    <img
+                      src={foto.urlDescarga}
+                      alt={foto.descripcionFoto ?? "Foto de evidencia"}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <HiOutlineCheck className="h-6 w-6 text-emerald-600" />
+                  )}
+                  <span
+                    className={`w-full truncate text-center text-[10.5px] font-semibold ${
+                      foto.urlDescarga ? "absolute inset-x-0 bottom-0 bg-black/45 px-2 py-1 text-white" : "text-emerald-600"
+                    }`}
+                  >
                     {foto.archivoUrl.split("/").pop()}
                   </span>
                 </div>
@@ -131,7 +141,7 @@ function Formulario({
                 <span className="text-[10.5px] font-semibold text-slate-400">{subiendo ? "Agregando…" : "Agregar foto"}</span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp"
                   className="hidden"
                   onChange={(e) => agregarFoto(e.target.files?.[0])}
                 />

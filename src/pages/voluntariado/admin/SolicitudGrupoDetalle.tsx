@@ -168,7 +168,7 @@ export default function SolicitudGrupoDetalle() {
                 <ChipDocumento
                   key={r.idRequisitoAdjunto}
                   label={NOMBRE_DOCUMENTO[r.tipoRequisito] ?? r.tipoRequisito}
-                  adjunto={solicitud.adjuntos.some((a) => a.idRequisitoAdjunto === r.idRequisitoAdjunto)}
+                  adjunto={solicitud.adjuntos.find((a) => a.idRequisitoAdjunto === r.idRequisitoAdjunto)}
                 />
               ))}
             </div>
@@ -246,13 +246,27 @@ export default function SolicitudGrupoDetalle() {
   );
 }
 
-function ChipDocumento({ label, adjunto }: { label: string; adjunto: boolean }) {
+function ChipDocumento({
+  label,
+  adjunto,
+}: {
+  label: string;
+  adjunto: { urlDescarga?: string | null } | undefined;
+}) {
+  const clase = `rounded-lg px-3 py-1.5 text-xs font-semibold ${
+    adjunto ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
+  }`;
+  // Con S3 el adjunto trae una URL firmada (vence en 15 min): se abre en otra
+  // pestaña. Los de prototipo solo tienen el nombre y se muestran sin enlace.
+  if (adjunto?.urlDescarga) {
+    return (
+      <a href={adjunto.urlDescarga} target="_blank" rel="noreferrer" className={`${clase} underline-offset-2 hover:underline`}>
+        {label} ✓ · Ver
+      </a>
+    );
+  }
   return (
-    <span
-      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-        adjunto ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
-      }`}
-    >
+    <span className={clase}>
       {label} {adjunto ? "✓" : "—"}
     </span>
   );
