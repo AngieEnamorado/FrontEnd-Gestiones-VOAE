@@ -3,6 +3,7 @@
 // `{ error: string, detalles?: unknown }`; aquí se convierten en `ErrorApi`.
 
 const BASE_GIRAS = (import.meta.env.VITE_API_GIRAS_URL as string | undefined)?.replace(/\/+$/, "");
+const BASE_REPORTERIA = (import.meta.env.VITE_API_REPORTERIA as string | undefined)?.replace(/\/+$/, "");
 
 export class ErrorApi extends Error {
   /** Código HTTP, o 0 si ni siquiera hubo respuesta (sin red, CORS, URL mal escrita). */
@@ -113,6 +114,11 @@ export const apiGiras = {
   put: <T>(ruta: string, cuerpo: unknown) => solicitar<T>(BASE_GIRAS, "PUT", ruta, { cuerpo }),
   delete: (ruta: string) => solicitar<void>(BASE_GIRAS, "DELETE", ruta),
 };
+
+/** Lectura contra voae-reporteria. `null` si no esta configurada en .env.local. */
+export const apiReporteria = BASE_REPORTERIA
+  ? { get: <T>(ruta: string) => solicitar<T>(BASE_REPORTERIA, "GET", ruta) }
+  : null;
 
 /** Mensaje legible para mostrar al usuario a partir de cualquier error capturado. */
 export function mensajeDeError(error: unknown): string {
