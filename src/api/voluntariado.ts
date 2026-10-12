@@ -2,6 +2,13 @@ import { crearCliente } from "./clienteVoluntariado";
 
 const api = crearCliente("VITE_API_VOLUNTARIADO", import.meta.env.VITE_API_VOLUNTARIADO);
 
+// Tablero y estadisticas viven en voae-reporteria. Mientras alguien no tenga
+// VITE_API_REPORTERIA en su .env.local se siguen pidiendo a las rutas
+// provisionales de voae-voluntariado, que devuelven exactamente lo mismo.
+const reporteria = import.meta.env.VITE_API_REPORTERIA
+  ? crearCliente("VITE_API_REPORTERIA", `${String(import.meta.env.VITE_API_REPORTERIA).replace(/\/$/, "")}/voluntariado`)
+  : api;
+
 // Los tipos reflejan las columnas tal como las devuelve voae-voluntariado.
 // Las fechas llegan como ISO ("2026-08-22T00:00:00.000Z"); ver fechaCorta()
 // en utils/voluntariado.ts.
@@ -459,6 +466,6 @@ export const voluntariadoApi = {
   participacionesDePersona: (id: number) => api.get<ParticipacionPersonaApi[]>(`/personas/${id}/participaciones`),
   solicitudesDePersona: (id: number) => api.get<SolicitudPersonaApi[]>(`/personas/${id}/solicitudes`),
 
-  tablero: () => api.get<TableroApi>("/tablero"),
-  estadisticas: () => api.get<FilaEstadisticaApi[]>("/estadisticas"),
+  tablero: () => reporteria.get<TableroApi>("/tablero"),
+  estadisticas: () => reporteria.get<FilaEstadisticaApi[]>("/estadisticas"),
 };

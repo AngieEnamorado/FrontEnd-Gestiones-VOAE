@@ -1,12 +1,11 @@
-// Los registros "planos" que alimentan el dashboard de Estadísticas de Giras,
-// armados a partir de las solicitudes reales.
+// Los registros "planos" que alimentan el dashboard de Estadísticas de Giras.
 //
-// Es un arreglo provisional: lo correcto es que el servidor entregue los datos
-// ya agregados (voae-reporteria, todavía sin implementar). Mientras tanto se
-// pide el detalle de cada solicitud enviada, así que el costo crece con su
-// cantidad. Una solicitud puede tener varias facultades o finalidades; aquí
-// cuenta con la primera, para que cada solicitud siga siendo una sola gira en
-// los totales.
+// Salen de voae-reporteria (/giras/registros) en una sola petición. Si
+// VITE_API_REPORTERIA no está en .env.local se arman como antes: pidiendo el
+// detalle de cada solicitud enviada, con un costo que crece con su cantidad.
+// En los dos caminos, una solicitud con varias facultades o finalidades cuenta
+// con la primera por nombre, para que siga siendo una sola gira en los totales.
+import { apiReporteria } from "./cliente";
 import { listarSolicitudes, obtenerSolicitud } from "./giras";
 import { etiquetaPeriodo } from "../utils/girasFormato";
 
@@ -30,19 +29,57 @@ export interface RegistroAnalitico {
 
 const SIN_PERIODO = "Sin período";
 
+/** Fila tal como la devuelve /giras/registros. */
+interface RegistroGiraApi {
+  idSolicitud: number;
+  fecha: string;
+  anioPeriodo: number | null;
+  numeroPac: number | null;
+  campus: string;
+  facultad: string | null;
+  finalidad: string | null;
+  alcance: string | null;
+  estado: string;
+  destino: string | null;
+  estudiantes: number;
+  costo: number;
+}
+
+/** «II Periodo 2026» → «II Periodo»: el año ya es otro filtro. */
+function periodoSinAnio(anio: number | null, numeroPac: number | null): string {
+  const periodo = etiquetaPeriodo(anio, numeroPac);
+  return periodo === "—" ? SIN_PERIODO : periodo.replace(/\s\d{4}$/, "");
+}
+
 export async function cargarRegistrosAnaliticos(): Promise<RegistroAnalitico[]> {
+  if (apiReporteria) {
+    const filas = await apiReporteria.get<RegistroGiraApi[]>("/giras/registros");
+    return filas.map((f) => ({
+      id: `SOL-${f.idSolicitud}`,
+      fecha: f.fecha.slice(0, 10),
+      año: f.anioPeriodo,
+      periodo: periodoSinAnio(f.anioPeriodo, f.numeroPac),
+      campus: f.campus,
+      facultad: f.facultad ?? "Sin facultad",
+      finalidad: f.finalidad ?? "Sin finalidad",
+      alcance: f.alcance ?? "Sin alcance",
+      estado: f.estado,
+      destino: f.destino ?? "Sin destino",
+      estudiantes: f.estudiantes,
+      costo: Number(f.costo),
+    }));
+  }
+
   const solicitudes = await listarSolicitudes({ excluirBorradores: true });
   const detalles = await Promise.all(solicitudes.map((s) => obtenerSolicitud(s.idSolicitud)));
 
   return solicitudes.map((s, indice) => {
     const detalle = detalles[indice];
-    const periodo = etiquetaPeriodo(s.anioPeriodo, s.numeroPac);
     return {
       id: `SOL-${s.idSolicitud}`,
       fecha: (s.fechaSalidaPropuesta ?? s.fechaRegistro).slice(0, 10),
       año: s.anioPeriodo,
-      // «II Periodo 2026» → «II Periodo»: el año ya es otro filtro.
-      periodo: periodo === "—" ? SIN_PERIODO : periodo.replace(/\s\d{4}$/, ""),
+      periodo: periodoSinAnio(s.anioPeriodo, s.numeroPac),
       campus: s.nombreCampus,
       facultad: detalle?.facultades[0]?.nombre ?? "Sin facultad",
       finalidad: detalle?.finalidades[0]?.nombre ?? "Sin finalidad",
