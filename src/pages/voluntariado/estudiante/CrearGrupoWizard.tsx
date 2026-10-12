@@ -2,43 +2,24 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HiOutlineCheck, HiOutlineXMark, HiOutlinePlus, HiOutlineExclamationTriangle } from "react-icons/hi2";
 import HeaderMovilDetalle from "../../../components/voluntariado/HeaderMovilDetalle";
-import { campus, redesTematicas } from "../../../data/mockCatalogosVoluntariado";
-import { gruposVoluntariado, solicitudesGrupoVoluntariado } from "../../../data/mockGruposVoluntariado";
-import type { CargoJuntaDirectiva } from "../../../types";
+import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
+import { useSesionVoluntariado } from "../../../context/SesionVoluntariadoContext";
+import { voluntariadoApi, type RequisitoApi } from "../../../api/voluntariado";
+import { catalogoApi } from "../../../api/catalogo";
+import { ErrorApi, mensajeDeError } from "../../../api/clienteVoluntariado";
+import { useApi } from "../../../utils/useApi";
 
 const claseInput =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-unah-orange focus:ring-1 focus:ring-unah-orange";
 const claseLabel = "mb-1.5 block text-[11px] font-bold text-slate-500";
 
-const cargosFijos: CargoJuntaDirectiva[] = ["Presidente", "Vicepresidente", "Secretario", "Tesorero", "Fiscal", "Vocal"];
+const CARGO_MIEMBRO = 1;
 
-const nombresPadron = [
-  ["Diego Salgado", "Ingeniería Industrial"],
-  ["Karla Espinoza", "Trabajo Social"],
-  ["Marvin Portillo", "Derecho"],
-  ["Suyapa Reyes", "Enfermería"],
-  ["Néstor Aceituno", "Administración de Empresas"],
-];
-
-function buscarEnPadron(cuenta: string): { nombre: string; carrera: string } | null {
-  const directorio = [
-    ...gruposVoluntariado.flatMap((g) => g.miembros),
-    ...solicitudesGrupoVoluntariado.flatMap((g) => g.miembros),
-  ];
-  const conocido = directorio.find((m) => m.numeroCuenta === cuenta);
-  if (conocido) return { nombre: conocido.nombre, carrera: conocido.carrera };
-  if (/^\d{11}$/.test(cuenta)) {
-    const indice = Number(cuenta.slice(-1)) % nombresPadron.length;
-    const [nombre, carrera] = nombresPadron[indice];
-    return { nombre, carrera };
-  }
-  return null;
-}
-
-interface FilaJunta {
-  cargo: CargoJuntaDirectiva;
-  numeroCuenta: string;
-}
+const NOMBRE_REQUISITO: Record<string, { label: string; formato: string; accept: string }> = {
+  ESTATUTOS: { label: "Estatutos", formato: "PDF", accept: "application/pdf" },
+  LOGO: { label: "Logo del grupo", formato: "PNG/JPG", accept: "image/*" },
+  ACTA: { label: "Acta de junta", formato: "PDF", accept: "application/pdf" },
+};
 
 interface Fundador {
   numeroCuenta: string;
@@ -60,53 +41,72 @@ function generarId() {
 
 export default function CrearGrupoWizard() {
   const navigate = useNavigate();
+  const { idPersona, persona } = useSesionVoluntariado();
+  const catalogos = useApi(() => Promise.all([catalogoApi.campus(), voluntariadoApi.catalogos()]), []);
+  const [campus, cat] = catalogos.datos ?? [[], undefined];
+  const cargos = (cat?.cargos ?? []).filter((c) => c.idCargo !== CARGO_MIEMBRO);
+  const requisitos = (cat?.requisitos ?? []).filter((r) => r.procesoRequisito === "SOLICITUD_GRUPO");
+
   const [paso, setPaso] = useState(0);
 
   const [nombre, setNombre] = useState("");
-  const [campusId, setCampusId] = useState("");
-  const [redesIds, setRedesIds] = useState<string[]>([]);
+  const [campusId, setCampusId] = useState(persona.idCampus ? String(persona.idCampus) : "");
   const [fechaCreacion, setFechaCreacion] = useState("");
   const [reseña, setReseña] = useState("");
   const [proposito, setProposito] = useState("");
   const [mision, setMision] = useState("");
   const [vision, setVision] = useState("");
 
-  const [junta, setJunta] = useState<FilaJunta[]>(cargosFijos.map((cargo) => ({ cargo, numeroCuenta: "" })));
+  // Cuenta por idCargo. El solicitante arranca como coordinador.
+  const [junta, setJunta] = useState<Record<number, string>>(() => ({ 2: persona.numeroCuenta ?? "" }));
 
   const [cuentaFundador, setCuentaFundador] = useState("");
   const [errorFundador, setErrorFundador] = useState("");
+  const [validando, setValidando] = useState(false);
   const [fundadores, setFundadores] = useState<Fundador[]>([]);
 
   const [actividades, setActividades] = useState<ActividadProyectada[]>([]);
 
-  const [estatutosOk, setEstatutosOk] = useState(false);
-  const [logoOk, setLogoOk] = useState(false);
-  const [actaOk, setActaOk] = useState(false);
+  // Archivo elegido por requisito. Todavía no se suben a S3: se registra el
+  // nombre como referencia para que la VOAE vea qué se adjuntó.
+  const [archivos, setArchivos] = useState<Record<number, string>>({});
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
 
-  const documentosCompletos = estatutosOk && logoOk;
+  const documentosCompletos = requisitos.every((r) => !r.obligatorioRequisito || archivos[r.idRequisitoAdjunto]);
   const esUltimoPaso = paso === 4;
+  const datosCompletos = nombre.trim() !== "" && campusId !== "";
 
-  function alternarRed(id: string) {
-    setRedesIds((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
+  function actualizarJunta(idCargo: number, numeroCuenta: string) {
+    setJunta((prev) => ({ ...prev, [idCargo]: numeroCuenta }));
   }
 
-  function actualizarJunta(cargo: CargoJuntaDirectiva, numeroCuenta: string) {
-    setJunta((prev) => prev.map((f) => (f.cargo === cargo ? { ...f, numeroCuenta } : f)));
-  }
-
-  function validarFundador() {
+  async function validarFundador() {
     setErrorFundador("");
-    if (fundadores.some((f) => f.numeroCuenta === cuentaFundador)) {
+    const cuenta = cuentaFundador.trim();
+    if (fundadores.some((f) => f.numeroCuenta === cuenta)) {
       setErrorFundador("Ese número de cuenta ya fue agregado.");
       return;
     }
-    const resultado = buscarEnPadron(cuentaFundador);
-    if (!resultado) {
-      setErrorFundador("No se encontró esa matrícula en Registro.");
-      return;
+    setValidando(true);
+    try {
+      const estudiante = await catalogoApi.estudiantePorCuenta(cuenta);
+      setFundadores((prev) => [
+        ...prev,
+        {
+          numeroCuenta: cuenta,
+          nombre: `${estudiante.nombrePersona} ${estudiante.apellidosPersona}`,
+          carrera: estudiante.carreraEstudiante ?? "",
+        },
+      ]);
+      setCuentaFundador("");
+    } catch (e) {
+      setErrorFundador(
+        e instanceof ErrorApi && e.estado === 404 ? "No se encontró esa matrícula en Registro." : mensajeDeError(e),
+      );
+    } finally {
+      setValidando(false);
     }
-    setFundadores((prev) => [...prev, { numeroCuenta: cuentaFundador, ...resultado }]);
-    setCuentaFundador("");
   }
 
   function quitarFundador(cuenta: string) {
@@ -125,10 +125,44 @@ export default function CrearGrupoWizard() {
     setActividades((prev) => prev.filter((a) => a.id !== id));
   }
 
+  async function enviar() {
+    setEnviando(true);
+    setErrorEnvio(null);
+    try {
+      const solicitud = await voluntariadoApi.crearSolicitudGrupo({
+        idPersonaSolicitante: idPersona,
+        idCampus: Number(campusId),
+        nombreGrupo: nombre.trim(),
+        fechaCreacionGrupo: fechaCreacion || null,
+        resenaHistorica: reseña || null,
+        propositoGrupo: proposito || null,
+        misionGrupo: mision || null,
+        visionGrupo: vision || null,
+        fundadores: fundadores.map((f) => f.numeroCuenta),
+        juntaDirectiva: Object.entries(junta)
+          .filter(([, cuenta]) => cuenta.trim())
+          .map(([idCargo, cuenta]) => ({ idCargo: Number(idCargo), numeroCuenta: cuenta.trim() })),
+        actividadesProyectadas: actividades
+          .filter((a) => a.nombre.trim())
+          .map((a) => ({ nombreActividad: a.nombre.trim(), fechaTentativa: a.mes ? `${a.mes}-01` : null })),
+      });
+      for (const [idRequisito, archivo] of Object.entries(archivos)) {
+        await voluntariadoApi.adjuntarASolicitud(
+          solicitud.idSolicitudGrupoNuevo,
+          Number(idRequisito),
+          `prototipo/solicitudes/${solicitud.idSolicitudGrupoNuevo}/${archivo}`,
+        );
+      }
+      navigate("/voluntariado/portal-estudiante/solicitudes");
+    } catch (e) {
+      setErrorEnvio(mensajeDeError(e));
+      setEnviando(false);
+    }
+  }
+
   function siguiente() {
     if (esUltimoPaso) {
-      if (!documentosCompletos) return;
-      navigate("/voluntariado/portal-estudiante/solicitudes");
+      if (documentosCompletos) void enviar();
       return;
     }
     setPaso((p) => Math.min(p + 1, 4));
@@ -153,6 +187,7 @@ export default function CrearGrupoWizard() {
       </div>
 
       <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4">
+        <EstadoCarga cargando={catalogos.cargando} error={catalogos.error} onReintentar={catalogos.recargar} listo={catalogos.datos !== undefined}>
         {paso === 0 && (
           <div className="flex flex-col gap-3.5">
             <div>
@@ -163,25 +198,9 @@ export default function CrearGrupoWizard() {
               <label className={claseLabel}>Campus</label>
               <select className={claseInput} value={campusId} onChange={(e) => setCampusId(e.target.value)}>
                 <option value="" disabled>Selecciona un campus</option>
-                {campus.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                {campus.map((c) => <option key={c.idCampus} value={c.idCampus}>{c.nombreCampus}</option>)}
               </select>
-            </div>
-            <div>
-              <p className={claseLabel}>Redes temáticas</p>
-              <div className="flex flex-wrap gap-1.5">
-                {redesTematicas.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => alternarRed(r.id)}
-                    className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${
-                      redesIds.includes(r.id) ? "border-transparent bg-unah-orange text-white" : "border-slate-200 text-slate-500"
-                    }`}
-                  >
-                    {r.nombre}
-                  </button>
-                ))}
-              </div>
+              <p className="mt-1.5 text-[11px] text-slate-400">La VOAE asigna las redes temáticas al aprobar la solicitud.</p>
             </div>
             <div>
               <label className={claseLabel}>Fecha de creación</label>
@@ -208,14 +227,14 @@ export default function CrearGrupoWizard() {
 
         {paso === 1 && (
           <div className="flex flex-col gap-3">
-            {junta.map((fila) => (
-              <div key={fila.cargo}>
-                <label className={claseLabel}>{fila.cargo}</label>
+            {cargos.map((cargo) => (
+              <div key={cargo.idCargo}>
+                <label className={claseLabel}>{cargo.nombreCargo}</label>
                 <input
                   className={claseInput}
                   placeholder="Número de cuenta"
-                  value={fila.numeroCuenta}
-                  onChange={(e) => actualizarJunta(fila.cargo, e.target.value)}
+                  value={junta[cargo.idCargo] ?? ""}
+                  onChange={(e) => actualizarJunta(cargo.idCargo, e.target.value)}
                 />
               </div>
             ))}
@@ -235,10 +254,10 @@ export default function CrearGrupoWizard() {
               <button
                 type="button"
                 onClick={validarFundador}
-                disabled={!cuentaFundador}
+                disabled={!cuentaFundador || validando}
                 className="shrink-0 rounded-lg bg-unah-navy px-4 text-[13px] font-semibold text-white disabled:opacity-40"
               >
-                Validar
+                {validando ? "…" : "Validar"}
               </button>
             </div>
             {errorFundador && <p className="mt-1.5 text-[11px] font-semibold text-rose-600">{errorFundador}</p>}
@@ -280,8 +299,8 @@ export default function CrearGrupoWizard() {
                     onChange={(e) => actualizarActividad(a.id, "nombre", e.target.value)}
                   />
                   <input
-                    className={`${claseInput} w-24 shrink-0`}
-                    placeholder="Mes"
+                    type="month"
+                    className={`${claseInput} w-36 shrink-0`}
                     value={a.mes}
                     onChange={(e) => actualizarActividad(a.id, "mes", e.target.value)}
                   />
@@ -304,9 +323,14 @@ export default function CrearGrupoWizard() {
 
         {paso === 4 && (
           <div className="flex flex-col gap-3">
-            <FilaDocumento label="Estatutos" formato="PDF" obligatorio value={estatutosOk} onChange={setEstatutosOk} />
-            <FilaDocumento label="Logo del grupo" formato="PNG/JPG" obligatorio value={logoOk} onChange={setLogoOk} />
-            <FilaDocumento label="Acta de junta" formato="PDF" obligatorio={false} value={actaOk} onChange={setActaOk} />
+            {requisitos.map((r) => (
+              <FilaDocumento
+                key={r.idRequisitoAdjunto}
+                requisito={r}
+                archivo={archivos[r.idRequisitoAdjunto]}
+                onChange={(archivo) => setArchivos((prev) => ({ ...prev, [r.idRequisitoAdjunto]: archivo }))}
+              />
+            ))}
 
             {!documentosCompletos && (
               <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
@@ -314,8 +338,12 @@ export default function CrearGrupoWizard() {
                 <p className="text-[12px] font-semibold text-red-700">Faltan documentos obligatorios para enviar la solicitud.</p>
               </div>
             )}
+            {errorEnvio && (
+              <p className="rounded-xl bg-red-50 p-3 text-[12px] font-semibold text-red-700">{errorEnvio}</p>
+            )}
           </div>
         )}
+        </EstadoCarga>
       </div>
 
       <footer className="sticky bottom-0 flex gap-3 border-t border-slate-200 bg-white p-4">
@@ -331,12 +359,12 @@ export default function CrearGrupoWizard() {
         <button
           type="button"
           onClick={siguiente}
-          disabled={esUltimoPaso && !documentosCompletos}
-          className={`flex-1 rounded-xl py-3 text-sm font-semibold text-white ${
-            esUltimoPaso && !documentosCompletos ? "bg-slate-300" : esUltimoPaso ? "bg-emerald-600" : "bg-unah-navy"
+          disabled={(esUltimoPaso && !documentosCompletos) || (paso === 0 && !datosCompletos) || enviando}
+          className={`flex-1 rounded-xl py-3 text-sm font-semibold text-white disabled:bg-slate-300 ${
+            esUltimoPaso ? "bg-emerald-600" : "bg-unah-navy"
           }`}
         >
-          {esUltimoPaso ? "Enviar solicitud" : "Continuar"}
+          {enviando ? "Enviando…" : esUltimoPaso ? "Enviar solicitud" : "Continuar"}
         </button>
       </footer>
     </div>
@@ -344,27 +372,43 @@ export default function CrearGrupoWizard() {
 }
 
 function FilaDocumento({
-  label,
-  formato,
-  obligatorio,
-  value,
+  requisito,
+  archivo,
   onChange,
 }: {
-  label: string;
-  formato: string;
-  obligatorio: boolean;
-  value: boolean;
-  onChange: (v: boolean) => void;
+  requisito: RequisitoApi;
+  archivo: string | undefined;
+  onChange: (archivo: string) => void;
 }) {
+  const info = NOMBRE_REQUISITO[requisito.tipoRequisito] ?? {
+    label: requisito.tipoRequisito,
+    formato: "",
+    accept: "*/*",
+  };
   return (
-    <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3.5">
-      <div>
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
+      <div className="min-w-0">
         <p className="text-[13px] font-bold text-slate-800">
-          {label} {obligatorio && <span className="text-red-500">*</span>}
+          {info.label} {requisito.obligatorioRequisito && <span className="text-red-500">*</span>}
         </p>
-        <p className="text-[11px] text-slate-400">{formato}</p>
+        <p className="truncate text-[11px] text-slate-400">{archivo ?? info.formato}</p>
       </div>
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 accent-unah-orange" />
+      <span
+        className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold ${
+          archivo ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+        }`}
+      >
+        {archivo ? "✓ Adjunto" : "Elegir"}
+      </span>
+      <input
+        type="file"
+        accept={info.accept}
+        className="hidden"
+        onChange={(e) => {
+          const elegido = e.target.files?.[0];
+          if (elegido) onChange(elegido.name);
+        }}
+      />
     </label>
   );
 }

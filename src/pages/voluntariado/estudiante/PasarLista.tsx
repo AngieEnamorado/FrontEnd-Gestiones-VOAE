@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { HiOutlineExclamationTriangle } from "react-icons/hi2";
 import HeaderMovilDetalle from "../../../components/voluntariado/HeaderMovilDetalle";
-import { actividadPorId, nombresInscritos } from "../../../data/mockActividadesVoluntariado";
-import { grupoPorId } from "../../../data/mockGruposVoluntariado";
-import { inscripcionesDeActividad, desgloseGenero } from "../../../data/voluntariadoSelectors";
+import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
+import { useSesionVoluntariado } from "../../../context/SesionVoluntariadoContext";
+import { voluntariadoApi, type ActividadDetalleApi, type ParticipacionApi } from "../../../api/voluntariado";
+import { mensajeDeError } from "../../../api/clienteVoluntariado";
+import { useApi } from "../../../utils/useApi";
+import { etiquetaTipoParticipante, fechaCorta, formatoHoras, iniciales } from "../../../utils/voluntariado";
 
 interface EstadoFila {
   seleccionado: boolean;
@@ -16,67 +19,132 @@ const HORAS_DEFECTO = "3";
 
 export default function PasarLista() {
   const { actividadId } = useParams<{ actividadId: string }>();
-  const navigate = useNavigate();
-  const actividad = actividadId ? actividadPorId(actividadId) : undefined;
-  const grupo = actividad ? grupoPorId(actividad.grupoId) : undefined;
-  const inscritos = useMemo(() => (actividadId ? inscripcionesDeActividad(actividadId) : []), [actividadId]);
-
-  const [estado, setEstado] = useState<Record<string, EstadoFila>>(() =>
-    Object.fromEntries(inscritos.map((i) => [i.id, { seleccionado: false, asistio: null, horas: "" }])),
+  const idActividad = Number(actividadId);
+  const valido = Number.isInteger(idActividad) && idActividad > 0;
+  const carga = useApi(
+    () =>
+      valido
+        ? Promise.all([voluntariadoApi.actividad(idActividad), voluntariadoApi.participaciones(idActividad)])
+        : Promise.resolve(undefined),
+    [idActividad],
   );
-  const [horasMasivo, setHorasMasivo] = useState(HORAS_DEFECTO);
 
-  if (!actividad || !grupo) {
+  if (!valido || (!carga.cargando && !carga.error && !carga.datos)) {
     return (
       <>
         <HeaderMovilDetalle titulo="Pasar lista" />
-        <p className="p-6 text-sm text-slate-400">No hay una actividad próxima para pasar lista.</p>
+        <p className="p-6 text-sm text-slate-400">No hay una actividad aprobada pendiente de pasar lista.</p>
       </>
     );
   }
 
-  function nombreDe(cuenta: string) {
-    return grupo!.miembros.find((m) => m.numeroCuenta === cuenta)?.nombre ?? nombresInscritos[cuenta] ?? cuenta;
+  if (!carga.datos) {
+    return (
+      <>
+        <HeaderMovilDetalle titulo="Pasar lista" />
+        <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={false}>
+          {null}
+        </EstadoCarga>
+      </>
+    );
   }
 
-  function esMiembro(cuenta: string) {
-    return grupo!.miembros.some((m) => m.numeroCuenta === cuenta);
-  }
+  const [actividad, participaciones] = carga.datos;
+  // key: al recargar se reinicia el estado local con lo que quedó guardado.
+  return (
+    <ListaAsistencia
+      key={participaciones.map((p) => `${p.idParticipacion}:${p.codigoEstado}`).join(",")}
+      actividad={actividad}
+      inscritos={participaciones.filter((p) => p.codigoEstado !== "CANCELADO")}
+    />
+  );
+}
 
-  function marcar(id: string, asistio: boolean) {
+function ListaAsistencia({ actividad, inscritos }: { actividad: ActividadDetalleApi; inscritos: ParticipacionApi[] }) {
+  const navigate = useNavigate();
+  const { idPersona } = useSesionVoluntariado();
+  const [estado, setEstado] = useState<Record<number, EstadoFila>>(() =>
+    Object.fromEntries(
+      inscritos.map((i) => [
+        i.idParticipacion,
+        {
+          seleccionado: false,
+          asistio: i.codigoEstado === "ASISTIO" ? true : i.codigoEstado === "NO_ASISTIO" ? false : null,
+          horas: i.horasParticipacion ? String(i.horasParticipacion) : "",
+        },
+      ]),
+    ),
+  );
+  const [horasMasivo, setHorasMasivo] = useState(HORAS_DEFECTO);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function marcar(id: number, asistio: boolean) {
     setEstado((prev) => ({
       ...prev,
       [id]: { ...prev[id], asistio, horas: asistio ? prev[id].horas || HORAS_DEFECTO : "" },
     }));
   }
 
-  function toggleSeleccion(id: string) {
+  function toggleSeleccion(id: number) {
     setEstado((prev) => ({ ...prev, [id]: { ...prev[id], seleccionado: !prev[id].seleccionado } }));
   }
 
-  function actualizarHoras(id: string, horas: string) {
+  function actualizarHoras(id: number, horas: string) {
     setEstado((prev) => ({ ...prev, [id]: { ...prev[id], horas } }));
   }
 
-  const seleccionados = inscritos.filter((i) => estado[i.id]?.seleccionado);
+  const seleccionados = inscritos.filter((i) => estado[i.idParticipacion]?.seleccionado);
 
   function aplicarATodos() {
     setEstado((prev) => {
       const copia = { ...prev };
       seleccionados.forEach((i) => {
-        copia[i.id] = { ...copia[i.id], asistio: true, horas: horasMasivo, seleccionado: false };
+        copia[i.idParticipacion] = { ...copia[i.idParticipacion], asistio: true, horas: horasMasivo, seleccionado: false };
       });
       return copia;
     });
   }
 
-  const asistieronIds = inscritos.filter((i) => estado[i.id]?.asistio).map((i) => i.estudianteCuenta);
-  const horasTotales = inscritos.reduce((total, i) => total + (estado[i.id]?.asistio ? Number(estado[i.id].horas) || 0 : 0), 0);
-  const { f, m } = desgloseGenero(asistieronIds);
+  const asistieron = inscritos.filter((i) => estado[i.idParticipacion]?.asistio);
+  const horasTotales = asistieron.reduce((total, i) => total + (Number(estado[i.idParticipacion].horas) || 0), 0);
+  const f = asistieron.filter((i) => i.sexo === "F").length;
+  const m = asistieron.filter((i) => i.sexo === "M").length;
+  const marcados = inscritos.filter((i) => estado[i.idParticipacion]?.asistio !== null);
+
+  async function guardar() {
+    setGuardando(true);
+    setError(null);
+    try {
+      // Las horas no se validan aquí: si falta alguna en un ASISTIO, el
+      // trigger de la base lo rechaza y su mensaje es el que se muestra.
+      await voluntariadoApi.pasarLista(
+        actividad.idActividad,
+        marcados.map((i) => {
+          const fila = estado[i.idParticipacion];
+          return {
+            idPersona: i.idPersona,
+            idGrupo: i.idGrupo,
+            estado: fila.asistio ? "ASISTIO" : "NO_ASISTIO",
+            horas: fila.asistio && fila.horas ? Number(fila.horas) : null,
+            tipoParticipante: i.tipoParticipante,
+          };
+        }),
+        idPersona,
+      );
+      navigate(`/voluntariado/portal-estudiante/coordinador/evidencia/${actividad.idActividad}`);
+    } catch (e) {
+      setError(mensajeDeError(e));
+      setGuardando(false);
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
-      <HeaderMovilDetalle titulo={actividad.nombre} subtitulo={`${actividad.fecha} · ${actividad.lugar}`} />
+      <HeaderMovilDetalle
+        titulo={actividad.nombreActividad}
+        subtitulo={`${fechaCorta(actividad.fechaActividad)} · ${actividad.lugarActividad ?? ""}`}
+      />
 
       {seleccionados.length > 0 && (
         <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2.5">
@@ -101,24 +169,29 @@ export default function PasarLista() {
 
       <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-3">
         <div className="flex flex-col gap-2.5">
+          {inscritos.length === 0 && (
+            <p className="text-sm text-slate-400">Nadie se ha inscrito todavía en esta actividad.</p>
+          )}
           {inscritos.map((i) => {
-            const fila = estado[i.id];
-            const advertencia = i.tipoParticipante === "voluntario activo" && !esMiembro(i.estudianteCuenta);
+            const fila = estado[i.idParticipacion];
+            const advertencia = i.tipoParticipante === "VOLUNTARIO_ACTIVO" && !i.validadoComoMiembro;
             return (
-              <div key={i.id} className="rounded-2xl bg-white p-3 shadow-sm">
+              <div key={i.idParticipacion} className="rounded-2xl bg-white p-3 shadow-sm">
                 <div className="flex items-center gap-2.5">
                   <input
                     type="checkbox"
                     checked={fila.seleccionado}
-                    onChange={() => toggleSeleccion(i.id)}
+                    onChange={() => toggleSeleccion(i.idParticipacion)}
                     className="h-[19px] w-[19px] shrink-0 rounded accent-unah-navy"
                   />
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-unah-navy">
-                    {nombreDe(i.estudianteCuenta).split(" ").map((p) => p[0]).slice(0, 2).join("")}
+                    {iniciales(i.nombre)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[12.5px] font-bold text-slate-800">{nombreDe(i.estudianteCuenta)}</p>
-                    <p className="truncate text-[10.5px] text-slate-400">{i.estudianteCuenta} · {i.tipoParticipante}</p>
+                    <p className="truncate text-[12.5px] font-bold text-slate-800">{i.nombre}</p>
+                    <p className="truncate text-[10.5px] text-slate-400">
+                      {i.numeroCuenta} · {etiquetaTipoParticipante[i.tipoParticipante]}
+                    </p>
                   </div>
                 </div>
 
@@ -135,7 +208,7 @@ export default function PasarLista() {
                   <div className="flex flex-1 overflow-hidden rounded-lg border border-slate-200">
                     <button
                       type="button"
-                      onClick={() => marcar(i.id, true)}
+                      onClick={() => marcar(i.idParticipacion, true)}
                       className={`flex-1 py-1.5 text-[11.5px] font-semibold ${
                         fila.asistio === true ? "bg-emerald-600 text-white" : "bg-white text-slate-500"
                       }`}
@@ -144,7 +217,7 @@ export default function PasarLista() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => marcar(i.id, false)}
+                      onClick={() => marcar(i.idParticipacion, false)}
                       className={`flex-1 py-1.5 text-[11.5px] font-semibold ${
                         fila.asistio === false ? "bg-rose-600 text-white" : "bg-white text-slate-500"
                       }`}
@@ -158,7 +231,7 @@ export default function PasarLista() {
                     step="0.5"
                     disabled={fila.asistio !== true}
                     value={fila.horas}
-                    onChange={(e) => actualizarHoras(i.id, e.target.value)}
+                    onChange={(e) => actualizarHoras(i.idParticipacion, e.target.value)}
                     placeholder="Horas"
                     className="w-16 shrink-0 rounded-lg border border-slate-200 px-2 py-1.5 text-[12px] disabled:bg-slate-50 disabled:text-slate-300"
                   />
@@ -172,16 +245,18 @@ export default function PasarLista() {
       <footer className="sticky bottom-0 border-t border-slate-200 bg-white p-4">
         <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Calculado automáticamente</p>
         <div className="mt-1.5 flex items-center justify-between text-[12px] text-slate-600">
-          <span><strong className="text-unah-navy">{horasTotales}</strong> horas</span>
-          <span><strong className="text-unah-navy">{asistieronIds.length}</strong> asistieron</span>
+          <span><strong className="text-unah-navy">{formatoHoras(horasTotales)}</strong> horas</span>
+          <span><strong className="text-unah-navy">{asistieron.length}</strong> asistieron</span>
           <span>F {f} · M {m}</span>
         </div>
+        {error && <p className="mt-2 rounded-lg bg-red-50 p-2 text-[12px] font-semibold text-red-600">{error}</p>}
         <button
           type="button"
-          onClick={() => navigate(`/voluntariado/portal-estudiante/coordinador/evidencia/${actividad.id}`)}
-          className="mt-3 w-full rounded-xl bg-unah-orange py-3 text-sm font-semibold text-white hover:bg-unah-orange-dark"
+          onClick={guardar}
+          disabled={guardando || marcados.length === 0}
+          className="mt-3 w-full rounded-xl bg-unah-orange py-3 text-sm font-semibold text-white hover:bg-unah-orange-dark disabled:opacity-60"
         >
-          Guardar asistencia
+          {guardando ? "Guardando…" : "Guardar asistencia"}
         </button>
       </footer>
     </div>

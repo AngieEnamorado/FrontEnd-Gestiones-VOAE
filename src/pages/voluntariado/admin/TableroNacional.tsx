@@ -7,33 +7,29 @@ import {
   HiOutlineClock,
 } from "react-icons/hi2";
 import EstadisticaCard from "../../../components/EstadisticaCard";
-import { campus, redesTematicas, nombreCampus } from "../../../data/mockCatalogosVoluntariado";
-import { gruposVoluntariado } from "../../../data/mockGruposVoluntariado";
-import { actividadesVoluntariado } from "../../../data/mockActividadesVoluntariado";
-import { horasTotalesDeGrupo, participantesUnicos } from "../../../data/voluntariadoSelectors";
+import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { claseBarraColor } from "../../../components/voluntariado/colores";
+import { voluntariadoApi } from "../../../api/voluntariado";
+import { useApi } from "../../../utils/useApi";
+import { colorDeRed, fechaCorta, formatoHoras, nombreTrimestre } from "../../../utils/voluntariado";
 import type { RolPortalAdministrativo } from "../../../types";
 
-const CAMPUS_ENLACE = "cu";
+// Campus del Enlace VOAE de prueba (Ciudad Universitaria). Con sesión real,
+// el campus sale del perfil del enlace.
+const ID_CAMPUS_ENLACE = 1;
 
 export default function TableroNacional() {
   const [rol, setRol] = useState<RolPortalAdministrativo>("admin");
+  const carga = useApi(() => voluntariadoApi.tablero(), []);
+  const tablero = carga.datos;
 
-  const totalHoras = gruposVoluntariado.reduce((t, g) => t + horasTotalesDeGrupo(g.id), 0);
-  const totalParticipantes = participantesUnicos(actividadesVoluntariado.map((a) => a.id));
-
-  const campusVisibles = rol === "enlace" ? campus.filter((c) => c.id === CAMPUS_ENLACE) : campus;
-
-  const filasCampus = campusVisibles.map((c) => {
-    const gruposDelCampus = gruposVoluntariado.filter((g) => g.campusId === c.id);
-    const horasCampus = gruposDelCampus.reduce((t, g) => t + horasTotalesDeGrupo(g.id), 0);
-    return { campus: c, grupos: gruposDelCampus.length, horas: horasCampus };
-  });
-
-  const semaforo = campusVisibles.map((c, i) => ({
-    campus: c,
-    estado: (["Entregado", "Por vencer", "Atrasado"] as const)[i % 3],
-  }));
+  const campusVisibles = (tablero?.porCampus ?? []).filter(
+    (c) => rol === "admin" || c.idCampus === ID_CAMPUS_ENLACE,
+  );
+  const suma = (campo: "grupos" | "participantes" | "horas") => campusVisibles.reduce((t, c) => t + c[campo], 0);
+  const esEnlace = rol === "enlace";
+  const nombreCampusEnlace = tablero?.porCampus.find((c) => c.idCampus === ID_CAMPUS_ENLACE)?.nombreCampus ?? "su campus";
+  const maximoRed = Math.max(1, ...(tablero?.porRed ?? []).map((r) => r.horas));
 
   return (
     <div className="flex flex-col gap-5">
@@ -50,15 +46,16 @@ export default function TableroNacional() {
 
       {rol === "enlace" && (
         <div className="rounded-xl bg-blue-50 px-4 py-3 text-[13px] font-semibold text-unah-navy">
-          Vista de Enlace VOAE — mostrando únicamente {nombreCampus(CAMPUS_ENLACE)}. Solo lectura.
+          Vista de Enlace VOAE — mostrando únicamente {nombreCampusEnlace}. Solo lectura.
         </div>
       )}
 
+      <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={tablero !== undefined}>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <EstadisticaCard
           icon={HiOutlineUserGroup}
           label={rol === "enlace" ? "Grupos del campus" : "Grupos"}
-          valor={rol === "enlace" ? filasCampus.reduce((t, f) => t + f.grupos, 0) : gruposVoluntariado.length}
+          valor={esEnlace ? suma("grupos") : tablero?.totales.grupos ?? 0}
           colorFondo="bg-blue-50"
           colorIcono="text-unah-navy"
           colorTexto="text-unah-navy"
@@ -66,7 +63,7 @@ export default function TableroNacional() {
         <EstadisticaCard
           icon={HiOutlineCalendarDays}
           label="Actividades"
-          valor={actividadesVoluntariado.length}
+          valor={tablero?.totales.actividades ?? 0}
           colorFondo="bg-orange-50"
           colorIcono="text-unah-orange"
           colorTexto="text-unah-orange-dark"
@@ -74,7 +71,7 @@ export default function TableroNacional() {
         <EstadisticaCard
           icon={HiOutlineUsers}
           label="Participantes"
-          valor={totalParticipantes}
+          valor={esEnlace ? suma("participantes") : tablero?.totales.participantes ?? 0}
           colorFondo="bg-emerald-50"
           colorIcono="text-emerald-600"
           colorTexto="text-emerald-700"
@@ -82,7 +79,7 @@ export default function TableroNacional() {
         <EstadisticaCard
           icon={HiOutlineClock}
           label="Horas"
-          valor={rol === "enlace" ? filasCampus.reduce((t, f) => t + f.horas, 0) : totalHoras}
+          valor={formatoHoras(esEnlace ? suma("horas") : tablero?.totales.horas ?? 0)}
           colorFondo="bg-violet-50"
           colorIcono="text-violet-600"
           colorTexto="text-violet-700"
@@ -93,37 +90,34 @@ export default function TableroNacional() {
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-sm font-bold text-slate-700">Por red temática</h2>
           <div className="mt-4 flex flex-col gap-3">
-            {redesTematicas.map((red) => {
-              const horasRed = gruposVoluntariado
-                .filter((g) => g.redesIds.includes(red.id))
-                .reduce((t, g) => t + horasTotalesDeGrupo(g.id), 0);
-              const maximo = Math.max(1, ...redesTematicas.map((r) =>
-                gruposVoluntariado.filter((g) => g.redesIds.includes(r.id)).reduce((t, g) => t + horasTotalesDeGrupo(g.id), 0),
-              ));
-              return (
-                <div key={red.id}>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-600">{red.nombre}</span>
-                    <span className="text-slate-400">{horasRed}h</span>
-                  </div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full rounded-full ${claseBarraColor[red.color]}`}
-                      style={{ width: `${(horasRed / maximo) * 100}%` }}
-                    />
-                  </div>
+            {(tablero?.porRed ?? []).map((red) => (
+              <div key={red.idRedTematica}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-600">{red.nombreRedTematica}</span>
+                  <span className="text-slate-400">{formatoHoras(red.horas)}h</span>
                 </div>
-              );
-            })}
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className={`h-full rounded-full ${claseBarraColor[colorDeRed(red.idRedTematica)]}`}
+                    style={{ width: `${(red.horas / maximoRed) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-sm font-bold text-slate-700">Semáforo de entrega de informes</h2>
+          {tablero?.trimestreVigente && (
+            <p className="mt-0.5 text-xs text-slate-400">
+              {nombreTrimestre(tablero.trimestreVigente)} · vence {fechaCorta(tablero.trimestreVigente.fechaLimiteInforme)}
+            </p>
+          )}
           <div className="mt-4 flex flex-col divide-y divide-slate-100">
-            {semaforo.map(({ campus: c, estado }) => (
-              <div key={c.id} className="flex items-center justify-between py-2 text-sm">
-                <span className="text-slate-600">{c.nombre}</span>
+            {campusVisibles.map(({ idCampus, nombreCampus, semaforo: estado }) => (
+              <div key={idCampus} className="flex items-center justify-between py-2 text-sm">
+                <span className="text-slate-600">{nombreCampus}</span>
                 <span className="flex items-center gap-1.5 text-xs font-semibold">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
@@ -161,17 +155,18 @@ export default function TableroNacional() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filasCampus.map((fila) => (
-                <tr key={fila.campus.id} className="transition-colors duration-150 hover:bg-slate-100">
-                  <td className="px-5 py-3 font-medium text-slate-700">{fila.campus.nombre}</td>
+              {campusVisibles.map((fila) => (
+                <tr key={fila.idCampus} className="transition-colors duration-150 hover:bg-slate-100">
+                  <td className="px-5 py-3 font-medium text-slate-700">{fila.nombreCampus}</td>
                   <td className="px-5 py-3 text-slate-500">{fila.grupos}</td>
-                  <td className="px-5 py-3 text-slate-500">{fila.horas}</td>
+                  <td className="px-5 py-3 text-slate-500">{formatoHoras(fila.horas)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+      </EstadoCarga>
     </div>
   );
 }

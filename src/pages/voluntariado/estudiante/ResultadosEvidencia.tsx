@@ -2,37 +2,90 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { HiOutlineCamera, HiOutlineCheck } from "react-icons/hi2";
 import HeaderMovilDetalle from "../../../components/voluntariado/HeaderMovilDetalle";
-import { actividadPorId } from "../../../data/mockActividadesVoluntariado";
-
-const MINIMO_FOTOS = 2;
+import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
+import { voluntariadoApi, type ActividadDetalleApi, type RequisitoApi } from "../../../api/voluntariado";
+import { mensajeDeError } from "../../../api/clienteVoluntariado";
+import { useApi } from "../../../utils/useApi";
 
 export default function ResultadosEvidencia() {
   const { actividadId } = useParams<{ actividadId: string }>();
-  const navigate = useNavigate();
-  const actividad = actividadId ? actividadPorId(actividadId) : undefined;
+  const idActividad = Number(actividadId);
+  const carga = useApi(
+    () => Promise.all([voluntariadoApi.actividad(idActividad), voluntariadoApi.catalogos()]),
+    [idActividad],
+  );
 
-  const [resultados, setResultados] = useState(actividad?.resultados ?? "");
-  const [fotos, setFotos] = useState<boolean[]>(Array.from({ length: 4 }, (_, i) => i < (actividad?.fotosEvidencia ?? 0)));
-
-  if (!actividad) {
+  if (!carga.datos) {
     return (
       <>
         <HeaderMovilDetalle titulo="Resultados y evidencia" />
-        <p className="p-6 text-sm text-slate-400">Actividad no encontrada.</p>
+        <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={false}>
+          {null}
+        </EstadoCarga>
       </>
     );
   }
 
-  const totalFotos = fotos.filter(Boolean).length;
-  const cumpleMinimo = totalFotos >= MINIMO_FOTOS;
+  const [actividad, catalogos] = carga.datos;
+  const requisito = catalogos.requisitos.find((r) => r.procesoRequisito === "ACTIVIDAD");
+  return <Formulario actividad={actividad} requisito={requisito} onFotoAgregada={carga.recargar} />;
+}
 
-  function alternarFoto(indice: number) {
-    setFotos((prev) => prev.map((v, i) => (i === indice ? !v : v)));
+function Formulario({
+  actividad,
+  requisito,
+  onFotoAgregada,
+}: {
+  actividad: ActividadDetalleApi;
+  requisito: RequisitoApi | undefined;
+  onFotoAgregada: () => void;
+}) {
+  const navigate = useNavigate();
+  const minimo = requisito?.minimoRequisito ?? 2;
+  const maximo = requisito?.maximoRequisito ?? 4;
+  const [resultados, setResultados] = useState(actividad.resultadosActividad ?? "");
+  const [subiendo, setSubiendo] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const totalFotos = actividad.fotos.length;
+  const cumpleMinimo = totalFotos >= minimo;
+
+  // Todavía no hay subida a S3 (URL prefirmada): se registra el nombre del
+  // archivo como referencia para que el flujo y el conteo funcionen.
+  async function agregarFoto(archivo: File | undefined) {
+    if (!archivo) return;
+    setSubiendo(true);
+    setError(null);
+    try {
+      await voluntariadoApi.agregarFoto(
+        actividad.idActividad,
+        `prototipo/actividades/${actividad.idActividad}/${archivo.name}`,
+        requisito?.idRequisitoAdjunto ?? null,
+      );
+      onFotoAgregada();
+    } catch (e) {
+      setError(mensajeDeError(e));
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  async function continuar() {
+    setGuardando(true);
+    setError(null);
+    try {
+      if (resultados.trim()) await voluntariadoApi.guardarResultados(actividad.idActividad, resultados.trim());
+      navigate(`/voluntariado/portal-estudiante/coordinador/informe-economico/${actividad.idActividad}`);
+    } catch (e) {
+      setError(mensajeDeError(e));
+      setGuardando(false);
+    }
   }
 
   return (
     <div className="flex h-full flex-col">
-      <HeaderMovilDetalle titulo="Resultados y evidencia" subtitulo={actividad.nombre} />
+      <HeaderMovilDetalle titulo="Resultados y evidencia" subtitulo={actividad.nombreActividad} />
 
       <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4">
         <label className="mb-1.5 block text-[11px] font-bold text-slate-500">Resultados alcanzados</label>
@@ -47,47 +100,62 @@ export default function ResultadosEvidencia() {
         <div className="mt-5 flex items-center justify-between">
           <p className="text-[11px] font-bold text-slate-500">Fotos de evidencia</p>
           <p className={`text-[11px] font-bold ${cumpleMinimo ? "text-emerald-600" : "text-red-600"}`}>
-            {totalFotos}/4 · mín. {MINIMO_FOTOS}
+            {totalFotos}/{maximo} · mín. {minimo}
           </p>
         </div>
 
         <div className="mt-2 grid grid-cols-2 gap-3">
-          {fotos.map((llena, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => alternarFoto(i)}
-              className={`flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed ${
-                llena ? "border-emerald-400 bg-emerald-50" : "border-slate-300 bg-white"
-              }`}
-            >
-              {llena ? (
-                <HiOutlineCheck className="h-6 w-6 text-emerald-600" />
-              ) : (
+          {Array.from({ length: Math.max(maximo, totalFotos) }, (_, i) => {
+            const foto = actividad.fotos[i];
+            if (foto) {
+              return (
+                <div
+                  key={foto.idFotoActividad}
+                  className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 p-2"
+                >
+                  <HiOutlineCheck className="h-6 w-6 text-emerald-600" />
+                  <span className="w-full truncate text-center text-[10.5px] font-semibold text-emerald-600">
+                    {foto.archivoUrl.split("/").pop()}
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <label
+                key={`vacia-${i}`}
+                className={`flex aspect-square cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-300 bg-white ${
+                  subiendo ? "pointer-events-none opacity-50" : ""
+                }`}
+              >
                 <HiOutlineCamera className="h-6 w-6 text-slate-300" />
-              )}
-              <span className={`text-[10.5px] font-semibold ${llena ? "text-emerald-600" : "text-slate-400"}`}>
-                {llena ? "Foto agregada" : "Agregar foto"}
-              </span>
-            </button>
-          ))}
+                <span className="text-[10.5px] font-semibold text-slate-400">{subiendo ? "Agregando…" : "Agregar foto"}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => agregarFoto(e.target.files?.[0])}
+                />
+              </label>
+            );
+          })}
         </div>
 
         {!cumpleMinimo && (
           <p className="mt-2 text-[11px] font-semibold text-red-600">
-            Debes agregar al menos {MINIMO_FOTOS} fotos de evidencia.
+            Debes agregar al menos {minimo} fotos de evidencia.
           </p>
         )}
+        {error && <p className="mt-2 rounded-lg bg-red-50 p-2 text-[12px] font-semibold text-red-600">{error}</p>}
       </div>
 
       <footer className="sticky bottom-0 border-t border-slate-200 bg-white p-4">
         <button
           type="button"
-          disabled={!cumpleMinimo}
-          onClick={() => navigate(`/voluntariado/portal-estudiante/coordinador/informe-economico/${actividad.id}`)}
+          disabled={!cumpleMinimo || guardando}
+          onClick={continuar}
           className={`w-full rounded-xl py-3 text-sm font-semibold text-white ${cumpleMinimo ? "bg-unah-navy" : "bg-slate-300"}`}
         >
-          Continuar
+          {guardando ? "Guardando…" : "Continuar"}
         </button>
       </footer>
     </div>

@@ -25,9 +25,11 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import EstadisticaCard from "../../../components/EstadisticaCard";
-import { registrosVoluntariado, CAMPUS, redesTematicas } from "../../../data/mockEstadisticasVoluntariado";
+import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
+import { voluntariadoApi, type CodigoEstadoActividad } from "../../../api/voluntariado";
+import { useApi } from "../../../utils/useApi";
+import { colorDeRed, fechaCorta } from "../../../utils/voluntariado";
 import { generarReportePdf, type SeccionReportePdf } from "../../../utils/exportarPdf";
-import type { EstadoSolicitud } from "../../../types";
 
 const COLOR_BLUE = "#2563eb";
 const COLOR_EMERALD = "#10b981";
@@ -41,18 +43,19 @@ const CAMPUS_CORTO: Record<string, string> = {
   "Ciudad Universitaria": "C. Universitaria",
 };
 
-// Orden fijo de identidad para las 5 redes temáticas — nunca se reasigna
-// según los datos filtrados, para que un color siempre represente la misma red.
-const RED_COLOR: Record<string, string> = {
-  ambiental: COLOR_EMERALD,
-  salud: COLOR_ROSE,
-  educativa: COLOR_BLUE,
-  social: COLOR_AMBER,
-  cultural: COLOR_VIOLET,
+// El color de cada red sale de su id (colorDeRed), igual que en el resto del
+// módulo: nunca se reasigna según los datos filtrados, así un color siempre
+// representa la misma red.
+const HEX_POR_COLOR: Record<string, string> = {
+  emerald: COLOR_EMERALD,
+  rose: COLOR_ROSE,
+  blue: COLOR_BLUE,
+  amber: COLOR_AMBER,
+  violet: COLOR_VIOLET,
 };
-const ORDEN_REDES = redesTematicas.map((r) => r.id);
 
-const ESTADOS_FILTRO: EstadoSolicitud[] = ["APROBADA", "PENDIENTE", "RECHAZADA", "DEVUELTA"];
+const ESTADOS_FILTRO: CodigoEstadoActividad[] = ["SOLICITADA", "APROBADA", "EJECUTADA", "RECHAZADA", "CANCELADA"];
+const PERIODOS = ["I PAC", "II PAC", "III PAC"];
 
 interface Filtros {
   año: string;
@@ -190,10 +193,34 @@ interface PuntoRed {
 export default function Estadisticas() {
   const [borrador, setBorrador] = useState<Filtros>(FILTROS_INICIALES);
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_INICIALES);
+  // Una fila por actividad: la agregación de cada gráfico se hace aquí, sobre
+  // la misma lista filtrada, para que KPIs y gráficos nunca se contradigan.
+  const carga = useApi(() => Promise.all([voluntariadoApi.estadisticas(), voluntariadoApi.catalogos()]), []);
+
+  const { registros, redesTematicas, campusDisponibles, años } = useMemo(() => {
+    const [filas, catalogos] = carga.datos ?? [[], undefined];
+    const registros = filas.map((f) => ({
+      fecha: fechaCorta(f.fecha),
+      año: Number(fechaCorta(f.fecha).slice(0, 4)),
+      periodo: PERIODOS[f.numeroPac - 1],
+      campus: f.campus ?? "Sin campus",
+      red: String(f.idRedTematica ?? ""),
+      grupo: f.grupo,
+      estado: f.estado,
+      participantes: f.participantes,
+      horas: f.horas,
+    }));
+    return {
+      registros,
+      redesTematicas: (catalogos?.redes ?? []).map((r) => ({ id: String(r.idRedTematica), nombre: r.nombreRedTematica })),
+      campusDisponibles: [...new Set(registros.map((r) => r.campus))].sort(),
+      años: [...new Set(registros.map((r) => r.año))].sort((a, b) => b - a),
+    };
+  }, [carga.datos]);
 
   const registrosFiltrados = useMemo(
     () =>
-      registrosVoluntariado.filter(
+      registros.filter(
         (r) =>
           (filtros.año === "Todos" || r.año === Number(filtros.año)) &&
           (filtros.periodo === "Todos" || r.periodo === filtros.periodo) &&
@@ -201,11 +228,12 @@ export default function Estadisticas() {
           (filtros.red === "Todas" || r.red === filtros.red) &&
           (filtros.estado === "Todos" || r.estado === filtros.estado),
       ),
-    [filtros],
+    [filtros, registros],
   );
 
   const totalActividades = registrosFiltrados.length;
-  const actividadesAprobadas = registrosFiltrados.filter((r) => r.estado === "APROBADA").length;
+  // Una ejecutada también fue aprobada antes de ejecutarse.
+  const actividadesAprobadas = registrosFiltrados.filter((r) => r.estado === "APROBADA" || r.estado === "EJECUTADA").length;
   const totalParticipantes = registrosFiltrados.reduce((acc, r) => acc + r.participantes, 0);
   const totalHoras = registrosFiltrados.reduce((acc, r) => acc + r.horas, 0);
 
@@ -239,19 +267,18 @@ export default function Estadisticas() {
       mapa.set(r.red, (mapa.get(r.red) ?? 0) + 1);
     }
     const total = registrosFiltrados.length || 1;
-    const puntos: PuntoRed[] = ORDEN_REDES.map((redId) => {
+    const puntos: PuntoRed[] = redesTematicas.map(({ id: redId, nombre }) => {
       const valor = mapa.get(redId) ?? 0;
-      const nombre = redesTematicas.find((r) => r.id === redId)?.nombre ?? redId;
       return {
         red: redId,
         nombre,
         valor,
         porcentaje: Math.round((valor / total) * 100),
-        color: RED_COLOR[redId],
+        color: HEX_POR_COLOR[colorDeRed(Number(redId))],
       };
     });
     return puntos;
-  }, [registrosFiltrados]);
+  }, [registrosFiltrados, redesTematicas]);
 
   const topGrupos = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -392,6 +419,14 @@ export default function Estadisticas() {
     );
   }
 
+  if (!carga.datos) {
+    return (
+      <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={false}>
+        {null}
+      </EstadoCarga>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Encabezado */}
@@ -424,8 +459,9 @@ export default function Estadisticas() {
               className={claseSelect}
             >
               <option>Todos</option>
-              <option>2026</option>
-              <option>2025</option>
+              {años.map((año) => (
+                <option key={año}>{año}</option>
+              ))}
             </select>
           </div>
 
@@ -437,8 +473,9 @@ export default function Estadisticas() {
               className={claseSelect}
             >
               <option>Todos</option>
-              <option>I Periodo</option>
-              <option>II Periodo</option>
+              {PERIODOS.map((periodo) => (
+                <option key={periodo}>{periodo}</option>
+              ))}
             </select>
           </div>
 
@@ -450,7 +487,7 @@ export default function Estadisticas() {
               className={claseSelect}
             >
               <option>Todos</option>
-              {CAMPUS.map((c) => (
+              {campusDisponibles.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
