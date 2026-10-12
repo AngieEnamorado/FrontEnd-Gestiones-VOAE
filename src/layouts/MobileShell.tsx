@@ -1,5 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import TabBarMovil from "../components/voluntariado/TabBarMovil";
+import SelectorEstudiantePrueba from "../components/voluntariado/SelectorEstudiantePrueba";
+import { SesionVoluntariadoProvider } from "../context/SesionVoluntariadoContext";
 
 const BASE = "/voluntariado/portal-estudiante";
 const RUTAS_RAIZ = [`${BASE}/inicio`, `${BASE}/grupos`, `${BASE}/actividades`, `${BASE}/historial`, `${BASE}/solicitudes`];
@@ -16,11 +18,14 @@ export default function MobileShell() {
 
   return (
     <div className="flex min-h-screen justify-center bg-slate-200 py-0 sm:py-6">
-      <div className="flex h-screen w-full max-w-[430px] flex-col bg-slate-100 sm:h-[860px] sm:rounded-[32px] sm:shadow-xl sm:ring-1 sm:ring-slate-300">
-        <main className="scrollbar-thin flex-1 overflow-y-auto">
-          <Outlet />
-        </main>
-        {esRaiz && <TabBarMovil />}
+      <div className="flex h-screen w-full max-w-[430px] flex-col overflow-hidden bg-slate-100 sm:h-[860px] sm:rounded-[32px] sm:shadow-xl sm:ring-1 sm:ring-slate-300">
+        <SesionVoluntariadoProvider>
+          <SelectorEstudiantePrueba />
+          <main className="scrollbar-thin flex-1 overflow-y-auto">
+            <Outlet />
+          </main>
+          {esRaiz && <TabBarMovil />}
+        </SesionVoluntariadoProvider>
       </div>
     </div>
   );
