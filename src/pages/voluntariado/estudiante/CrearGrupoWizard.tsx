@@ -7,6 +7,7 @@ import { useSesionVoluntariado } from "../../../context/SesionVoluntariadoContex
 import { voluntariadoApi, type RequisitoApi } from "../../../api/voluntariado";
 import { catalogoApi } from "../../../api/catalogo";
 import { ErrorApi, mensajeDeError } from "../../../api/clienteVoluntariado";
+import { subirArchivo, validarArchivo } from "../../../api/archivosVoluntariado";
 import { useApi } from "../../../utils/useApi";
 
 const claseInput =
@@ -17,7 +18,7 @@ const CARGO_MIEMBRO = 1;
 
 const NOMBRE_REQUISITO: Record<string, { label: string; formato: string; accept: string }> = {
   ESTATUTOS: { label: "Estatutos", formato: "PDF", accept: "application/pdf" },
-  LOGO: { label: "Logo del grupo", formato: "PNG/JPG", accept: "image/*" },
+  LOGO: { label: "Logo del grupo", formato: "PNG/JPG", accept: "image/png,image/jpeg,image/webp" },
   ACTA: { label: "Acta de junta", formato: "PDF", accept: "application/pdf" },
 };
 
@@ -67,9 +68,13 @@ export default function CrearGrupoWizard() {
 
   const [actividades, setActividades] = useState<ActividadProyectada[]>([]);
 
-  // Archivo elegido por requisito. Todavía no se suben a S3: se registra el
-  // nombre como referencia para que la VOAE vea qué se adjuntó.
-  const [archivos, setArchivos] = useState<Record<number, string>>({});
+  // Archivo elegido por requisito. Se sube a S3 al enviar, cuando la
+  // solicitud ya existe y tiene id (la llave cuelga de ese id).
+  const [archivos, setArchivos] = useState<Record<number, File>>({});
+  // Si el envío falla a mitad de las subidas, el reintento no vuelve a crear
+  // la solicitud ni a subir lo que ya quedó registrado.
+  const [idSolicitudCreada, setIdSolicitudCreada] = useState<number | null>(null);
+  const [requisitosSubidos, setRequisitosSubidos] = useState<number[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
 
@@ -129,29 +134,33 @@ export default function CrearGrupoWizard() {
     setEnviando(true);
     setErrorEnvio(null);
     try {
-      const solicitud = await voluntariadoApi.crearSolicitudGrupo({
-        idPersonaSolicitante: idPersona,
-        idCampus: Number(campusId),
-        nombreGrupo: nombre.trim(),
-        fechaCreacionGrupo: fechaCreacion || null,
-        resenaHistorica: reseña || null,
-        propositoGrupo: proposito || null,
-        misionGrupo: mision || null,
-        visionGrupo: vision || null,
-        fundadores: fundadores.map((f) => f.numeroCuenta),
-        juntaDirectiva: Object.entries(junta)
-          .filter(([, cuenta]) => cuenta.trim())
-          .map(([idCargo, cuenta]) => ({ idCargo: Number(idCargo), numeroCuenta: cuenta.trim() })),
-        actividadesProyectadas: actividades
-          .filter((a) => a.nombre.trim())
-          .map((a) => ({ nombreActividad: a.nombre.trim(), fechaTentativa: a.mes ? `${a.mes}-01` : null })),
-      });
+      let idSolicitud = idSolicitudCreada;
+      if (idSolicitud === null) {
+        const solicitud = await voluntariadoApi.crearSolicitudGrupo({
+          idPersonaSolicitante: idPersona,
+          idCampus: Number(campusId),
+          nombreGrupo: nombre.trim(),
+          fechaCreacionGrupo: fechaCreacion || null,
+          resenaHistorica: reseña || null,
+          propositoGrupo: proposito || null,
+          misionGrupo: mision || null,
+          visionGrupo: vision || null,
+          fundadores: fundadores.map((f) => f.numeroCuenta),
+          juntaDirectiva: Object.entries(junta)
+            .filter(([, cuenta]) => cuenta.trim())
+            .map(([idCargo, cuenta]) => ({ idCargo: Number(idCargo), numeroCuenta: cuenta.trim() })),
+          actividadesProyectadas: actividades
+            .filter((a) => a.nombre.trim())
+            .map((a) => ({ nombreActividad: a.nombre.trim(), fechaTentativa: a.mes ? `${a.mes}-01` : null })),
+        });
+        idSolicitud = solicitud.idSolicitudGrupoNuevo;
+        setIdSolicitudCreada(idSolicitud);
+      }
       for (const [idRequisito, archivo] of Object.entries(archivos)) {
-        await voluntariadoApi.adjuntarASolicitud(
-          solicitud.idSolicitudGrupoNuevo,
-          Number(idRequisito),
-          `prototipo/solicitudes/${solicitud.idSolicitudGrupoNuevo}/${archivo}`,
-        );
+        if (requisitosSubidos.includes(Number(idRequisito))) continue;
+        const llave = await subirArchivo("SOLICITUD_GRUPO", idSolicitud, archivo);
+        await voluntariadoApi.adjuntarASolicitud(idSolicitud, Number(idRequisito), llave);
+        setRequisitosSubidos((prev) => [...prev, Number(idRequisito)]);
       }
       navigate("/voluntariado/portal-estudiante/solicitudes");
     } catch (e) {
@@ -377,21 +386,24 @@ function FilaDocumento({
   onChange,
 }: {
   requisito: RequisitoApi;
-  archivo: string | undefined;
-  onChange: (archivo: string) => void;
+  archivo: File | undefined;
+  onChange: (archivo: File) => void;
 }) {
   const info = NOMBRE_REQUISITO[requisito.tipoRequisito] ?? {
     label: requisito.tipoRequisito,
     formato: "",
     accept: "*/*",
   };
+  const [error, setError] = useState<string | null>(null);
   return (
     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
       <div className="min-w-0">
         <p className="text-[13px] font-bold text-slate-800">
           {info.label} {requisito.obligatorioRequisito && <span className="text-red-500">*</span>}
         </p>
-        <p className="truncate text-[11px] text-slate-400">{archivo ?? info.formato}</p>
+        <p className={`truncate text-[11px] ${error ? "font-semibold text-red-600" : "text-slate-400"}`}>
+          {error ?? archivo?.name ?? `${info.formato} · máx. 10 MB`}
+        </p>
       </div>
       <span
         className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold ${
@@ -406,7 +418,10 @@ function FilaDocumento({
         className="hidden"
         onChange={(e) => {
           const elegido = e.target.files?.[0];
-          if (elegido) onChange(elegido.name);
+          if (!elegido) return;
+          const invalido = validarArchivo(elegido);
+          setError(invalido);
+          if (!invalido) onChange(elegido);
         }}
       />
     </label>

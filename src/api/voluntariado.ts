@@ -144,7 +144,7 @@ export interface ActividadDetalleApi {
   fechaActividad: string | null;
   lugarActividad: string | null;
   coorganizadores: { idGrupo: number; nombreGrupo: string }[];
-  fotos: { idFotoActividad: number; archivoUrl: string; descripcionFoto: string | null }[];
+  fotos: { idFotoActividad: number; archivoUrl: string; descripcionFoto: string | null; urlDescarga?: string | null }[];
 }
 
 export interface ParticipacionApi {
@@ -198,7 +198,7 @@ export interface SolicitudGrupoDetalleApi {
   fundadores: { numeroCuenta: string; matriculaValida: boolean; nombre: string | null; carreraEstudiante: string | null }[];
   juntaDirectiva: { numeroCuenta: string; idCargo: number; nombreCargo: string; nombre: string | null }[];
   actividadesProyectadas: { nombreActividad: string; fechaTentativa: string | null }[];
-  adjuntos: { idRequisitoAdjunto: number; tipoRequisito: string; archivoUrl: string }[];
+  adjuntos: { idRequisitoAdjunto: number; tipoRequisito: string; archivoUrl: string; urlDescarga?: string | null }[];
 }
 
 export interface NuevaSolicitudGrupoApi {
@@ -377,6 +377,15 @@ const consulta = (parametros: Record<string, string | number | null | undefined>
   return pares.length === 0 ? "" : "?" + new URLSearchParams(pares.map(([k, v]) => [k, String(v)])).toString();
 };
 
+/** Respuesta de POST /archivos/subidas: a dónde y con qué campos subir a S3. */
+export interface SubidaFirmadaApi {
+  llave: string;
+  url: string;
+  campos: Record<string, string>;
+  tamanioMaximo: number;
+  expiraEnSegundos: number;
+}
+
 export const voluntariadoApi = {
   catalogos: () => api.get<CatalogosApi>("/catalogos"),
   crearRed: (nombreRedTematica: string) => api.post("/redes", { nombreRedTematica }),
@@ -424,6 +433,8 @@ export const voluntariadoApi = {
   resolverActividad: (id: number, estado: "APROBADA" | "RECHAZADA") =>
     api.post(`/actividades/${id}/aprobacion`, { estado }),
   guardarResultados: (id: number, resultados: string) => api.put(`/actividades/${id}/resultados`, { resultados }),
+  firmarSubida: (datos: { proceso: "SOLICITUD_GRUPO" | "ACTIVIDAD"; idReferencia: number; nombreArchivo: string; tipoContenido: string }) =>
+    api.post<SubidaFirmadaApi>("/archivos/subidas", datos),
   agregarFoto: (id: number, archivoUrl: string, idRequisitoAdjunto: number | null) =>
     api.post(`/actividades/${id}/fotos`, { archivoUrl, idRequisitoAdjunto }),
   participaciones: (idActividad: number) => api.get<ParticipacionApi[]>(`/actividades/${idActividad}/participaciones`),
