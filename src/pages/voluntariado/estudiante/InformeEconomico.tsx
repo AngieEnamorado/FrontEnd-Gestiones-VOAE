@@ -73,6 +73,8 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
   );
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Se marca en rojo lo que falta solo después de intentar guardar, no mientras se escribe.
+  const [intentoGuardar, setIntentoGuardar] = useState(false);
 
   function agregarMovimiento(tipo: FilaMovimiento["tipo"]) {
     setMovimientos((prev) => [
@@ -93,18 +95,35 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
   const egresos = movimientos.filter((m) => m.tipo === "EGRESO").reduce((t, m) => t + m.monto, 0);
   const saldoFinal = saldoAnterior + ingresos - egresos;
 
+  // Una fila que se agregó y nunca se llenó no es un error: se descarta al guardar.
+  const filaVacia = (m: FilaMovimiento) => !m.descripcion.trim() && !m.monto && !m.responsable.trim();
+  const faltaDescripcion = (m: FilaMovimiento) => !filaVacia(m) && !m.descripcion.trim();
+  const faltaMonto = (m: FilaMovimiento) => !filaVacia(m) && !(m.monto > 0);
+
   async function guardar() {
+    setIntentoGuardar(true);
+    const aGuardar = movimientos.filter((m) => !filaVacia(m));
+    const incompletos = aGuardar.filter((m) => faltaDescripcion(m) || faltaMonto(m)).length;
+    if (incompletos > 0) {
+      setError(
+        incompletos === 1
+          ? "Un movimiento no tiene descripción o monto. Complétalo o quítalo con el ícono de basura."
+          : `${incompletos} movimientos no tienen descripción o monto. Complétalos o quítalos con el ícono de basura.`,
+      );
+      return;
+    }
+
     setGuardando(true);
     setError(null);
     try {
       await voluntariadoApi.guardarInformeEconomico(actividad.idActividad, {
         saldosAnteriores: { [idGrupo]: saldoAnterior },
         observaciones: informe?.observacionesInformeEconomico ?? null,
-        movimientos: movimientos.map((m) => ({
+        movimientos: aGuardar.map((m) => ({
           idGrupo,
           tipoMovimiento: m.tipo,
           fechaMovimiento: null,
-          descripcionMovimiento: m.descripcion,
+          descripcionMovimiento: m.descripcion.trim(),
           responsableMovimiento: m.responsable || null,
           tipoComprobante: m.tipoComprobante || null,
           montoMovimiento: m.monto,
@@ -144,8 +163,12 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
                 <input
                   value={m.descripcion}
                   onChange={(e) => actualizarMovimiento(m.clave, "descripcion", e.target.value)}
-                  placeholder="Descripción"
-                  className="min-w-0 flex-1 border-b border-slate-100 pb-1 text-[12.5px] font-semibold text-slate-700 outline-none"
+                  placeholder={
+                    intentoGuardar && faltaDescripcion(m) ? "Falta la descripción" : "Descripción (ej. Compra de víveres)"
+                  }
+                  className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-[12.5px] font-semibold text-slate-700 outline-none focus:border-unah-orange ${
+                    intentoGuardar && faltaDescripcion(m) ? "border-red-400 placeholder:text-red-400" : "border-slate-200"
+                  }`}
                 />
                 <button type="button" onClick={() => quitarMovimiento(m.clave)} aria-label="Quitar">
                   <HiOutlineTrash className="h-4 w-4 shrink-0 text-slate-300" />
@@ -160,7 +183,9 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
                   value={m.monto || ""}
                   onChange={(e) => actualizarMovimiento(m.clave, "monto", Number(e.target.value))}
                   placeholder="0.00"
-                  className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-[12px]"
+                  className={`w-20 rounded-lg border px-2 py-1 text-[12px] ${
+                    intentoGuardar && faltaMonto(m) ? "border-red-400" : "border-slate-200"
+                  }`}
                 />
                 <input
                   value={m.responsable}
