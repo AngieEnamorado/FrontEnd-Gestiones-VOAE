@@ -263,6 +263,10 @@ export interface MovimientoEconomicoApi {
   responsableMovimiento: string | null;
   tipoComprobante: string | null;
   montoMovimiento: number;
+  /** Llave en S3 de la foto o PDF del comprobante. */
+  comprobanteUrl?: string | null;
+  /** URL firmada para verlo (solo al leer; vence en 15 min). */
+  urlComprobante?: string | null;
 }
 
 export interface InformeEconomicoApi {
@@ -433,7 +437,7 @@ export const voluntariadoApi = {
   resolverActividad: (id: number, estado: "APROBADA" | "RECHAZADA") =>
     api.post(`/actividades/${id}/aprobacion`, { estado }),
   guardarResultados: (id: number, resultados: string) => api.put(`/actividades/${id}/resultados`, { resultados }),
-  firmarSubida: (datos: { proceso: "SOLICITUD_GRUPO" | "ACTIVIDAD"; idReferencia: number; nombreArchivo: string; tipoContenido: string }) =>
+  firmarSubida: (datos: { proceso: "SOLICITUD_GRUPO" | "ACTIVIDAD" | "COMPROBANTE"; idReferencia: number; nombreArchivo: string; tipoContenido: string }) =>
     api.post<SubidaFirmadaApi>("/archivos/subidas", datos),
   agregarFoto: (id: number, archivoUrl: string, idRequisitoAdjunto: number | null) =>
     api.post(`/actividades/${id}/fotos`, { archivoUrl, idRequisitoAdjunto }),
