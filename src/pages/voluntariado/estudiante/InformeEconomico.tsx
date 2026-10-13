@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { HiOutlinePlus, HiOutlineTrash } from "react-icons/hi2";
+import { HiOutlineCheck, HiOutlinePaperClip, HiOutlinePlus, HiOutlineTrash } from "react-icons/hi2";
 import HeaderMovilDetalle from "../../../components/voluntariado/HeaderMovilDetalle";
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi, type ActividadDetalleApi, type InformeEconomicoApi } from "../../../api/voluntariado";
 import { ErrorApi, mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
+import { subirArchivo } from "../../../api/archivosVoluntariado";
 
 interface FilaMovimiento {
   clave: number;
@@ -14,6 +15,11 @@ interface FilaMovimiento {
   monto: number;
   responsable: string;
   tipoComprobante: string;
+  /** Llave en S3 del comprobante ya subido. */
+  comprobanteUrl: string | null;
+  /** Para verlo: URL firmada si vino de la API, o el nombre del archivo recién subido. */
+  urlComprobante: string | null;
+  nombreComprobante: string | null;
 }
 
 const COMPROBANTES = ["Factura", "Recibo", "Transferencia"];
@@ -69,6 +75,9 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
         monto: m.montoMovimiento,
         responsable: m.responsableMovimiento ?? "",
         tipoComprobante: m.tipoComprobante ?? "",
+        comprobanteUrl: m.comprobanteUrl ?? null,
+        urlComprobante: m.urlComprobante ?? null,
+        nombreComprobante: m.comprobanteUrl ? (m.comprobanteUrl.split("/").pop() ?? null) : null,
       })),
   );
   const [guardando, setGuardando] = useState(false);
@@ -79,12 +88,43 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
   function agregarMovimiento(tipo: FilaMovimiento["tipo"]) {
     setMovimientos((prev) => [
       ...prev,
-      { clave: nuevaClave(), tipo, descripcion: "", monto: 0, responsable: "", tipoComprobante: "" },
+      {
+        clave: nuevaClave(),
+        tipo,
+        descripcion: "",
+        monto: 0,
+        responsable: "",
+        tipoComprobante: "",
+        comprobanteUrl: null,
+        urlComprobante: null,
+        nombreComprobante: null,
+      },
     ]);
   }
 
-  function actualizarMovimiento(clave: number, campo: keyof FilaMovimiento, valor: string | number) {
+  function actualizarMovimiento(clave: number, campo: keyof FilaMovimiento, valor: string | number | null) {
     setMovimientos((prev) => prev.map((m) => (m.clave === clave ? { ...m, [campo]: valor } : m)));
+  }
+
+  // El comprobante se sube en cuanto se elige: la actividad ya existe, así
+  // que la llave puede colgar de ella desde el primer momento.
+  const [subiendoClave, setSubiendoClave] = useState<number | null>(null);
+  async function adjuntarComprobante(clave: number, archivo: File | undefined) {
+    if (!archivo) return;
+    setSubiendoClave(clave);
+    setError(null);
+    try {
+      const llave = await subirArchivo("COMPROBANTE", actividad.idActividad, archivo);
+      setMovimientos((prev) =>
+        prev.map((m) =>
+          m.clave === clave ? { ...m, comprobanteUrl: llave, urlComprobante: null, nombreComprobante: archivo.name } : m,
+        ),
+      );
+    } catch (e) {
+      setError(mensajeDeError(e));
+    } finally {
+      setSubiendoClave(null);
+    }
   }
 
   function quitarMovimiento(clave: number) {
@@ -99,6 +139,8 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
   const filaVacia = (m: FilaMovimiento) => !m.descripcion.trim() && !m.monto && !m.responsable.trim();
   const faltaDescripcion = (m: FilaMovimiento) => !filaVacia(m) && !m.descripcion.trim();
   const faltaMonto = (m: FilaMovimiento) => !filaVacia(m) && !(m.monto > 0);
+  // Factura, recibo o transferencia: hace falta la foto o el PDF.
+  const faltaComprobante = (m: FilaMovimiento) => !filaVacia(m) && m.tipoComprobante !== "" && !m.comprobanteUrl;
 
   async function guardar() {
     setIntentoGuardar(true);
@@ -109,6 +151,15 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
         incompletos === 1
           ? "Un movimiento no tiene descripción o monto. Complétalo o quítalo con el ícono de basura."
           : `${incompletos} movimientos no tienen descripción o monto. Complétalos o quítalos con el ícono de basura.`,
+      );
+      return;
+    }
+    const sinComprobante = aGuardar.filter(faltaComprobante).length;
+    if (sinComprobante > 0) {
+      setError(
+        sinComprobante === 1
+          ? "Un movimiento con factura, recibo o transferencia no tiene la foto del comprobante. Adjúntala o elige «Sin comprobante»."
+          : `${sinComprobante} movimientos con factura, recibo o transferencia no tienen la foto del comprobante.`,
       );
       return;
     }
@@ -126,6 +177,7 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
           descripcionMovimiento: m.descripcion.trim(),
           responsableMovimiento: m.responsable || null,
           tipoComprobante: m.tipoComprobante || null,
+          comprobanteUrl: m.tipoComprobante ? m.comprobanteUrl : null,
           montoMovimiento: m.monto,
         })),
       });
@@ -194,16 +246,49 @@ function Formulario({ actividad, informe }: { actividad: ActividadDetalleApi; in
                   className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1 text-[11.5px]"
                 />
               </div>
-              <select
-                value={m.tipoComprobante}
-                onChange={(e) => actualizarMovimiento(m.clave, "tipoComprobante", e.target.value)}
-                className="mt-1.5 rounded-md border border-slate-100 bg-white px-1.5 py-0.5 text-[10.5px] text-slate-500"
-              >
-                <option value="">Sin comprobante</option>
-                {COMPROBANTES.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <select
+                  value={m.tipoComprobante}
+                  onChange={(e) => actualizarMovimiento(m.clave, "tipoComprobante", e.target.value)}
+                  className="rounded-md border border-slate-100 bg-white px-1.5 py-0.5 text-[10.5px] text-slate-500"
+                >
+                  <option value="">Sin comprobante</option>
+                  {COMPROBANTES.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+                {m.tipoComprobante !== "" && (
+                  <label
+                    className={`flex min-w-0 cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-[10.5px] font-semibold ${
+                      m.comprobanteUrl
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : intentoGuardar
+                          ? "border-red-300 bg-red-50 text-red-600"
+                          : "border-slate-200 bg-white text-slate-500"
+                    } ${subiendoClave === m.clave ? "pointer-events-none opacity-60" : ""}`}
+                  >
+                    {m.comprobanteUrl ? <HiOutlineCheck className="h-3.5 w-3.5 shrink-0" /> : <HiOutlinePaperClip className="h-3.5 w-3.5 shrink-0" />}
+                    <span className="truncate">
+                      {subiendoClave === m.clave
+                        ? "Subiendo…"
+                        : m.comprobanteUrl
+                          ? `${m.nombreComprobante ?? "Comprobante"} · cambiar`
+                          : "Adjuntar foto o PDF"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="application/pdf,image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => void adjuntarComprobante(m.clave, e.target.files?.[0])}
+                    />
+                  </label>
+                )}
+                {m.tipoComprobante !== "" && m.urlComprobante && (
+                  <a href={m.urlComprobante} target="_blank" rel="noreferrer" className="text-[10.5px] font-semibold text-unah-navy underline">
+                    Ver
+                  </a>
+                )}
+              </div>
             </div>
           ))}
         </div>

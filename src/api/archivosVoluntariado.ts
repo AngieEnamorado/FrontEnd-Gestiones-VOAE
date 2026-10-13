@@ -10,7 +10,7 @@
 import { ErrorApi } from "./clienteVoluntariado";
 import { voluntariadoApi } from "./voluntariado";
 
-export type ProcesoArchivo = "SOLICITUD_GRUPO" | "ACTIVIDAD";
+export type ProcesoArchivo = "SOLICITUD_GRUPO" | "ACTIVIDAD" | "COMPROBANTE";
 
 /** Lo mismo que acepta el servidor. Se valida antes para no gastar una firma. */
 export const TIPOS_ARCHIVO: Record<string, string> = {
@@ -24,6 +24,7 @@ export const TAMANIO_MAXIMO_MB = 10;
 const CARPETA_PROTOTIPO: Record<ProcesoArchivo, string> = {
   SOLICITUD_GRUPO: "solicitudes",
   ACTIVIDAD: "actividades",
+  COMPROBANTE: "actividades",
 };
 
 export function validarArchivo(archivo: File): string | null {
