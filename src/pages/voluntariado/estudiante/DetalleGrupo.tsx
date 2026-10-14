@@ -70,7 +70,7 @@ export default function DetalleGrupo() {
 
       <div className="scrollbar-thin flex-1 overflow-y-auto pb-24">
         <div className="bg-gradient-to-br from-unah-navy to-unah-navy-light px-5 pb-[46px] pt-5 text-white">
-          <LogoGrupo iniciales={iniciales(grupo.nombreGrupo)} color={colorDeGrupo(grupo.idGrupo)} tamano="lg" sobreOscuro />
+          <LogoGrupo iniciales={iniciales(grupo.nombreGrupo)} color={colorDeGrupo(grupo.idGrupo)} tamano="lg" sobreOscuro url={grupo.urlLogo} />
           <p className="mt-3 text-lg font-bold">{grupo.nombreGrupo}</p>
           <p className="text-xs text-white/60">{campus}</p>
         </div>

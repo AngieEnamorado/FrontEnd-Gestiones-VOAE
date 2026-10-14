@@ -1,6 +1,7 @@
 import { useState } from "react";
 import LogoGrupo from "../../../components/voluntariado/LogoGrupo";
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
+import EditarGrupoModal from "./EditarGrupoModal";
 import { claseChipColor } from "../../../components/voluntariado/colores";
 import { voluntariadoApi, type GrupoResumenApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
@@ -11,6 +12,7 @@ export default function GestionGrupos() {
   const carga = useApi(() => Promise.all([voluntariadoApi.grupos(), voluntariadoApi.catalogos()]), []);
   const [grupos, catalogos] = carga.datos ?? [[], undefined];
   const [reasignando, setReasignando] = useState<number | null>(null);
+  const [editando, setEditando] = useState<GrupoResumenApi | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reasignar(idGrupo: number, idPersona: number) {
@@ -76,13 +78,22 @@ export default function GestionGrupos() {
                     </td>
                     <td className="px-5 py-3.5 text-slate-500">{grupo.totalMiembros}</td>
                     <td className="px-5 py-3.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setReasignando(grupo.idGrupo)}
-                        className="text-xs font-semibold text-unah-orange hover:underline"
-                      >
-                        Reasignar ›
-                      </button>
+                      <div className="flex justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditando(grupo)}
+                          className="text-xs font-semibold text-unah-navy hover:underline"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReasignando(grupo.idGrupo)}
+                          className="text-xs font-semibold text-unah-orange hover:underline"
+                        >
+                          Reasignar ›
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -91,6 +102,13 @@ export default function GestionGrupos() {
           </div>
         </div>
       </EstadoCarga>
+
+      <EditarGrupoModal
+        item={editando}
+        redes={catalogos?.redes ?? []}
+        onClose={() => setEditando(null)}
+        onGuardado={carga.recargar}
+      />
     </div>
   );
 }
