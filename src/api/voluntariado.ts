@@ -78,6 +78,10 @@ export interface GrupoDetalleApi {
   visionGrupo: string | null;
   resenaHistorica: string | null;
   propositoGrupo: string | null;
+  logoUrl: string | null;
+  /** URL firmada del logo, de vida corta. Null si no hay logo o es de prototipo. */
+  urlLogo: string | null;
+  redesSociales: string | null;
   totalMiembros: number;
   totalActividades: number;
   horasTotales: number;
@@ -91,6 +95,13 @@ export interface GrupoDetalleApi {
     apellidosPersona: string;
     correoPersona: string | null;
   }[];
+}
+
+export interface CambiosGrupoApi {
+  descripcionGrupo?: string | null;
+  redesSociales?: string | null;
+  logoUrl?: string | null;
+  redesTematicas?: number[];
 }
 
 export interface MiembroApi {
@@ -403,6 +414,9 @@ export const voluntariadoApi = {
   miembros: (idGrupo: number) => api.get<MiembroApi[]>(`/grupos/${idGrupo}/miembros`),
   reasignarCoordinador: (idGrupo: number, idPersona: number) =>
     api.put(`/grupos/${idGrupo}/coordinador`, { idPersona }),
+  /** Solo viaja lo que cambió. El nombre no se edita: el servidor lo rechaza. */
+  editarGrupo: (idGrupo: number, cambios: CambiosGrupoApi) =>
+    api.put<GrupoDetalleApi>(`/grupos/${idGrupo}`, cambios),
 
   solicitudesGrupos: () => api.get<SolicitudGrupoResumenApi[]>("/solicitudes-grupos"),
   solicitudGrupo: (id: number) => api.get<SolicitudGrupoDetalleApi>(`/solicitudes-grupos/${id}`),
@@ -437,7 +451,7 @@ export const voluntariadoApi = {
   resolverActividad: (id: number, estado: "APROBADA" | "RECHAZADA") =>
     api.post(`/actividades/${id}/aprobacion`, { estado }),
   guardarResultados: (id: number, resultados: string) => api.put(`/actividades/${id}/resultados`, { resultados }),
-  firmarSubida: (datos: { proceso: "SOLICITUD_GRUPO" | "ACTIVIDAD" | "COMPROBANTE"; idReferencia: number; nombreArchivo: string; tipoContenido: string }) =>
+  firmarSubida: (datos: { proceso: "SOLICITUD_GRUPO" | "ACTIVIDAD" | "COMPROBANTE" | "GRUPO"; idReferencia: number; nombreArchivo: string; tipoContenido: string }) =>
     api.post<SubidaFirmadaApi>("/archivos/subidas", datos),
   agregarFoto: (id: number, archivoUrl: string, idRequisitoAdjunto: number | null) =>
     api.post(`/actividades/${id}/fotos`, { archivoUrl, idRequisitoAdjunto }),
