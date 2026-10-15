@@ -33,8 +33,9 @@ matching multi-line strings and restore the original endings on write.
 The git root is this `FrontEnd-Gestiones-VOAE/` folder; its parent `proyecto-giras/` is not a repo.
 Two sibling folders there are backend-side: `bd_voae_script/DbVoae_final.sql` (unified SQL Server
 schema, one schema each for Catalogo/Voluntariado/Procad/Giras — the reference for API field names and
-for the mocks still in use) and `FuncionesLambdaGestionesVOAE/` (AWS Lambda API; `voae-giras` is what
-this app talks to). `LOCAL PROCAD/` (HTML prototypes) is gitignored reference material. `README.md` is
+for the mocks still in use) and `FuncionesLambdaGestionesVOAE/` (AWS Lambda API, one function per domain:
+`voae-catalogo`, `voae-giras`, `voae-voluntariado`, `voae-procad`, `voae-reporteria`; this app talks to all
+five). `LOCAL PROCAD/` (HTML prototypes) is gitignored reference material. `README.md` is
 the Vite template and currently contains unresolved merge-conflict markers — don't treat it as
 documentation.
 
@@ -50,12 +51,41 @@ documentation.
 When adding a new sidebar item, add it in both places, and either build a real page or wire it to
 `PaginaEnConstruccion`.
 
-**Giras talks to a real API; PROCAD, Voluntariado and Estudiantes are still mocked.** The mocks live in
-`src/data/` (one `mock*.ts` file per domain, plus `currentUser.ts`): pages import the arrays directly and
-filter/derive state client-side. `currentUser.ts`'s `obtenerUsuarioDeSesion()` simulates a session; when a real
-backend exists it is the function to replace, not the components that consume it. Derivations that several
-Voluntariado screens need in common (who coordinates which group, hours, attendance %, gender breakdown) are
-plain functions in `src/data/voluntariadoSelectors.ts` — follow that pattern for new cross-screen derivations.
+**What talks to the API and what is still mocked.** Giras and Voluntariado (admin screens and Portal Estudiante)
+read and write only through the API. PROCAD is split: its Estudiantes module and the Agrupaciones lists
+(grupos, actividades, visorías, accesos, catálogos) use `voae-procad` when `VITE_API_PROCAD_URL` is set, while
+Estadísticas, Reportes/ReportePersonalizado and Galería are still mock-only (there is no PROCAD route in
+`voae-reporteria` and no gallery tables in the schema). Estudiantes (`pages/estudiantes/`) is fully mocked. The
+mocks live in `src/data/` (one `mock*.ts` file per domain, plus `currentUser.ts`); `currentUser.ts`'s
+`obtenerUsuarioDeSesion()` simulates a session and is the function to replace when real auth exists. The
+Voluntariado mocks (`mock*Voluntariado.ts`, `voluntariadoSelectors.ts`) are no longer imported by any page — they
+only reference each other — so don't build on them.
+
+**Backend URLs (`.env.local`, git-ignored; `.env.example` shows the shape, no trailing slash).** Each variable is the
+base of one function, e.g. `https://<id>.execute-api.us-east-1.amazonaws.com/v1/voluntariado`:
+`VITE_API_GIRAS_URL`, `VITE_API_VOLUNTARIADO`, `VITE_API_REPORTERIA`, `VITE_API_PROCAD_URL`, and `voae-catalogo`
+twice under two names because two clients read it (`VITE_API_CATALOGO` for Voluntariado, `VITE_API_CATALOGO_URL`
+for PROCAD). `VITE_PROCAD_ID_PERSONA` is the `Catalogo.tblPersonas` id that signs PROCAD decisions until there
+is a session (it must hold the `ADMINISTRADOR_PROCAD` role). Without `VITE_API_PROCAD_URL` PROCAD falls back to its
+mocks; without `VITE_API_REPORTERIA` the dashboards fall back to slower provisional paths (see below). The AWS
+account caps Lambda at 10 concurrent executions until a quota increase lands; past that API Gateway answers 503
+**without CORS headers**, so the browser reports a network error. Every client retries a GET once for that reason
+— keep that retry when touching them, and don't fire more parallel requests per screen than needed.
+
+**Three HTTP clients, one per backend family** (they grew separately; don't mix them):
+- `api/cliente.ts` — Giras and reporteria (`apiGiras`, `apiReporteria`, which is `null` when its URL is unset).
+  Described in detail below.
+- `api/clienteVoluntariado.ts` — `crearCliente(variable, url)` builds the clients for `voae-voluntariado`
+  (`api/voluntariado.ts`, `voluntariadoApi`) and `voae-catalogo` (`api/catalogo.ts`, `catalogoApi`: campus,
+  períodos, student by account number). It sends the `X-Voae-Usuario` header, which these APIs' CORS allows (the
+  Giras API does not). Errors are its own `ErrorApi` with `baseDespertando` for 503; screens show them with its
+  `mensajeDeError`. Loading hook: `utils/useApi.ts` (`{ datos, cargando, error, recargar }`; unlike
+  `useConsulta` it hides data from previous dependencies while the new ones load). `components/voluntariado/
+  EstadoCarga.tsx` renders the loading/error/retry state.
+- `api/clienteProcad.ts` — `voae-procad` plus a read-only `voae-catalogo` client; endpoint functions in
+  `api/procad.ts`, response types in `types/procad.ts`, and `api/adaptadoresProcad.ts` converts responses into the
+  existing PROCAD UI types in `types/index.ts` so the screens didn't change. Data the DB doesn't store is left
+  empty, never invented.
 
 **The Giras API layer (`src/api/`).** `cliente.ts` is a small `fetch` wrapper (`apiGiras.get/post/put/delete`):
 base URL from `VITE_API_GIRAS_URL` (`.env.local`, git-ignored; `.env.example` shows the shape, no trailing
@@ -78,9 +108,9 @@ total is the sum) while in the list it is the number; a list/detail `categorias`
 other; `GET /catalogos` returns every tabla tipo (active only) by slug for form dropdowns, while
 `GET /catalogos/{slug}?todos=true` is the uncached maintenance view. Selectable lists (carreras, facultades,
 finalidades, transporte, financiamiento, alcance, tipos de sangre, the `maxDocentesPorGira` parameter, jefes de
-aprobación, docentes) all come from the API — nothing is hardcoded in the forms. **Campus options are the
-campuses of users that exist** (`GET /usuarios`), because no campus endpoint of `voae-giras` exists; the real list
-lives in `voae-catalogo` (`/v1/catalogo/campus`), which this app doesn't call yet.
+aprobación, docentes) all come from the API — nothing is hardcoded in the forms. **Campus options in Giras are
+the campuses of users that exist** (`GET /usuarios`), because no campus endpoint of `voae-giras` exists; the real
+list is `voae-catalogo`'s `/campus`, which Voluntariado and PROCAD already use but Giras doesn't yet.
 
 **Who am I in Giras (no session yet).** `UserContext` keeps, per Giras role, *which real DB user is being
 impersonated* (`identidades`, persisted in `localStorage` under `voae.giras.identidades`), chosen in
@@ -93,11 +123,15 @@ auth exists, `identidades`, `elegirIdentidadGira`, `ModoDeVista`, `cambiarRolGir
 in `navigation.ts` are deleted together. `useUsuarioActual()` (the mock "Erin Matute" for the Topbar) is unrelated
 and still used by PROCAD.
 
-**PROCAD** is the one mocked subsystem whose data is written, not just read, so its mutable state lives in
-`src/context/ProcadContext.tsx` (`useProcad()`), wrapped around the app in `main.tsx`. It holds the
-admin's records plus a derived `pendientes` count and the actions that resolve cases; every action
-also prepends a row to the audit log and raises a confirmation toast. State is shared because the
-decisions cross modules — resolving a case changes the badge the sidebar draws on another entry.
+**PROCAD** keeps its mutable state in `src/context/ProcadContext.tsx` (`useProcad()`), wrapped around the app in
+`main.tsx`. It holds the admin's records plus a derived `pendientes` count and the actions that resolve cases;
+every action also prepends a row to the audit log and raises a confirmation toast. State is shared because the
+decisions cross modules — resolving a case changes the badge the sidebar draws on another entry. With
+`procadConectado` (i.e. `VITE_API_PROCAD_URL` set) the context starts empty instead of from the mocks, loads from
+`api/procad.ts`, and every action calls the API and then **re-reads** the affected lists, because the DB triggers
+may change more than the screen asked for (approving a condicionado, expelling a member…). Actions refuse to run
+without `VITE_PROCAD_ID_PERSONA`. Because the provider wraps every route, it loads on every page, Giras and
+Voluntariado included — keep that load small.
 
 PROCAD has two roles (`rolProcad` on `UsuarioActual`): `administrador` manages, `vicerrector` only
 reads statistics. Role filtering is scoped to PROCAD only: entries in `navigationItems` declare an
@@ -137,9 +171,9 @@ What each role does, all against the API:
 - A gira is never created from the UI: it appears when a solicitud is approved. There is no gira edit/cancel
   endpoint yet.
 
-`giras/Estadisticas.tsx` builds its rows in `api/estadisticasGiras.ts` from every sent solicitud plus its detail
-(N+1 requests; a placeholder until `voae-reporteria` exists). A solicitud counts once, under its first
-facultad/finalidad.
+`giras/Estadisticas.tsx` gets its rows from `api/estadisticasGiras.ts`: one call to `voae-reporteria`
+(`/giras/registros`) when `VITE_API_REPORTERIA` is set, otherwise the old fallback of every sent solicitud plus its
+detail (N+1 requests). Either way a solicitud counts once, under its first facultad/finalidad.
 
 Its five PROCAD admin modules (`Estudiantes`, `Agrupaciones`, `Galeria`, `Configuracion`, `Reportes`) all
 render through `src/pages/procad/LayoutModulo.tsx` and keep their sub-screens in
@@ -157,13 +191,30 @@ a different audience entirely — get a separate mobile-width "Portal Estudiante
 (`pages/voluntariado/estudiante/`) mounted at `/voluntariado/portal-estudiante` *outside*
 `MainLayout`, through `layouts/MobileShell.tsx` (fixed-width column, bottom `TabBarMovil` instead of
 Sidebar/Topbar) — it's reached by a link from the admin Tablero, not the sidebar, so it deliberately
-has no `navigationItems` entries of its own. Its "current user" is a separate mock
-(`data/mockEstudianteVoluntariado.ts`'s `estudianteActual`), not `useUsuarioActual()`, and pages
-inside it switch between a regular-member view and a coordinator view (`PanelCoordinador` and its
-sub-pages) based on that mock rather than PROCAD-style role guarding.
+has no `navigationItems` entries of its own. Its "current user" is a real `Catalogo.tblPersonas` row chosen by
+hand: `MobileShell` wraps the portal in `context/SesionVoluntariadoContext.tsx` (`idPersona`, the person's
+groups and hours, `grupoCoordinado`, `recargarPersona` after joining a group), and
+`components/voluntariado/SelectorEstudiantePrueba.tsx` picks the person (remembered in `localStorage` under
+`voluntariado.idPersonaPrueba`). When real auth exists, the selector is deleted and `idPersona` comes from the
+session; the screens only consume the context. Pages switch between a regular-member view and a coordinator view
+(`PanelCoordinador` and its sub-pages) based on `grupoCoordinado`, not PROCAD-style role guarding. On the admin
+side, `TableroNacional` has a "Rol de prueba" toggle (Administrador / Enlace VOAE) that limits the enlace to one
+campus — also demo tooling.
+
+Voluntariado details worth knowing: `Tablero` and `Estadisticas` read `voae-reporteria` (`voluntariadoApi.tablero`
+/ `.estadisticas`), falling back to provisional routes of `voae-voluntariado` that return the same shape; states
+travel uppercase (`EN_CAPTURA`, `PENDIENTE`…) and render with `components/voluntariado/BadgeEstadoVoluntariado.tsx`;
+dates arrive as ISO strings (format with `fechaCorta()` in `utils/voluntariado.ts`). Files (group documents and
+logos, activity photos, expense receipts) go **straight from the browser to S3**: `api/archivosVoluntariado.ts`
+asks the API to sign an upload (`POST /archivos/subidas`, which returns a presigned POST: `url` + form `campos`),
+posts the file as a form to S3, and then registers only the object key; the Lambda never receives the binary.
+Diplomas take each member's participation and the threshold from the API (`/diplomas/participacion`); don't
+recompute attendance in the client.
 
 **Types.** UI types for the mocked modules live centrally in `src/types/index.ts` (`Solicitud`,
-`EstadoSolicitud`, `UsuarioActual`, …). The Giras API contracts are in `src/types/giras.ts`.
+`EstadoSolicitud`, `UsuarioActual`, …). API contracts: Giras in `src/types/giras.ts`, PROCAD in
+`src/types/procad.ts`, Voluntariado and Catálogo next to their clients (`api/voluntariado.ts`, `api/catalogo.ts`),
+all using the database's column names.
 
 **Layout shell:** `MainLayout.tsx` renders `Sidebar` + `Topbar` around an `<Outlet />`, and owns the
 sidebar collapsed/expanded state. Route pages only render their own content area, not chrome. The
