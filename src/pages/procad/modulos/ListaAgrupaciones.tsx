@@ -16,7 +16,9 @@ import PildoraEstado from "../../../components/procad/PildoraEstado";
 import TablaDatos from "../../../components/procad/TablaDatos";
 import { useVistaTabla } from "../../../components/procad/vistaTabla";
 import { COLOR_TIPO, ETIQUETA_TIPO } from "../../../components/procad/paleta";
-import { CENTROS, agrupacionesProcad } from "../../../data/mockProcadEstadisticas";
+import { procadConectado } from "../../../api/clienteProcad";
+import { useProcad } from "../../../context/ProcadContext";
+import { CENTROS } from "../../../data/mockProcadEstadisticas";
 import type { AgrupacionProcad, TipoAgrupacion } from "../../../types";
 
 type FiltroTipo = TipoAgrupacion | "todos";
@@ -192,18 +194,41 @@ const CAMPOS: CampoTabla<AgrupacionProcad>[] = [
   },
 ];
 
-const COLUMNAS = columnasDe(CAMPOS);
+/**
+ * Conectada a voae-procad, la lista muestra solo lo que la base guarda de una
+ * agrupación. Las cifras (elegibilidad, asistencias, preferencial…) son de
+ * voae-reporteria, que todavía no existe: mostrarlas en 0 sería afirmar un
+ * dato falso, así que esas columnas no aparecen.
+ */
+const COLUMNAS_CON_DATO = new Set([
+  "Agrupación",
+  "Clasificación",
+  "Centro",
+  "Disciplina / Deporte",
+  "Estudiantes",
+  "Selección",
+]);
+const CAMPOS_VISIBLES = procadConectado ? CAMPOS.filter((c) => COLUMNAS_CON_DATO.has(c.label)) : CAMPOS;
+
+const COLUMNAS = columnasDe(CAMPOS_VISIBLES);
 
 /** Todas las agrupaciones activas del período, en un solo lugar. */
 export default function ListaAgrupaciones() {
   const [tipo, setTipo] = useState<FiltroTipo>("todos");
   const [centro, setCentro] = useState("todos");
   const [texto, setTexto] = useState("");
-  const vista = useVistaTabla("agrupaciones:lista", COLUMNAS);
+  const { agrupaciones } = useProcad();
+  const vista = useVistaTabla(procadConectado ? "agrupaciones:lista:api" : "agrupaciones:lista", COLUMNAS);
+
+  // Los nombres de centro de la base no son los de la demostración: la lista sale de los datos.
+  const centros = useMemo(
+    () => (procadConectado ? [...new Set(agrupaciones.map((a) => a.centro))].sort() : CENTROS),
+    [agrupaciones],
+  );
 
   const filtradas = useMemo(() => {
     const busqueda = texto.trim().toLowerCase();
-    return agrupacionesProcad.filter((a) => {
+    return agrupaciones.filter((a) => {
       if (tipo !== "todos" && a.tipo !== tipo) return false;
       if (centro !== "todos" && a.centro !== centro) return false;
       if (
@@ -215,7 +240,7 @@ export default function ListaAgrupaciones() {
       }
       return true;
     });
-  }, [tipo, centro, texto]);
+  }, [agrupaciones, tipo, centro, texto]);
 
   const hayFiltros = tipo !== "todos" || centro !== "todos" || texto.trim() !== "";
 
@@ -228,13 +253,15 @@ export default function ListaAgrupaciones() {
 
       <BarraTabla
         conteo={
-          filtradas.length === agrupacionesProcad.length
-            ? `${agrupacionesProcad.length} agrupaciones`
-            : `${filtradas.length} de ${agrupacionesProcad.length}`
+          filtradas.length === agrupaciones.length
+            ? `${agrupaciones.length} agrupaciones`
+            : `${filtradas.length} de ${agrupaciones.length}`
         }
         vista={vista}
         hayFilas={filtradas.length > 0}
-        onDescargar={() => descargarTabla("agrupaciones-procad", CAMPOS, vista, filtradas, "Agrupaciones")}
+        onDescargar={() =>
+          descargarTabla("agrupaciones-procad", CAMPOS_VISIBLES, vista, filtradas, "Agrupaciones")
+        }
       >
         <ChipsFiltro
           etiqueta="Filtrar por clasificación"
@@ -254,7 +281,7 @@ export default function ListaAgrupaciones() {
           className={`${CLASE_FILTRO} w-[190px]`}
         >
           <option value="todos">Todos los centros</option>
-          {CENTROS.map((c) => (
+          {centros.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
@@ -285,7 +312,7 @@ export default function ListaAgrupaciones() {
           vista={vista}
           anchoMinimo="1180px"
           columnas={COLUMNAS}
-          filas={filasDe(CAMPOS, filtradas, undefined)}
+          filas={filasDe(CAMPOS_VISIBLES, filtradas, undefined)}
         />
       </div>
     </div>

@@ -4,15 +4,50 @@ import PildoraEstado from "../../../components/procad/PildoraEstado";
 import TablaDatos from "../../../components/procad/TablaDatos";
 import { ETIQUETA_TIPO } from "../../../components/procad/paleta";
 import { useProcad } from "../../../context/ProcadContext";
+import { procadConectado } from "../../../api/clienteProcad";
+import { listarCampus, listarCatalogos } from "../../../api/procad";
+import { aReferencias, type ReferenciasProcad } from "../../../api/adaptadoresProcad";
+import { useConsulta } from "../../../api/useConsulta";
 import {
   DISCIPLINAS_CATALOGO,
   MOTIVOS_EXPULSION,
   TIPOS_ACTIVIDAD_CATALOGO,
 } from "../../../data/mockProcadAdmin";
-import { CENTROS, agrupacionesProcad } from "../../../data/mockProcadEstadisticas";
+import { CENTROS } from "../../../data/mockProcadEstadisticas";
 import { suma } from "../../../utils/procadMetricas";
 
 type Hoja = "campus" | "grupos" | "disciplinas" | "tipos" | "motivos" | "empleados";
+
+/** Los catálogos de la demostración, con la misma forma que los que llegan de la API. */
+const REFERENCIAS_DEMO: ReferenciasProcad = {
+  centros: CENTROS,
+  disciplinas: DISCIPLINAS_CATALOGO,
+  tipos: TIPOS_ACTIVIDAD_CATALOGO,
+  motivos: MOTIVOS_EXPULSION,
+};
+
+const SIN_REFERENCIAS: ReferenciasProcad = {
+  centros: [],
+  disciplinas: [],
+  tipos: { deportivo: [], artistico: [] },
+  motivos: [],
+};
+
+/**
+ * Conectado, los catálogos salen de voae-procad y los centros de voae-catalogo;
+ * sin conexión, de la demostración.
+ */
+function useReferencias() {
+  const consulta = useConsulta(async () => {
+    if (!procadConectado) return REFERENCIAS_DEMO;
+    const [catalogos, campus] = await Promise.all([listarCatalogos(), listarCampus()]);
+    return aReferencias(catalogos, campus);
+  }, []);
+  return { referencias: consulta.datos ?? SIN_REFERENCIAS, error: consulta.error };
+}
+
+/** La base guarda los nombres en minúscula («danza»); la demostración ya viene en minúscula también. */
+const conMayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
 function Nota({ children }: { children: React.ReactNode }) {
   return <p className="mt-4 text-xs leading-relaxed text-slate-500">{children}</p>;
@@ -24,7 +59,8 @@ function Nota({ children }: { children: React.ReactNode }) {
  * no con pestañas: no son secciones del módulo, son vistas del mismo catálogo.
  */
 export default function Catalogos() {
-  const { empleados } = useProcad();
+  const { empleados, agrupaciones } = useProcad();
+  const { referencias, error } = useReferencias();
   const [hoja, setHoja] = useState<Hoja>("campus");
 
   return (
@@ -43,6 +79,8 @@ export default function Catalogos() {
         ]}
       />
 
+      {error && <p className="mt-4 text-xs text-red-600">No se pudieron cargar los catálogos: {error}</p>}
+
       <div className="mt-5">
         {hoja === "campus" && (
           <>
@@ -53,13 +91,15 @@ export default function Catalogos() {
                 { label: "Grupos", numerica: true },
                 { label: "Estudiantes", numerica: true },
               ]}
-              filas={CENTROS.map((c) => {
-                const filas = agrupacionesProcad.filter((a) => a.centro === c);
+              filas={referencias.centros.map((c) => {
+                const filas = agrupaciones.filter((a) => a.centro === c);
                 return [c, filas.length, suma(filas, "estudiantes")];
               })}
             />
             <Nota>
-              Los 8 campus corresponden a los centros regionales reales confirmados de la UNAH.
+              {procadConectado
+                ? `Los ${referencias.centros.length} centros activos del catálogo institucional de la UNAH.`
+                : "Los 8 campus corresponden a los centros regionales reales confirmados de la UNAH."}
             </Nota>
           </>
         )}
@@ -76,7 +116,7 @@ export default function Catalogos() {
                 { label: "Selección" },
                 { label: "Estudiantes", numerica: true },
               ]}
-              filas={agrupacionesProcad.map((a) => [
+              filas={agrupaciones.map((a) => [
                 <span key={`g-${a.nombre}`} className="font-medium text-slate-700">
                   {a.nombre}
                 </span>,
@@ -106,9 +146,9 @@ export default function Catalogos() {
           <TablaDatos
             anchoMinimo="420px"
             columnas={[{ label: "Disciplina" }, { label: "Grupos que la usan", numerica: true }]}
-            filas={DISCIPLINAS_CATALOGO.map((d) => [
-              d.charAt(0).toUpperCase() + d.slice(1),
-              agrupacionesProcad.filter((a) => (a.disciplinas ?? []).includes(d)).length,
+            filas={referencias.disciplinas.map((d) => [
+              conMayuscula(d),
+              agrupaciones.filter((a) => (a.disciplinas ?? []).includes(d)).length,
             ])}
           />
         )}
@@ -120,7 +160,7 @@ export default function Catalogos() {
               <TablaDatos
                 anchoMinimo="240px"
                 columnas={[{ label: "Tipo de actividad" }]}
-                filas={TIPOS_ACTIVIDAD_CATALOGO.deportivo.map((t) => [t])}
+                filas={referencias.tipos.deportivo.map((t) => [t])}
               />
             </div>
             <div>
@@ -128,7 +168,7 @@ export default function Catalogos() {
               <TablaDatos
                 anchoMinimo="240px"
                 columnas={[{ label: "Tipo de actividad" }]}
-                filas={TIPOS_ACTIVIDAD_CATALOGO.artistico.map((t) => [t])}
+                filas={referencias.tipos.artistico.map((t) => [t])}
               />
             </div>
             <div className="lg:col-span-2">
@@ -145,7 +185,7 @@ export default function Catalogos() {
             <TablaDatos
               anchoMinimo="320px"
               columnas={[{ label: "Motivo de expulsión" }]}
-              filas={MOTIVOS_EXPULSION.map((m) => [m])}
+              filas={referencias.motivos.map((m) => [m])}
             />
             <Nota>Catálogo institucional permanente — sin bandera de activo o inactivo.</Nota>
           </>

@@ -2,12 +2,29 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import AvisoFlotante from "../components/procad/AvisoFlotante";
+import { mensajeDeError } from "../api/cliente";
+import { fijarUsuarioProcad, idPersonaProcad, procadConectado } from "../api/clienteProcad";
+import * as apiProcad from "../api/procad";
+import {
+  aActividad,
+  aAgrupacion,
+  aCondicionado,
+  aEmpleados,
+  aExpulsion,
+  aMatricula,
+  aPeriodos,
+  aSolicitud,
+  aVisoria,
+  DECISION_DE_ESTADO,
+} from "../api/adaptadoresProcad";
+import type { PeriodoApi } from "../types/procad";
 import { enCorto } from "../utils/fechas";
 import { useUsuarioActual } from "./UserContext";
 import {
@@ -23,8 +40,10 @@ import {
   visoriasProcad,
 } from "../data/mockProcadAdmin";
 import { albumesGaleria } from "../data/mockProcadGaleria";
+import { agrupacionesProcad } from "../data/mockProcadEstadisticas";
 import type {
   ActividadProcad,
+  AgrupacionProcad,
   AlbumGaleria,
   DatosAlbumSuelto,
   CondicionadoPendiente,
@@ -65,6 +84,11 @@ export interface PendientesProcad {
 }
 
 interface ValorProcad {
+  /**
+   * La lista del módulo Agrupaciones. Conectada a la API trae solo lo que la
+   * base guarda; las cifras de estadística siguen en el panel de Estadísticas.
+   */
+  agrupaciones: AgrupacionProcad[];
   solicitudes: SolicitudProcad[];
   condicionados: CondicionadoPendiente[];
   expulsiones: ExpulsionPendiente[];
@@ -134,22 +158,45 @@ function marcaDeTiempo(): string {
 export function ProcadProvider({ children }: { children: ReactNode }) {
   const usuario = useUsuarioActual();
 
-  const [solicitudes, setSolicitudes] = useState<SolicitudProcad[]>(() => [...solicitudesProcad]);
-  const [condicionados, setCondicionados] = useState<CondicionadoPendiente[]>(() => [
-    ...condicionadosPendientes,
-  ]);
-  const [expulsiones, setExpulsiones] = useState<ExpulsionPendiente[]>(() => [
-    ...expulsionesPendientes,
-  ]);
-  const [matriculas, setMatriculas] = useState<MatriculaExcepcional[]>(() => [
-    ...matriculasExcepcionales,
-  ]);
-  const [actividades, setActividades] = useState<ActividadProcad[]>(() => [...actividadesProcad]);
-  const [visorias, setVisorias] = useState<VisoriaProcad[]>(() => [...visoriasProcad]);
-  const [albumes, setAlbumes] = useState<AlbumGaleria[]>(() => albumesGaleria.map((a) => ({ ...a })));
-  const [empleados, setEmpleados] = useState<EmpleadoProcad[]>(() => [...empleadosProcad]);
+  // Conectado a voae-procad, lo del módulo Estudiantes arranca vacío y se llena desde la API.
+  const [solicitudes, setSolicitudes] = useState<SolicitudProcad[]>(() =>
+    procadConectado ? [] : [...solicitudesProcad],
+  );
+  const [condicionados, setCondicionados] = useState<CondicionadoPendiente[]>(() =>
+    procadConectado ? [] : [...condicionadosPendientes],
+  );
+  const [expulsiones, setExpulsiones] = useState<ExpulsionPendiente[]>(() =>
+    procadConectado ? [] : [...expulsionesPendientes],
+  );
+  const [matriculas, setMatriculas] = useState<MatriculaExcepcional[]>(() =>
+    procadConectado ? [] : [...matriculasExcepcionales],
+  );
+  const [agrupaciones, setAgrupaciones] = useState<AgrupacionProcad[]>(() =>
+    procadConectado ? [] : agrupacionesProcad,
+  );
+  const [actividades, setActividades] = useState<ActividadProcad[]>(() =>
+    procadConectado ? [] : [...actividadesProcad],
+  );
+  const [visorias, setVisorias] = useState<VisoriaProcad[]>(() =>
+    procadConectado ? [] : [...visoriasProcad],
+  );
+  // La galería no tiene tablas en la base. Conectado, los álbumes de actividad
+  // de la demostración apuntarían a actividades reales que comparten el id, así
+  // que solo quedan los sueltos.
+  const [albumes, setAlbumes] = useState<AlbumGaleria[]>(() =>
+    albumesGaleria
+      .filter((a) => !procadConectado || a.origen === "suelto")
+      .map((a) => ({ ...a })),
+  );
+  const [empleados, setEmpleados] = useState<EmpleadoProcad[]>(() =>
+    procadConectado ? [] : [...empleadosProcad],
+  );
+  /** Conectado: con qué idPersona se actúa sobre cada empleado de la lista. */
+  const idEmpleado = useRef(new Map<string, number>());
   const [usuarios, setUsuarios] = useState<UsuarioProcad[]>(() => [...usuariosProcad]);
-  const [periodos, setPeriodos] = useState<PeriodoInscripcion[]>(() => [...periodosInscripcion]);
+  const [periodos, setPeriodos] = useState<PeriodoInscripcion[]>(() =>
+    procadConectado ? [] : [...periodosInscripcion],
+  );
   const [auditoria, setAuditoria] = useState<RegistroAuditoria[]>(() => [...auditoriaProcad]);
   const [aviso, setAviso] = useState<string | null>(null);
 
@@ -171,26 +218,168 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
     [usuario.nombreCompleto],
   );
 
+  // ── Conexión con voae-procad ──────────────────────────────────────────────
+  //
+  // Con VITE_API_PROCAD_URL en .env.local, el módulo Estudiantes (solicitudes,
+  // condicionados, expulsiones y matrículas excepcionales) lee de la API y sus
+  // acciones la llaman. Después de cada acción se vuelve a leer: los triggers
+  // de la base pueden cambiar más de lo que la pantalla pidió (aprobar a un
+  // condicionado, expulsar a un integrante…). Sin URL, todo sigue con los datos
+  // de demostración. Los demás módulos todavía usan los mocks.
+
+  const [periodoActivo, setPeriodoActivo] = useState<PeriodoApi | null>(null);
+
+  useEffect(() => {
+    fijarUsuarioProcad(usuario.correo || usuario.nombreCompleto);
+  }, [usuario.correo, usuario.nombreCompleto]);
+
+  const cargarEstudiantes = useCallback(async () => {
+    const [sol, cond, exp, mat] = await Promise.all([
+      apiProcad.listarSolicitudes(),
+      apiProcad.listarCondicionadosPropuestos(),
+      apiProcad.listarExpulsiones("PENDIENTE"),
+      apiProcad.listarMatriculasExcepcionales(),
+    ]);
+    setSolicitudes(sol.map(aSolicitud).filter((s): s is SolicitudProcad => s !== null));
+    setCondicionados(cond.map(aCondicionado));
+    setExpulsiones(exp.map(aExpulsion));
+    setMatriculas(mat.map(aMatricula));
+  }, []);
+
+  /** Agrupaciones, actividades y visorías. Los integrantes se cuentan en el período activo. */
+  const cargarAgrupaciones = useCallback(async (periodo: number | undefined) => {
+    const [grupos, acts, vis] = await Promise.all([
+      apiProcad.listarGrupos(periodo),
+      apiProcad.listarActividades(),
+      apiProcad.listarVisorias(),
+    ]);
+    setAgrupaciones(grupos.map(aAgrupacion));
+    setActividades(acts.map(aActividad));
+    setVisorias(vis.map(aVisoria));
+  }, []);
+
+  /** Accesos al panel y períodos (estos últimos, de Catálogo y solo para leer). */
+  const cargarConfiguracion = useCallback(async (idActivo: number | null) => {
+    const [accesos, lista] = await Promise.all([apiProcad.listarAccesos(), apiProcad.listarPeriodos()]);
+    const { empleados: deApi, idPorNombre } = aEmpleados(accesos);
+    idEmpleado.current = idPorNombre;
+    setEmpleados(deApi);
+    setPeriodos(aPeriodos(lista, idActivo));
+  }, []);
+
+  const recargar = useCallback(
+    () =>
+      Promise.all([
+        cargarEstudiantes(),
+        cargarAgrupaciones(periodoActivo?.idPeriodo),
+        cargarConfiguracion(periodoActivo?.idPeriodo ?? null),
+      ]),
+    [cargarEstudiantes, cargarAgrupaciones, cargarConfiguracion, periodoActivo],
+  );
+
+  useEffect(() => {
+    if (!procadConectado) return;
+    cargarEstudiantes().catch((error: unknown) =>
+      setAviso(`No se pudieron cargar los datos de PROCAD: ${mensajeDeError(error)}`),
+    );
+    apiProcad
+      .obtenerPeriodoActivo()
+      .then(setPeriodoActivo)
+      .catch(() => setPeriodoActivo(null));
+  }, [cargarEstudiantes]);
+
+  // Se vuelve a pedir cuando llega el período activo: cuenta sus integrantes y lo marca en la lista.
+  useEffect(() => {
+    if (!procadConectado) return;
+    cargarAgrupaciones(periodoActivo?.idPeriodo).catch((error: unknown) =>
+      setAviso(`No se pudieron cargar las agrupaciones: ${mensajeDeError(error)}`),
+    );
+    cargarConfiguracion(periodoActivo?.idPeriodo ?? null).catch((error: unknown) =>
+      setAviso(`No se pudieron cargar los accesos y períodos: ${mensajeDeError(error)}`),
+    );
+  }, [cargarAgrupaciones, cargarConfiguracion, periodoActivo]);
+
+  /**
+   * Corre una acción contra la API con la persona que firma. Si sale bien se
+   * anota como cualquier otra; si falla, el aviso muestra el motivo que dio la
+   * base (el mensaje del trigger que la rechazó, por ejemplo) y no se anota.
+   * En los dos casos se vuelve a leer, para que la pantalla muestre lo que de
+   * verdad quedó.
+   */
+  const conApi = useCallback(
+    async (accion: (idPersona: number) => Promise<unknown>, anotar: () => void) => {
+      if (idPersonaProcad === null) {
+        setAviso("Falta VITE_PROCAD_ID_PERSONA en .env.local: la base necesita saber quién firma.");
+        return;
+      }
+      try {
+        await accion(idPersonaProcad);
+        anotar();
+      } catch (error) {
+        setAviso(mensajeDeError(error));
+      } finally {
+        await recargar().catch(() => {});
+      }
+    },
+    [recargar],
+  );
+
   const resolverSolicitud = useCallback(
     (id: number, estado: EstadoSolicitudProcad, motivo?: string) => {
-      setSolicitudes((previas) => previas.map((s) => (s.id === id ? { ...s, estado } : s)));
       const solicitud = solicitudes.find((s) => s.id === id);
       if (!solicitud) return;
       const verbo =
         estado === "aprobada" ? "Aprobó" : estado === "observada" ? "Observó" : "Marcó sin requisito";
-      registrar(
-        `Solicitud de ${solicitud.nombre} actualizada.`,
-        `${verbo} solicitud`,
-        `${solicitud.nombre} — ${solicitud.grupo}${motivo ? ` · ${motivo}` : ""}`,
-      );
+      const anotar = () =>
+        registrar(
+          `Solicitud de ${solicitud.nombre} actualizada.`,
+          `${verbo} solicitud`,
+          `${solicitud.nombre} — ${solicitud.grupo}${motivo ? ` · ${motivo}` : ""}`,
+        );
+
+      if (procadConectado) {
+        const decision = DECISION_DE_ESTADO[estado];
+        if (!decision) {
+          setAviso("Una solicitud resuelta no vuelve a pendiente.");
+          return;
+        }
+        void conApi(
+          (idPersona) => apiProcad.resolverSolicitud(id, { decision, idPersona, observacion: motivo }),
+          anotar,
+        );
+        return;
+      }
+
+      setSolicitudes((previas) => previas.map((s) => (s.id === id ? { ...s, estado } : s)));
+      anotar();
     },
-    [solicitudes, registrar],
+    [solicitudes, registrar, conApi],
   );
 
   const resolverCondicionado = useCallback(
     (id: number, autorizar: boolean, motivo?: string) => {
       const caso = condicionados.find((c) => c.id === id);
       if (!caso) return;
+      const anotar = () =>
+        registrar(
+          autorizar ? `Condicionado autorizado: ${caso.nombre}.` : `Propuesta rechazada: ${caso.nombre}.`,
+          autorizar ? "Autorizó condicionado" : "Rechazó condicionado",
+          // El motivo del rechazo va al registro: es lo que le queda al encargado
+          // —y a quien audite— para saber por qué no procedió.
+          `${caso.nombre} — ${caso.grupo}${motivo ? ` · ${motivo}` : ""}`,
+        );
+
+      if (procadConectado) {
+        void conApi(async (idPersona) => {
+          if (!autorizar) return apiProcad.rechazarCondicionado(id, { idPersona, motivo });
+          await apiProcad.autorizarCondicionado(id, idPersona);
+          // Con la doble firma completa, la solicitud queda aprobada sin volver
+          // al encargado, igual que en la demostración.
+          return apiProcad.resolverSolicitud(id, { decision: "APROBADO", idPersona });
+        }, anotar);
+        return;
+      }
+
       setCondicionados((previos) => previos.filter((c) => c.id !== id));
       // Autorizar completa la doble firma: la solicitud del estudiante queda
       // aprobada sin pasar otra vez por el encargado.
@@ -199,59 +388,84 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
           previas.map((s) => (s.cuenta === caso.cuenta ? { ...s, estado: "aprobada" } : s)),
         );
       }
-      registrar(
-        autorizar ? `Condicionado autorizado: ${caso.nombre}.` : `Propuesta rechazada: ${caso.nombre}.`,
-        autorizar ? "Autorizó condicionado" : "Rechazó condicionado",
-        // El motivo del rechazo va al registro: es lo que le queda al encargado
-        // —y a quien audite— para saber por qué no procedió.
-        `${caso.nombre} — ${caso.grupo}${motivo ? ` · ${motivo}` : ""}`,
-      );
+      anotar();
     },
-    [condicionados, registrar],
+    [condicionados, registrar, conApi],
   );
 
   const resolverExpulsion = useCallback(
     (id: number, aprobar: boolean, motivo?: string) => {
       const caso = expulsiones.find((x) => x.id === id);
       if (!caso) return;
+      const anotar = () =>
+        registrar(
+          aprobar ? `Expulsión aprobada: ${caso.nombre}.` : `Expulsión rechazada: ${caso.nombre}.`,
+          "Resolvió expulsión",
+          `${aprobar ? "Aprobada" : "Rechazada"} — ${caso.nombre}, ${caso.grupo}${
+            motivo ? ` · ${motivo}` : ""
+          }`,
+        );
+
+      if (procadConectado) {
+        void conApi(
+          (idPersona) =>
+            apiProcad.resolverExpulsion(id, {
+              decision: aprobar ? "APROBADA" : "RECHAZADA",
+              idPersonaResuelve: idPersona,
+              observacion: motivo,
+            }),
+          anotar,
+        );
+        return;
+      }
+
       setExpulsiones((previas) => previas.filter((x) => x.id !== id));
-      registrar(
-        aprobar ? `Expulsión aprobada: ${caso.nombre}.` : `Expulsión rechazada: ${caso.nombre}.`,
-        "Resolvió expulsión",
-        `${aprobar ? "Aprobada" : "Rechazada"} — ${caso.nombre}, ${caso.grupo}${
-          motivo ? ` · ${motivo}` : ""
-        }`,
-      );
+      anotar();
     },
-    [expulsiones, registrar],
+    [expulsiones, registrar, conApi],
   );
 
   const otorgarMatricula = useCallback(
     (datos: { nombre: string; cuenta: string; motivo: string }) => {
+      const anotar = () =>
+        registrar(
+          `Matrícula excepcional otorgada a ${datos.nombre}.`,
+          "Otorgó matrícula excepcional",
+          `${datos.nombre} — ${datos.motivo}`,
+        );
+
+      if (procadConectado) {
+        // La matrícula es para el período vigente, que decide Catálogo.
+        if (!periodoActivo) {
+          setAviso("No hay un período activo en Catálogo: no se puede otorgar la matrícula.");
+          return;
+        }
+        void conApi(
+          (idPersona) =>
+            apiProcad.crearMatriculaExcepcional({
+              numeroCuenta: datos.cuenta,
+              idPeriodo: periodoActivo.idPeriodo,
+              motivoExcepcion: datos.motivo,
+              idPersonaAutoriza: idPersona,
+            }),
+          anotar,
+        );
+        return;
+      }
+
       setMatriculas((previas) => [
         ...previas,
         { id: Date.now(), periodo: "II-2026", ...datos },
       ]);
-      registrar(
-        `Matrícula excepcional otorgada a ${datos.nombre}.`,
-        "Otorgó matrícula excepcional",
-        `${datos.nombre} — ${datos.motivo}`,
-      );
+      anotar();
     },
-    [registrar],
+    [registrar, conApi, periodoActivo],
   );
 
   const resolverActividad = useCallback(
     (id: number, estado: EstadoActividadProcad, motivo?: string) => {
       const actividad = actividades.find((a) => a.id === id);
       if (!actividad) return;
-      // La resolución se guarda en la actividad, no solo en Auditoría: quien
-      // abra el detalle dentro de un mes tiene que ver quién decidió y qué
-      // contestó sin salir a buscarlo en otra pantalla.
-      const resolucion = { por: usuario.nombreCompleto, fecha: marcaDeTiempo(), motivo };
-      setActividades((previas) =>
-        previas.map((a) => (a.id === id ? { ...a, estado, resolucion } : a)),
-      );
       const participio = {
         PENDIENTE_VALIDACION: "devuelta a revisión",
         VALIDADA: "validada",
@@ -264,19 +478,54 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
         OBSERVADA: "Observó actividad",
         RECHAZADA: "Rechazó actividad",
       }[estado];
-      registrar(
-        `Actividad «${actividad.titulo}» ${participio}.`,
-        accion,
-        `${actividad.titulo} — ${actividad.grupo}${motivo ? ` · ${motivo}` : ""}`,
+      const anotar = () =>
+        registrar(
+          `Actividad «${actividad.titulo}» ${participio}.`,
+          accion,
+          `${actividad.titulo} — ${actividad.grupo}${motivo ? ` · ${motivo}` : ""}`,
+        );
+
+      if (procadConectado) {
+        if (estado !== "VALIDADA" && estado !== "RECHAZADA") {
+          setAviso(
+            estado === "OBSERVADA"
+              ? "La base todavía no tiene el estado «observada»: por ahora solo se puede validar o rechazar."
+              : "La base todavía no permite reabrir una actividad ya resuelta.",
+          );
+          return;
+        }
+        void conApi(
+          (idPersona) =>
+            apiProcad.validarActividad(id, {
+              decision: estado,
+              idPersonaValidadora: idPersona,
+              observacion: motivo,
+            }),
+          anotar,
+        );
+        return;
+      }
+
+      // La resolución se guarda en la actividad, no solo en Auditoría: quien
+      // abra el detalle dentro de un mes tiene que ver quién decidió y qué
+      // contestó sin salir a buscarlo en otra pantalla.
+      const resolucion = { por: usuario.nombreCompleto, fecha: marcaDeTiempo(), motivo };
+      setActividades((previas) =>
+        previas.map((a) => (a.id === id ? { ...a, estado, resolucion } : a)),
       );
+      anotar();
     },
-    [actividades, registrar, usuario.nombreCompleto],
+    [actividades, registrar, usuario.nombreCompleto, conApi],
   );
 
   const programarVisoria = useCallback(
     (id: number) => {
       const visoria = visorias.find((v) => v.id === id);
       if (!visoria) return;
+      if (procadConectado) {
+        setAviso("En la base una visoría existe desde que se crea: no hay borradores que programar.");
+        return;
+      }
       setVisorias((previas) =>
         previas.map((v) => (v.id === id ? { ...v, estado: "PROGRAMADA" } : v)),
       );
@@ -468,20 +717,36 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
         return;
       }
       const concedido = !empleado.acceso;
+      const anotar = () =>
+        registrar(
+          concedido ? `Acceso otorgado a ${nombre}.` : `Acceso revocado a ${nombre}.`,
+          concedido ? "Otorgó acceso al panel" : "Revocó acceso al panel",
+          nombre,
+        );
+
+      if (procadConectado) {
+        const idPersona = idEmpleado.current.get(nombre);
+        if (idPersona === undefined) return;
+        void conApi(() => apiProcad.cambiarAccesoPersona(idPersona, concedido), anotar);
+        return;
+      }
+
       setEmpleados((previos) =>
         previos.map((e) => (e.nombre === nombre ? { ...e, acceso: concedido } : e)),
       );
-      registrar(
-        concedido ? `Acceso otorgado a ${nombre}.` : `Acceso revocado a ${nombre}.`,
-        concedido ? "Otorgó acceso al panel" : "Revocó acceso al panel",
-        nombre,
-      );
+      anotar();
     },
-    [empleados, registrar],
+    [empleados, registrar, conApi],
   );
 
   const activarPeriodo = useCallback(
     (label: string) => {
+      if (procadConectado) {
+        // Los períodos son de Catálogo y cambiarlos cambia el período activo de
+        // todo el sistema (Giras y Voluntariado incluidos): PROCAD no los toca.
+        setAviso("Los períodos los administra Catálogo: PROCAD solo los consulta.");
+        return;
+      }
       // Solo un período activo a la vez: activar uno cierra el que estaba.
       setPeriodos((previos) =>
         previos.map((p) => {
@@ -496,6 +761,12 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
 
   const cerrarPeriodo = useCallback(
     (label: string) => {
+      if (procadConectado) {
+        // Los períodos son de Catálogo y cambiarlos cambia el período activo de
+        // todo el sistema (Giras y Voluntariado incluidos): PROCAD no los toca.
+        setAviso("Los períodos los administra Catálogo: PROCAD solo los consulta.");
+        return;
+      }
       setPeriodos((previos) =>
         previos.map((p) => (p.label === label ? { ...p, estado: "cerrado" } : p)),
       );
@@ -545,6 +816,7 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
 
   const valor = useMemo<ValorProcad>(
     () => ({
+      agrupaciones,
       solicitudes,
       condicionados,
       expulsiones,
@@ -579,6 +851,7 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       alternarUsuario,
     }),
     [
+      agrupaciones,
       solicitudes,
       condicionados,
       expulsiones,
