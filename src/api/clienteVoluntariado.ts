@@ -25,7 +25,15 @@ function baseDe(variable: string, valor: string | undefined): string {
   return valor.replace(/\/$/, "");
 }
 
-async function llamar<T>(base: string, ruta: string, metodo: string, cuerpo?: unknown): Promise<T> {
+const esperar = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms));
+
+async function llamar<T>(
+  base: string,
+  ruta: string,
+  metodo: string,
+  cuerpo?: unknown,
+  reintentar = metodo === "GET",
+): Promise<T> {
   let respuesta: Response;
   try {
     respuesta = await fetch(base + ruta, {
@@ -34,7 +42,20 @@ async function llamar<T>(base: string, ruta: string, metodo: string, cuerpo?: un
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
     });
   } catch {
+    // Un 503 de API Gateway por throttling llega sin cabeceras CORS y el
+    // navegador lo reporta como fallo de red: se reintenta igual que un 503.
+    if (reintentar) {
+      await esperar(2000);
+      return llamar<T>(base, ruta, metodo, cuerpo, false);
+    }
     throw new ErrorApi(0, "No se pudo contactar la API. Revisa tu conexión.");
+  }
+
+  // 503: la base de Azure despertando, o Lambda rechazando por el límite de
+  // concurrencia de la cuenta. Se reintenta una vez.
+  if (respuesta.status === 503 && reintentar) {
+    await esperar(2000);
+    return llamar<T>(base, ruta, metodo, cuerpo, false);
   }
 
   const texto = await respuesta.text();
