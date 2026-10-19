@@ -15,6 +15,13 @@ const claseInput =
 const claseLabel = "mb-1.5 block text-[11px] font-bold text-slate-500";
 
 const CARGO_MIEMBRO = 1;
+const CARGO_COORDINADOR = 2;
+
+/** Resultado de buscar en Registro la cuenta de un cargo de la junta. */
+type ValidacionCuenta =
+  | { estado: "validando" }
+  | { estado: "ok"; nombre: string }
+  | { estado: "error"; mensaje: string };
 
 const NOMBRE_REQUISITO: Record<string, { label: string; formato: string; accept: string }> = {
   ESTATUTOS: { label: "Estatutos", formato: "PDF", accept: "application/pdf" },
@@ -59,7 +66,11 @@ export default function CrearGrupoWizard() {
   const [vision, setVision] = useState("");
 
   // Cuenta por idCargo. El solicitante arranca como coordinador.
-  const [junta, setJunta] = useState<Record<number, string>>(() => ({ 2: persona.numeroCuenta ?? "" }));
+  const [junta, setJunta] = useState<Record<number, string>>(() => ({
+    [CARGO_COORDINADOR]: persona.numeroCuenta ?? "",
+  }));
+  const [validacionJunta, setValidacionJunta] = useState<Record<number, ValidacionCuenta>>({});
+  const [validandoJunta, setValidandoJunta] = useState(false);
 
   const [cuentaFundador, setCuentaFundador] = useState("");
   const [errorFundador, setErrorFundador] = useState("");
@@ -84,6 +95,67 @@ export default function CrearGrupoWizard() {
 
   function actualizarJunta(idCargo: number, numeroCuenta: string) {
     setJunta((prev) => ({ ...prev, [idCargo]: numeroCuenta }));
+    // Lo validado ya no corresponde a lo escrito.
+    setValidacionJunta((prev) => {
+      const { [idCargo]: _descartada, ...resto } = prev;
+      return resto;
+    });
+  }
+
+  /**
+   * Valida la cuenta de un cargo contra Registro. Devuelve null si el cargo
+   * queda vacio (todos son opcionales salvo el coordinador).
+   */
+  async function validarCuentaJunta(idCargo: number): Promise<ValidacionCuenta | null> {
+    const cuenta = (junta[idCargo] ?? "").trim();
+    if (!cuenta) {
+      return idCargo === CARGO_COORDINADOR ? { estado: "error", mensaje: "El grupo necesita un coordinador." } : null;
+    }
+    if (!/^\d{8,15}$/.test(cuenta)) {
+      return { estado: "error", mensaje: "Escribe solo los dígitos del número de cuenta." };
+    }
+    // Un grupo no admite a la misma persona dos veces: un cargo por persona.
+    const otroCargo = cargos.find((c) => c.idCargo !== idCargo && (junta[c.idCargo] ?? "").trim() === cuenta);
+    if (otroCargo) {
+      return { estado: "error", mensaje: `Esa cuenta ya está como ${otroCargo.nombreCargo}; cada persona ocupa un solo cargo.` };
+    }
+    try {
+      const estudiante = await catalogoApi.estudiantePorCuenta(cuenta);
+      return { estado: "ok", nombre: `${estudiante.nombrePersona} ${estudiante.apellidosPersona}` };
+    } catch (e) {
+      return {
+        estado: "error",
+        mensaje: e instanceof ErrorApi && e.estado === 404 ? "No se encontró esa matrícula en Registro." : mensajeDeError(e),
+      };
+    }
+  }
+
+  async function validarCargo(idCargo: number) {
+    if (!(junta[idCargo] ?? "").trim() && idCargo !== CARGO_COORDINADOR) return;
+    setValidacionJunta((prev) => ({ ...prev, [idCargo]: { estado: "validando" } }));
+    const resultado = await validarCuentaJunta(idCargo);
+    setValidacionJunta((prev) => {
+      const { [idCargo]: _anterior, ...resto } = prev;
+      return resultado ? { ...resto, [idCargo]: resultado } : resto;
+    });
+  }
+
+  /** Valida toda la junta antes de avanzar; true si no hay ningún error. */
+  async function validarJuntaCompleta(): Promise<boolean> {
+    setValidandoJunta(true);
+    const resultados = await Promise.all(cargos.map(async (c) => [c.idCargo, await validarCuentaJunta(c.idCargo)] as const));
+    setValidandoJunta(false);
+    const nuevas: Record<number, ValidacionCuenta> = {};
+    for (const [idCargo, resultado] of resultados) if (resultado) nuevas[idCargo] = resultado;
+    setValidacionJunta(nuevas);
+    return resultados.every(([, resultado]) => resultado?.estado !== "error");
+  }
+
+  // Al cambiar de paso, un error de otro paso ya no aplica.
+  function irAPaso(nuevo: number) {
+    setErrorEnvio(null);
+    setErrorFundador("");
+    setPaso(nuevo);
   }
 
   async function validarFundador() {
@@ -169,12 +241,13 @@ export default function CrearGrupoWizard() {
     }
   }
 
-  function siguiente() {
+  async function siguiente() {
     if (esUltimoPaso) {
       if (documentosCompletos) void enviar();
       return;
     }
-    setPaso((p) => Math.min(p + 1, 4));
+    if (paso === 1 && !(await validarJuntaCompleta())) return;
+    irAPaso(Math.min(paso + 1, 4));
   }
 
   const tituloPaso = ["Datos del grupo", "Junta directiva propuesta", "Miembros fundadores", "Proyección de actividades", "Documentos"][paso];
@@ -236,17 +309,42 @@ export default function CrearGrupoWizard() {
 
         {paso === 1 && (
           <div className="flex flex-col gap-3">
-            {cargos.map((cargo) => (
-              <div key={cargo.idCargo}>
-                <label className={claseLabel}>{cargo.nombreCargo}</label>
-                <input
-                  className={claseInput}
-                  placeholder="Número de cuenta"
-                  value={junta[cargo.idCargo] ?? ""}
-                  onChange={(e) => actualizarJunta(cargo.idCargo, e.target.value)}
-                />
-              </div>
-            ))}
+            <p className="text-[11px] text-slate-400">
+              Solo el coordinador es obligatorio. Cada cuenta se busca en Registro al salir del campo.
+            </p>
+            {cargos.map((cargo) => {
+              const validacion = validacionJunta[cargo.idCargo];
+              return (
+                <div key={cargo.idCargo}>
+                  <label className={claseLabel}>
+                    {cargo.nombreCargo}
+                    {cargo.idCargo === CARGO_COORDINADOR && <span className="text-red-500"> *</span>}
+                  </label>
+                  <input
+                    className={
+                      validacion?.estado === "error"
+                        ? claseInput.replace("border-slate-200 bg-white", "border-red-400 bg-red-50")
+                        : claseInput
+                    }
+                    placeholder="Número de cuenta"
+                    inputMode="numeric"
+                    value={junta[cargo.idCargo] ?? ""}
+                    onChange={(e) => actualizarJunta(cargo.idCargo, e.target.value)}
+                    onBlur={() => void validarCargo(cargo.idCargo)}
+                    aria-invalid={validacion?.estado === "error"}
+                  />
+                  {validacion?.estado === "validando" && <p className="mt-1 text-[11px] text-slate-400">Buscando en Registro…</p>}
+                  {validacion?.estado === "ok" && (
+                    <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                      <HiOutlineCheck className="h-3.5 w-3.5" /> {validacion.nombre}
+                    </p>
+                  )}
+                  {validacion?.estado === "error" && (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">{validacion.mensaje}</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -359,7 +457,7 @@ export default function CrearGrupoWizard() {
         {paso > 0 && (
           <button
             type="button"
-            onClick={() => setPaso((p) => p - 1)}
+            onClick={() => irAPaso(paso - 1)}
             className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600"
           >
             Atrás
@@ -368,12 +466,12 @@ export default function CrearGrupoWizard() {
         <button
           type="button"
           onClick={siguiente}
-          disabled={(esUltimoPaso && !documentosCompletos) || (paso === 0 && !datosCompletos) || enviando}
+          disabled={(esUltimoPaso && !documentosCompletos) || (paso === 0 && !datosCompletos) || enviando || validandoJunta}
           className={`flex-1 rounded-xl py-3 text-sm font-semibold text-white disabled:bg-slate-300 ${
             esUltimoPaso ? "bg-emerald-600" : "bg-unah-navy"
           }`}
         >
-          {enviando ? "Enviando…" : esUltimoPaso ? "Enviar solicitud" : "Continuar"}
+          {enviando ? "Enviando…" : validandoJunta ? "Validando…" : esUltimoPaso ? "Enviar solicitud" : "Continuar"}
         </button>
       </footer>
     </div>
