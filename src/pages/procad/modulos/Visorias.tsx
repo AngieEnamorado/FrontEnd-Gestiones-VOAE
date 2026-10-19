@@ -10,7 +10,6 @@ import ChipsFiltro from "../../../components/procad/ChipsFiltro";
 import DetalleVisoria from "../../../components/procad/DetalleVisoria";
 import type { Dialogo } from "../../../components/procad/DialogoConfirmacion";
 import { useProcad } from "../../../context/ProcadContext";
-import { procadConectado } from "../../../api/clienteProcad";
 import { CENTROS } from "../../../data/mockProcadEstadisticas";
 import { enCorto, enLargo, moverMes, nombreDelMes, partes } from "../../../utils/fechas";
 import { descargarExcel } from "../../../utils/exportarExcel";
@@ -32,11 +31,6 @@ type Apartado = "todas" | "BORRADOR" | "PROGRAMADA";
  */
 export default function Visorias({ abrirDialogo }: { abrirDialogo: (d: Dialogo) => void }) {
   const { visorias, programarVisoria } = useProcad();
-  // Los nombres de centro de la base no son los de la demostración: la lista sale de los datos.
-  const centros = useMemo(
-    () => (procadConectado ? [...new Set(visorias.map((v) => v.centro))].sort() : CENTROS),
-    [visorias],
-  );
   const [centro, setCentro] = useState("todos");
   const [apartado, setApartado] = useState<Apartado>("todas");
   const [abierta, setAbierta] = useState<VisoriaProcad | null>(null);
@@ -163,7 +157,7 @@ export default function Visorias({ abrirDialogo }: { abrirDialogo: (d: Dialogo) 
           className={`${CLASE_FILTRO} w-[200px]`}
         >
           <option value="todos">Todos los centros</option>
-          {centros.map((c) => (
+          {CENTROS.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
