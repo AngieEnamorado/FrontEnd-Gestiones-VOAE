@@ -16,6 +16,14 @@ interface EstadoFila {
 }
 
 const HORAS_DEFECTO = "3";
+/** Mismo tope que valida voae-voluntariado (MAXIMO_HORAS_PARTICIPACION). */
+const HORAS_MAXIMO = 12;
+
+/** Horas validas para quien asistio: un numero mayor que 0 y hasta el tope. */
+function horasValidas(texto: string): boolean {
+  const horas = Number(texto);
+  return texto.trim() !== "" && Number.isFinite(horas) && horas > 0 && horas <= HORAS_MAXIMO;
+}
 
 export default function PasarLista() {
   const { actividadId } = useParams<{ actividadId: string }>();
@@ -97,6 +105,11 @@ function ListaAsistencia({ actividad, inscritos }: { actividad: ActividadDetalle
   const seleccionados = inscritos.filter((i) => estado[i.idParticipacion]?.seleccionado);
 
   function aplicarATodos() {
+    if (!horasValidas(horasMasivo)) {
+      setError(`Las horas deben ser más de 0 y hasta ${HORAS_MAXIMO} por persona.`);
+      return;
+    }
+    setError(null);
     setEstado((prev) => {
       const copia = { ...prev };
       seleccionados.forEach((i) => {
@@ -112,12 +125,20 @@ function ListaAsistencia({ actividad, inscritos }: { actividad: ActividadDetalle
   const m = asistieron.filter((i) => i.sexo === "M").length;
   const marcados = inscritos.filter((i) => estado[i.idParticipacion]?.asistio !== null);
 
+  const conHorasInvalidas = asistieron.filter((i) => !horasValidas(estado[i.idParticipacion].horas));
+
   async function guardar() {
+    // La API valida lo mismo; aquí se frena antes para señalar la fila.
+    if (conHorasInvalidas.length > 0) {
+      setError(
+        `Revisa las horas de ${conHorasInvalidas.length === 1 ? "1 persona" : `${conHorasInvalidas.length} personas`}: ` +
+          `deben ser más de 0 y hasta ${HORAS_MAXIMO} por actividad.`,
+      );
+      return;
+    }
     setGuardando(true);
     setError(null);
     try {
-      // Las horas no se validan aquí: si falta alguna en un ASISTIO, el
-      // trigger de la base lo rechaza y su mensaje es el que se muestra.
       await voluntariadoApi.pasarLista(
         actividad.idActividad,
         marcados.map((i) => {
@@ -151,7 +172,8 @@ function ListaAsistencia({ actividad, inscritos }: { actividad: ActividadDetalle
           <span className="shrink-0 text-[12px] font-bold text-unah-navy">{seleccionados.length} seleccionados</span>
           <input
             type="number"
-            min={0}
+            min={0.5}
+            max={HORAS_MAXIMO}
             step="0.5"
             value={horasMasivo}
             onChange={(e) => setHorasMasivo(e.target.value)}
@@ -175,6 +197,7 @@ function ListaAsistencia({ actividad, inscritos }: { actividad: ActividadDetalle
           {inscritos.map((i) => {
             const fila = estado[i.idParticipacion];
             const advertencia = i.tipoParticipante === "VOLUNTARIO_ACTIVO" && !i.validadoComoMiembro;
+            const horasMal = fila.asistio === true && !horasValidas(fila.horas);
             return (
               <div key={i.idParticipacion} className="rounded-2xl bg-white p-3 shadow-sm">
                 <div className="flex items-center gap-2.5">
@@ -227,15 +250,24 @@ function ListaAsistencia({ actividad, inscritos }: { actividad: ActividadDetalle
                   </div>
                   <input
                     type="number"
-                    min={0}
+                    min={0.5}
+                    max={HORAS_MAXIMO}
                     step="0.5"
                     disabled={fila.asistio !== true}
                     value={fila.horas}
                     onChange={(e) => actualizarHoras(i.idParticipacion, e.target.value)}
                     placeholder="Horas"
-                    className="w-16 shrink-0 rounded-lg border border-slate-200 px-2 py-1.5 text-[12px] disabled:bg-slate-50 disabled:text-slate-300"
+                    aria-invalid={horasMal}
+                    className={`w-16 shrink-0 rounded-lg border px-2 py-1.5 text-[12px] disabled:bg-slate-50 disabled:text-slate-300 ${
+                      horasMal ? "border-red-400 bg-red-50 text-red-700" : "border-slate-200"
+                    }`}
                   />
                 </div>
+                {horasMal && (
+                  <p className="mt-1 text-right text-[10.5px] font-semibold text-red-600">
+                    Entre 0.5 y {HORAS_MAXIMO} horas
+                  </p>
+                )}
               </div>
             );
           })}
