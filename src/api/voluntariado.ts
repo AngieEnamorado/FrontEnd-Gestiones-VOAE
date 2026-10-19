@@ -473,6 +473,8 @@ export const voluntariadoApi = {
     api.post<SubidaFirmadaApi>("/archivos/subidas", datos),
   agregarFoto: (id: number, archivoUrl: string, idRequisitoAdjunto: number | null) =>
     api.post(`/actividades/${id}/fotos`, { archivoUrl, idRequisitoAdjunto }),
+  quitarFoto: (idActividad: number, idFotoActividad: number) =>
+    api.delete(`/actividades/${idActividad}/fotos/${idFotoActividad}`),
   participaciones: (idActividad: number) => api.get<ParticipacionApi[]>(`/actividades/${idActividad}/participaciones`),
   pasarLista: (idActividad: number, participaciones: LineaAsistenciaApi[], idPersonaConfirma: number) =>
     api.post(`/actividades/${idActividad}/asistencia`, { participaciones, idPersonaConfirma }),

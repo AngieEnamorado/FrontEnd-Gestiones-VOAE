@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { HiOutlineCamera, HiOutlineCheck } from "react-icons/hi2";
+import { HiOutlineCamera, HiOutlineCheck, HiOutlineXMark } from "react-icons/hi2";
 import HeaderMovilDetalle from "../../../components/voluntariado/HeaderMovilDetalle";
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi, type ActividadDetalleApi, type RequisitoApi } from "../../../api/voluntariado";
@@ -29,17 +29,17 @@ export default function ResultadosEvidencia() {
 
   const [actividad, catalogos] = carga.datos;
   const requisito = catalogos.requisitos.find((r) => r.procesoRequisito === "ACTIVIDAD");
-  return <Formulario actividad={actividad} requisito={requisito} onFotoAgregada={carga.recargar} />;
+  return <Formulario actividad={actividad} requisito={requisito} onFotosCambiadas={carga.recargar} />;
 }
 
 function Formulario({
   actividad,
   requisito,
-  onFotoAgregada,
+  onFotosCambiadas,
 }: {
   actividad: ActividadDetalleApi;
   requisito: RequisitoApi | undefined;
-  onFotoAgregada: () => void;
+  onFotosCambiadas: () => void;
 }) {
   const navigate = useNavigate();
   const minimo = requisito?.minimoRequisito ?? 2;
@@ -47,6 +47,9 @@ function Formulario({
   const [resultados, setResultados] = useState(actividad.resultadosActividad ?? "");
   const [subiendo, setSubiendo] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  // Foto que pide confirmación antes de quitarse, y la que se está quitando.
+  const [confirmando, setConfirmando] = useState<number | null>(null);
+  const [quitando, setQuitando] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const totalFotos = actividad.fotos.length;
@@ -61,11 +64,26 @@ function Formulario({
     try {
       const llave = await subirArchivo("ACTIVIDAD", actividad.idActividad, archivo);
       await voluntariadoApi.agregarFoto(actividad.idActividad, llave, requisito?.idRequisitoAdjunto ?? null);
-      onFotoAgregada();
+      onFotosCambiadas();
     } catch (e) {
       setError(mensajeDeError(e));
     } finally {
       setSubiendo(false);
+    }
+  }
+
+  async function quitarFoto(idFoto: number) {
+    setQuitando(idFoto);
+    setError(null);
+    try {
+      await voluntariadoApi.quitarFoto(actividad.idActividad, idFoto);
+      setConfirmando(null);
+      onFotosCambiadas();
+    } catch (e) {
+      setConfirmando(null);
+      setError(mensajeDeError(e));
+    } finally {
+      setQuitando(null);
     }
   }
 
@@ -127,6 +145,38 @@ function Formulario({
                   >
                     {foto.archivoUrl.split("/").pop()}
                   </span>
+                  {confirmando === foto.idFotoActividad ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/70 p-2">
+                      <p className="text-center text-[11.5px] font-semibold text-white">¿Quitar esta foto?</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void quitarFoto(foto.idFotoActividad)}
+                          disabled={quitando !== null}
+                          className="rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-60"
+                        >
+                          {quitando === foto.idFotoActividad ? "Quitando…" : "Quitar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmando(null)}
+                          disabled={quitando !== null}
+                          className="rounded-lg bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700"
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmando(foto.idFotoActividad)}
+                      aria-label="Quitar foto"
+                      className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow hover:bg-red-50 hover:text-red-600"
+                    >
+                      <HiOutlineXMark className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               );
             }
