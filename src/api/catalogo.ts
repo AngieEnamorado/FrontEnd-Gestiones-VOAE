@@ -24,9 +24,24 @@ export interface EstudianteApi {
   carreraEstudiante: string | null;
 }
 
+export interface NotificacionApi {
+  idNotificacion: number;
+  sistemaOrigen: "VOLUNTARIADO" | "PROCAD" | "GIRAS";
+  tipoNotificacion: string;
+  asuntoCorreo: string;
+  cuerpoCorreo: string;
+  leidaNotificacion: boolean;
+  fechaRegistro: string;
+}
+
 export const catalogoApi = {
   campus: () => api.get<CampusApi[]>("/campus"),
   periodos: () => api.get<PeriodoApi[]>("/periodos"),
   estudiantePorCuenta: (numeroCuenta: string) =>
     api.get<EstudianteApi>(`/estudiantes/${encodeURIComponent(numeroCuenta)}`),
+  // La tabla es compartida por los tres sistemas: quien la lee filtra por sistemaOrigen.
+  notificacionesNoLeidas: (idPersona: number) =>
+    api.get<NotificacionApi[]>(`/notificaciones?persona=${idPersona}&noLeidas=true&limite=20`),
+  marcarNotificacionLeida: (idNotificacion: number) =>
+    api.post<unknown>(`/notificaciones/${idNotificacion}/lectura`),
 };

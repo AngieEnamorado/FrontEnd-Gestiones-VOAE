@@ -3,6 +3,7 @@ import { HiOutlineUserGroup, HiOutlineExclamationTriangle } from "react-icons/hi
 import EncabezadoGradiente from "../../../components/voluntariado/EncabezadoGradiente";
 import LogoGrupo from "../../../components/voluntariado/LogoGrupo";
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
+import AvisosPortal from "../../../components/voluntariado/AvisosPortal";
 import { useSesionVoluntariado } from "../../../context/SesionVoluntariadoContext";
 import { voluntariadoApi } from "../../../api/voluntariado";
 import { useApi } from "../../../utils/useApi";
@@ -27,22 +28,26 @@ export default function Inicio() {
   const nombreCompleto = `${persona.nombrePersona} ${persona.apellidosPersona}`;
 
   if (persona.grupos.length === 0) {
+    // Sin grupo los avisos importan igual: p. ej. que le aprobaron la unión o la solicitud de grupo.
     return (
-      <div className="flex h-full flex-col items-center justify-center px-7 py-12 text-center">
-        <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full bg-blue-50">
-          <HiOutlineUserGroup className="h-8 w-8 text-unah-navy" />
+      <div className="flex h-full flex-col">
+        <AvisosPortal idPersona={idPersona} />
+        <div className="flex flex-1 flex-col items-center justify-center px-7 py-12 text-center">
+          <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full bg-blue-50">
+            <HiOutlineUserGroup className="h-8 w-8 text-unah-navy" />
+          </div>
+          <h1 className="mt-5 text-lg font-bold text-slate-800">Aún no perteneces a ningún grupo</h1>
+          <p className="mt-2 text-[13px] leading-relaxed text-slate-500">
+            Explora los grupos de voluntariado de los campus de la UNAH y solicita tu incorporación al que más se
+            ajuste a ti.
+          </p>
+          <Link
+            to="/voluntariado/portal-estudiante/grupos"
+            className="mt-6 rounded-xl bg-unah-orange px-6 py-3 text-sm font-semibold text-white hover:bg-unah-orange-dark"
+          >
+            Explorar catálogo de grupos
+          </Link>
         </div>
-        <h1 className="mt-5 text-lg font-bold text-slate-800">Aún no perteneces a ningún grupo</h1>
-        <p className="mt-2 text-[13px] leading-relaxed text-slate-500">
-          Explora los grupos de voluntariado de los campus de la UNAH y solicita tu incorporación al que más se
-          ajuste a ti.
-        </p>
-        <Link
-          to="/voluntariado/portal-estudiante/grupos"
-          className="mt-6 rounded-xl bg-unah-orange px-6 py-3 text-sm font-semibold text-white hover:bg-unah-orange-dark"
-        >
-          Explorar catálogo de grupos
-        </Link>
       </div>
     );
   }
@@ -54,6 +59,8 @@ export default function Inicio() {
         <h1 className="text-xl font-bold">{nombreCompleto}</h1>
         <p className="mt-1 text-xs text-white/60">{persona.numeroCuenta} · {persona.carreraEstudiante}</p>
       </EncabezadoGradiente>
+
+      <AvisosPortal idPersona={idPersona} />
 
       <div className="grid grid-cols-2 gap-3 px-4 pt-4">
         <div className="rounded-2xl bg-white p-4 shadow-sm">
