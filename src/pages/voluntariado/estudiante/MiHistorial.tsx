@@ -1,8 +1,11 @@
+import { useState } from "react";
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { useSesionVoluntariado } from "../../../context/SesionVoluntariadoContext";
-import { voluntariadoApi } from "../../../api/voluntariado";
+import { voluntariadoApi, type ParticipacionMiembroApi } from "../../../api/voluntariado";
+import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
 import { colorDeGrupo, fechaCorta, formatoHoras } from "../../../utils/voluntariado";
+import { descargarDiploma } from "../../../utils/diplomaVoluntariado";
 
 const barraColor: Record<string, string> = {
   amber: "bg-amber-500",
@@ -13,7 +16,9 @@ const barraColor: Record<string, string> = {
 };
 
 export default function MiHistorial() {
-  const { idPersona } = useSesionVoluntariado();
+  const { idPersona, persona } = useSesionVoluntariado();
+  const [descargando, setDescargando] = useState<number | null>(null);
+  const [errorDiploma, setErrorDiploma] = useState<string | null>(null);
   const carga = useApi(
     () => Promise.all([voluntariadoApi.participacionesDePersona(idPersona), voluntariadoApi.participacionMiembros()]),
     [idPersona],
@@ -27,6 +32,33 @@ export default function MiHistorial() {
   // El porcentaje y el umbral los calcula la API: el cliente no decide quién es elegible.
   const porGrupo = diplomas.miembros.filter((m) => m.idPersona === idPersona);
 
+  // Los datos del diploma (fecha, período, folio) se piden al descargar: la
+  // lista de participación solo dice si ya existe.
+  async function descargar(g: ParticipacionMiembroApi) {
+    setDescargando(g.idGrupo);
+    setErrorDiploma(null);
+    try {
+      const diploma = (await voluntariadoApi.diplomasDeGrupo(g.idGrupo)).find((d) => d.idPersona === idPersona);
+      if (!diploma) throw new Error("No se encontró el diploma emitido. Reintenta en unos segundos.");
+      await descargarDiploma({
+        idDiploma: diploma.idDiploma,
+        nombreCompleto: `${persona.nombrePersona} ${persona.apellidosPersona}`,
+        numeroCuenta: persona.numeroCuenta ?? diploma.numeroCuenta,
+        nombreGrupo: g.nombreGrupo,
+        campus: g.campus,
+        ventana: diploma.ventanaDiploma,
+        porcentaje: diploma.porcentajeParticipacion,
+        actividadesAsistidas: diploma.actividadesAsistidas,
+        actividadesGrupo: diploma.actividadesGrupo,
+        fechaEmision: diploma.fechaEmision,
+      });
+    } catch (e) {
+      setErrorDiploma(mensajeDeError(e));
+    } finally {
+      setDescargando(null);
+    }
+  }
+
   return (
     <div className="pb-6">
       <div className="bg-gradient-to-br from-unah-navy to-unah-navy-light px-5 py-7 text-center text-white">
@@ -36,16 +68,39 @@ export default function MiHistorial() {
 
       <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={carga.datos !== undefined}>
         <div className="flex flex-col gap-3 px-4 pt-4">
+          {errorDiploma && (
+            <p className="rounded-xl bg-red-50 p-3 text-[12px] font-semibold text-red-600">{errorDiploma}</p>
+          )}
           {porGrupo.map((g) => {
             const elegible = g.porcentajeParticipacion >= diplomas.umbral;
+            const emitido = g.yaTieneDiploma === 1;
             return (
-              <div key={g.idGrupo} className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
-                <p className="text-[12px] font-bold text-amber-800">{g.nombreGrupo}</p>
-                <p className="mt-0.5 text-[20px] font-extrabold text-amber-700">{Math.round(g.porcentajeParticipacion)}%</p>
-                <p className="text-[11px] text-amber-600">
-                  {g.actividadesAsistidas} de {g.actividadesGrupo} actividades ejecutadas.{" "}
-                  {elegible ? "✓ Elegible a diploma." : `Necesitas ${diplomas.umbral}% de participación para ser elegible a diploma.`}
+              <div
+                key={g.idGrupo}
+                className={`rounded-2xl border p-3.5 ${emitido ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}
+              >
+                <p className={`text-[12px] font-bold ${emitido ? "text-emerald-800" : "text-amber-800"}`}>{g.nombreGrupo}</p>
+                <p className={`mt-0.5 text-[20px] font-extrabold ${emitido ? "text-emerald-700" : "text-amber-700"}`}>
+                  {Math.round(g.porcentajeParticipacion)}%
                 </p>
+                <p className={`text-[11px] ${emitido ? "text-emerald-700" : "text-amber-600"}`}>
+                  {g.actividadesAsistidas} de {g.actividadesGrupo} actividades ejecutadas.{" "}
+                  {emitido
+                    ? "🎓 La VOAE ya emitió tu diploma."
+                    : elegible
+                      ? "✓ Elegible a diploma; la VOAE lo emite desde su panel."
+                      : `Necesitas ${diplomas.umbral}% de participación para ser elegible a diploma.`}
+                </p>
+                {emitido && (
+                  <button
+                    type="button"
+                    onClick={() => descargar(g)}
+                    disabled={descargando !== null}
+                    className="mt-2.5 w-full rounded-xl bg-emerald-600 py-2.5 text-[12.5px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {descargando === g.idGrupo ? "Generando diploma…" : "Descargar diploma (PDF)"}
+                  </button>
+                )}
               </div>
             );
           })}

@@ -301,6 +301,22 @@ export interface ParticipacionMiembroApi {
   porcentajeParticipacion: number;
 }
 
+/** Un diploma ya emitido (GET /diplomas?grupo=). */
+export interface DiplomaApi {
+  idDiploma: number;
+  idPersona: number;
+  ventanaDiploma: string;
+  actividadesGrupo: number;
+  actividadesAsistidas: number;
+  porcentajeParticipacion: number;
+  emitidoDiploma: boolean;
+  fechaEmision: string | null;
+  archivoUrl: string | null;
+  nombrePersona: string;
+  apellidosPersona: string;
+  numeroCuenta: string | null;
+}
+
 export interface PersonaVoluntariadoApi {
   idPersona: number;
   nombrePersona: string;
@@ -481,6 +497,7 @@ export const voluntariadoApi = {
 
   participacionMiembros: () =>
     api.get<{ umbral: number; miembros: ParticipacionMiembroApi[] }>("/diplomas/participacion"),
+  diplomasDeGrupo: (idGrupo: number) => api.get<DiplomaApi[]>(`/diplomas?grupo=${idGrupo}`),
   emitirDiploma: (datos: {
     idGrupo: number;
     idPersona: number;
