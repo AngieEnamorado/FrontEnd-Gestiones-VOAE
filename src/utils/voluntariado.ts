@@ -68,6 +68,11 @@ export function estadoInforme(codigo: string) {
   return codigo.replace("_", " ") as "EN CAPTURA" | "ENVIADO" | "OBSERVADO" | "ACEPTADO";
 }
 
+/** 1234.5 → "L. 1,234.50". */
+export function formatoLempiras(monto: number): string {
+  return `L. ${monto.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function formatoHoras(horas: number): string {
   return Number.isInteger(horas) ? String(horas) : horas.toFixed(1);
 }
