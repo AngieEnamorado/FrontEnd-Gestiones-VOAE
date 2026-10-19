@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import HeaderMovilDetalle from "../../../components/voluntariado/HeaderMovilDetalle";
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi, type ActividadApi, type InformeResumenApi } from "../../../api/voluntariado";
-import { mensajeDeError } from "../../../api/clienteVoluntariado";
+import { ErrorApi, mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
 import { hoyIso } from "../../../utils/fechas";
 import { estadoInforme, fechaCorta, formatoHoras, nombreTrimestre, trimestreDeFecha } from "../../../utils/voluntariado";
@@ -44,6 +44,8 @@ export default function InformeTrimestral() {
   const informe = informes.find((i) => i.codigoEstado === "EN_CAPTURA" || i.codigoEstado === "OBSERVADO") ?? informes[0];
   const vigente = trimestreDeFecha(catalogos.trimestres, hoyIso());
   const puedeIniciar = vigente && !informes.some((i) => i.idTrimestre === vigente.idTrimestre);
+  const minimoFotos =
+    catalogos.requisitos.find((r) => r.procesoRequisito === "ACTIVIDAD")?.minimoRequisito ?? 2;
 
   async function iniciar() {
     if (!vigente) return;
@@ -83,6 +85,7 @@ export default function InformeTrimestral() {
           key={informe.idInformeTrimestral}
           informe={informe}
           actividadesDelGrupo={actividades}
+          minimoFotos={minimoFotos}
           onCambio={carga.recargar}
         />
       ) : (
@@ -92,13 +95,17 @@ export default function InformeTrimestral() {
   );
 }
 
+const RUTA_COORDINADOR = "/voluntariado/portal-estudiante/coordinador";
+
 function DetalleInforme({
   informe,
   actividadesDelGrupo,
+  minimoFotos,
   onCambio,
 }: {
   informe: InformeResumenApi;
   actividadesDelGrupo: ActividadApi[];
+  minimoFotos: number;
   onCambio: () => void;
 }) {
   const detalle = useApi(() => voluntariadoApi.informe(informe.idInformeTrimestral), [informe.idInformeTrimestral]);
@@ -137,6 +144,27 @@ function DetalleInforme({
       setEnviando(false);
     }
   }
+
+  // Si cada actividad tiene informe económico. Solo importa mientras el
+  // coordinador todavía puede corregir; un 404 es "no lo ha registrado".
+  const idsIncluidos = guardadas.join(",");
+  const economicos = useApi(
+    () =>
+      editable && idsIncluidos
+        ? Promise.all(
+            idsIncluidos.split(",").map(Number).map((id) =>
+              voluntariadoApi.informeEconomico(id).then(
+                () => [id, true] as const,
+                (e) => {
+                  if (e instanceof ErrorApi && e.estado === 404) return [id, false] as const;
+                  throw e;
+                },
+              ),
+            ),
+          ).then((pares) => new Map<number, boolean>(pares))
+        : Promise.resolve(new Map<number, boolean>()),
+    [editable, idsIncluidos],
+  );
 
   const estado = estadoInforme(informe.codigoEstado);
   const indiceEtapa = ETAPAS.indexOf(estado);
@@ -182,10 +210,23 @@ function DetalleInforme({
             </p>
           </div>
 
-          {informe.codigoEstado === "OBSERVADO" && informe.observacionesAdmin && (
+          {informe.codigoEstado === "OBSERVADO" && (
             <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 p-4">
               <p className="text-[11px] font-bold uppercase tracking-wide text-violet-600">Observaciones del administrador</p>
-              <p className="mt-1.5 text-[12.5px] leading-relaxed text-violet-800">“{informe.observacionesAdmin}”</p>
+              {informe.observacionesAdmin && (
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-violet-800">“{informe.observacionesAdmin}”</p>
+              )}
+              <p className="mt-3 text-[11px] font-bold text-violet-700">Cómo corregirlo</p>
+              <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-[11.5px] leading-relaxed text-violet-800">
+                <li>El informe se arma solo: lo que se corrige son las actividades de abajo.</li>
+                <li>
+                  En cada actividad, usa <b>Resultados y fotos</b> o <b>Informe económico</b> según lo que pida la
+                  observación.
+                </li>
+                <li>
+                  Al terminar vuelves aquí; pulsa <b>Reenviar informe</b> para que la VOAE lo revise otra vez.
+                </li>
+              </ol>
             </div>
           )}
 
@@ -195,12 +236,48 @@ function DetalleInforme({
               {actividades.length === 0 && (
                 <p className="text-[12.5px] text-slate-400">Todavía no hay actividades ejecutadas en este trimestre.</p>
               )}
-              {actividades.map((a) => (
-                <div key={a.idActividad} className="flex items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-sm">
-                  <p className="truncate text-[12.5px] font-semibold text-slate-700">{a.nombreActividad}</p>
-                  <p className="shrink-0 text-[11px] text-slate-400">{fechaCorta(a.fechaActividad)}</p>
-                </div>
-              ))}
+              {actividades.map((a) => {
+                const datos = actividadesDelGrupo.find((x) => x.idActividad === a.idActividad);
+                const tieneResultados = Boolean(datos?.resultadosActividad?.trim());
+                const fotos = datos?.totalFotos ?? 0;
+                const tieneEconomico = economicos.datos?.get(a.idActividad);
+                return (
+                  <div key={a.idActividad} className="rounded-xl bg-white p-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-[12.5px] font-semibold text-slate-700">{a.nombreActividad}</p>
+                      <p className="shrink-0 text-[11px] text-slate-400">{fechaCorta(a.fechaActividad)}</p>
+                    </div>
+                    {editable && (
+                      <>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <Requisito cumple={tieneResultados} texto={tieneResultados ? "Resultados" : "Sin resultados"} />
+                          <Requisito cumple={fotos >= minimoFotos} texto={`Fotos ${fotos}/${minimoFotos} mín.`} />
+                          {tieneEconomico !== undefined && (
+                            <Requisito
+                              cumple={tieneEconomico}
+                              texto={tieneEconomico ? "Informe económico" : "Sin informe económico"}
+                            />
+                          )}
+                        </div>
+                        <div className="mt-2.5 grid grid-cols-2 gap-2">
+                          <Link
+                            to={`${RUTA_COORDINADOR}/evidencia/${a.idActividad}`}
+                            className="rounded-lg bg-slate-100 py-2 text-center text-[11.5px] font-semibold text-unah-navy hover:bg-slate-200"
+                          >
+                            Resultados y fotos
+                          </Link>
+                          <Link
+                            to={`${RUTA_COORDINADOR}/informe-economico/${a.idActividad}`}
+                            className="rounded-lg bg-slate-100 py-2 text-center text-[11.5px] font-semibold text-unah-navy hover:bg-slate-200"
+                          >
+                            Informe económico
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           {error && <p className="mt-3 rounded-lg bg-red-50 p-2 text-[12px] font-semibold text-red-600">{error}</p>}
@@ -215,10 +292,22 @@ function DetalleInforme({
             disabled={enviando || desincronizado}
             className="w-full rounded-xl bg-unah-orange py-3 text-sm font-semibold text-white hover:bg-unah-orange-dark disabled:opacity-60"
           >
-            {enviando ? "Enviando…" : informe.codigoEstado === "OBSERVADO" ? "Corregir y reenviar" : "Enviar informe"}
+            {enviando ? "Enviando…" : informe.codigoEstado === "OBSERVADO" ? "Reenviar informe" : "Enviar informe"}
           </button>
         </footer>
       )}
     </>
+  );
+}
+
+function Requisito({ cumple, texto }: { cumple: boolean; texto: string }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
+        cumple ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+      }`}
+    >
+      {cumple ? "✓" : "!"} {texto}
+    </span>
   );
 }
