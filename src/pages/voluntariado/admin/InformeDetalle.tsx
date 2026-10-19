@@ -6,6 +6,9 @@ import BadgeEstadoInforme from "../../../components/voluntariado/BadgeEstadoInfo
 import { voluntariadoApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import FueraDeCampus from "../../../components/voluntariado/FueraDeCampus";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { estadoInforme, fechaCorta, formatoHoras, nombreTrimestre } from "../../../utils/voluntariado";
 
 export default function InformeDetalle() {
@@ -13,6 +16,13 @@ export default function InformeDetalle() {
   const idInforme = Number(id);
   const navigate = useNavigate();
   const carga = useApi(() => voluntariadoApi.informe(idInforme), [idInforme]);
+  const rol = useRolAdminVoluntariado();
+  // El informe no trae campus: para el enlace se lee del grupo.
+  const idGrupo = carga.datos?.idGrupo;
+  const grupo = useApi(
+    () => (rol.esEnlace && idGrupo ? voluntariadoApi.grupo(idGrupo) : Promise.resolve(undefined)),
+    [rol.esEnlace, idGrupo],
+  );
   const [comentarios, setComentarios] = useState("");
   const [resolviendo, setResolviendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,12 +38,25 @@ export default function InformeDetalle() {
   }
 
   const informe = carga.datos;
-  if (!informe) {
+  const campusPendiente = rol.esEnlace && informe !== undefined && grupo.datos === undefined;
+  if (!informe || campusPendiente) {
     return (
-      <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={false}>
+      <EstadoCarga
+        cargando={carga.cargando || grupo.cargando}
+        error={carga.error ?? grupo.error}
+        onReintentar={() => {
+          carga.recargar();
+          grupo.recargar();
+        }}
+        listo={false}
+      >
         {null}
       </EstadoCarga>
     );
+  }
+
+  if (rol.esEnlace && grupo.datos && !grupo.datos.campus.some((c) => c.idCampus === rol.idCampus)) {
+    return <FueraDeCampus campus={rol.nombreCampus} volverA="/voluntariado/informes" textoVolver="Volver al listado" />;
   }
 
   const requiereComentarios = comentarios.trim().length === 0;
@@ -55,6 +78,7 @@ export default function InformeDetalle() {
 
   return (
     <div className="flex flex-col gap-4">
+      <RolPruebaAdmin />
       <Link to="/voluntariado/informes" className="text-xs font-semibold text-slate-500 hover:text-slate-700">
         ‹ Volver al listado
       </Link>

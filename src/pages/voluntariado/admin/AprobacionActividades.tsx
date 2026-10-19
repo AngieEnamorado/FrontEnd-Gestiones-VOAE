@@ -3,13 +3,17 @@ import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { fechaCorta } from "../../../utils/voluntariado";
 
 export default function AprobacionActividades() {
   const carga = useApi(() => voluntariadoApi.actividades({ estado: "SOLICITADA" }), []);
   const [enCurso, setEnCurso] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pendientes = carga.datos ?? [];
+  const rol = useRolAdminVoluntariado();
+  // Se aprueba en el campus del grupo organizador.
+  const pendientes = (carga.datos ?? []).filter((a) => rol.veCampus(a.campus));
 
   async function resolver(idActividad: number, estado: "APROBADA" | "RECHAZADA") {
     setEnCurso(idActividad);
@@ -26,6 +30,7 @@ export default function AprobacionActividades() {
 
   return (
     <div className="flex flex-col gap-4">
+      <RolPruebaAdmin />
       <h1 className="text-base font-bold text-slate-800">Aprobación de actividades</h1>
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
 

@@ -6,11 +6,16 @@ import { claseChipColor } from "../../../components/voluntariado/colores";
 import { voluntariadoApi, type GrupoResumenApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { colorDeGrupo, colorDeRed, iniciales, listaDeIds } from "../../../utils/voluntariado";
 
 export default function GestionGrupos() {
   const carga = useApi(() => Promise.all([voluntariadoApi.grupos(), voluntariadoApi.catalogos()]), []);
-  const [grupos, catalogos] = carga.datos ?? [[], undefined];
+  const [todos, catalogos] = carga.datos ?? [[], undefined];
+  const rol = useRolAdminVoluntariado();
+  // Un grupo puede operar en varios campus: el enlace ve los que incluyen el suyo.
+  const grupos = todos.filter((g) => rol.veIdsCampus(g.idsCampus));
   const [reasignando, setReasignando] = useState<number | null>(null);
   const [editando, setEditando] = useState<GrupoResumenApi | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +34,7 @@ export default function GestionGrupos() {
 
   return (
     <div className="flex flex-col gap-4">
+      <RolPruebaAdmin />
       <h1 className="text-base font-bold text-slate-800">Gestión de grupos</h1>
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
 

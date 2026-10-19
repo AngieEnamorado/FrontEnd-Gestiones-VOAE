@@ -3,6 +3,8 @@ import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi, type ParticipacionMiembroApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 
 export default function Diplomas() {
   // Porcentaje y umbral vienen calculados por la API contra la base: el
@@ -11,7 +13,8 @@ export default function Diplomas() {
   const [enCurso, setEnCurso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const umbral = carga.datos?.umbral ?? 0;
-  const filas = carga.datos?.miembros ?? [];
+  const rol = useRolAdminVoluntariado();
+  const filas = (carga.datos?.miembros ?? []).filter((f) => rol.veCampus(f.campus));
 
   async function emitir(f: ParticipacionMiembroApi) {
     const clave = `${f.idGrupo}-${f.idPersona}`;
@@ -36,6 +39,7 @@ export default function Diplomas() {
 
   return (
     <div className="flex flex-col gap-4">
+      <RolPruebaAdmin />
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="text-base font-bold text-slate-800">Diplomas de reconocimiento</h1>
         {carga.datos && <p className="text-xs text-slate-400">Umbral de elegibilidad: {umbral}% de participación</p>}

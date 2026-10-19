@@ -7,6 +7,9 @@ import { claseChipColor } from "../../../components/voluntariado/colores";
 import { voluntariadoApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import FueraDeCampus from "../../../components/voluntariado/FueraDeCampus";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { colorDeRed } from "../../../utils/voluntariado";
 
 const NOMBRE_DOCUMENTO: Record<string, string> = {
@@ -28,6 +31,7 @@ export default function SolicitudGrupoDetalle() {
   const [resolviendo, setResolviendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cuentasSinPersona, setCuentasSinPersona] = useState<string[] | null>(null);
+  const rol = useRolAdminVoluntariado();
 
   if (!carga.datos) {
     return (
@@ -38,6 +42,9 @@ export default function SolicitudGrupoDetalle() {
   }
 
   const [solicitud, catalogos] = carga.datos;
+  if (!rol.veIdCampus(solicitud.idCampus)) {
+    return <FueraDeCampus campus={rol.nombreCampus} volverA="/voluntariado/solicitudes-grupos" textoVolver="Volver a la bandeja" />;
+  }
   const pendiente = solicitud.codigoEstado === "PENDIENTE";
   const requiereMotivo = motivo.trim().length === 0;
   const requisitos = catalogos.requisitos.filter((r) => r.procesoRequisito === "SOLICITUD_GRUPO");
@@ -68,6 +75,7 @@ export default function SolicitudGrupoDetalle() {
 
   return (
     <div className="flex flex-col gap-4">
+      <RolPruebaAdmin />
       <Link to="/voluntariado/solicitudes-grupos" className="text-xs font-semibold text-slate-500 hover:text-slate-700">
         ‹ Volver a la bandeja
       </Link>

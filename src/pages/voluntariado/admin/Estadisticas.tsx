@@ -28,6 +28,8 @@ import EstadisticaCard from "../../../components/EstadisticaCard";
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi, type CodigoEstadoActividad } from "../../../api/voluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { colorDeRed, fechaCorta } from "../../../utils/voluntariado";
 import { generarReportePdf, type SeccionReportePdf } from "../../../utils/exportarPdf";
 
@@ -196,9 +198,13 @@ export default function Estadisticas() {
   // Una fila por actividad: la agregación de cada gráfico se hace aquí, sobre
   // la misma lista filtrada, para que KPIs y gráficos nunca se contradigan.
   const carga = useApi(() => Promise.all([voluntariadoApi.estadisticas(), voluntariadoApi.catalogos()]), []);
+  const rol = useRolAdminVoluntariado();
+  const { esEnlace, nombreCampus } = rol;
 
   const { registros, redesTematicas, campusDisponibles, años } = useMemo(() => {
-    const [filas, catalogos] = carga.datos ?? [[], undefined];
+    const [todas, catalogos] = carga.datos ?? [[], undefined];
+    // El enlace solo cuenta las actividades de su campus.
+    const filas = esEnlace ? todas.filter((f) => f.campus === nombreCampus) : todas;
     const registros = filas.map((f) => ({
       fecha: fechaCorta(f.fecha),
       año: Number(fechaCorta(f.fecha).slice(0, 4)),
@@ -216,7 +222,7 @@ export default function Estadisticas() {
       campusDisponibles: [...new Set(registros.map((r) => r.campus))].sort(),
       años: [...new Set(registros.map((r) => r.año))].sort((a, b) => b - a),
     };
-  }, [carga.datos]);
+  }, [carga.datos, esEnlace, nombreCampus]);
 
   const registrosFiltrados = useMemo(
     () =>
@@ -429,6 +435,7 @@ export default function Estadisticas() {
 
   return (
     <div className="flex flex-col gap-6">
+      <RolPruebaAdmin />
       {/* Encabezado */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

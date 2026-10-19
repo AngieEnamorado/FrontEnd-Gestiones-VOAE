@@ -5,6 +5,8 @@ import { voluntariadoApi, type TrimestreApi } from "../../../api/voluntariado";
 import { catalogoApi } from "../../../api/catalogo";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { colorDeRed, fechaCorta, nombreTrimestre } from "../../../utils/voluntariado";
 
 function TarjetaCatalogo({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
@@ -72,6 +74,7 @@ function FilaTrimestre({ trimestre, onGuardar }: { trimestre: TrimestreApi; onGu
 }
 
 export default function Catalogos() {
+  const rol = useRolAdminVoluntariado();
   const carga = useApi(() => Promise.all([voluntariadoApi.catalogos(), catalogoApi.campus()]), []);
   const [nuevaRed, setNuevaRed] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -110,11 +113,18 @@ export default function Catalogos() {
 
   return (
     <div className="flex flex-col gap-4">
+      <RolPruebaAdmin />
       <h1 className="text-base font-bold text-slate-800">Catálogos del sistema</h1>
+      {rol.esEnlace && (
+        <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+          Los catálogos son nacionales: como Enlace VOAE los ves pero no los editas.
+        </p>
+      )}
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
 
       <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={carga.datos !== undefined}>
-        <div className="grid gap-4 lg:grid-cols-2">
+        {/* fieldset disabled apaga todos los botones y campos de edicion para el enlace. */}
+        <fieldset disabled={rol.esEnlace} className="grid min-w-0 gap-4 lg:grid-cols-2">
           <TarjetaCatalogo titulo="Campus" nota="Compartido por todos los sistemas; se administra desde Catálogo, no desde Voluntariado.">
             {campus.map((c) => (
               <div key={c.idCampus} className="flex items-center justify-between px-3 py-2.5">
@@ -176,7 +186,7 @@ export default function Catalogos() {
               </div>
             ))}
           </TarjetaCatalogo>
-        </div>
+        </fieldset>
       </EstadoCarga>
     </div>
   );

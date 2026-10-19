@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   HiOutlineUserGroup,
@@ -11,50 +10,32 @@ import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { claseBarraColor } from "../../../components/voluntariado/colores";
 import { voluntariadoApi } from "../../../api/voluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { colorDeRed, fechaCorta, formatoHoras, nombreTrimestre } from "../../../utils/voluntariado";
-import type { RolPortalAdministrativo } from "../../../types";
-
-// Campus del Enlace VOAE de prueba (Ciudad Universitaria). Con sesión real,
-// el campus sale del perfil del enlace.
-const ID_CAMPUS_ENLACE = 1;
 
 export default function TableroNacional() {
-  const [rol, setRol] = useState<RolPortalAdministrativo>("admin");
+  const rol = useRolAdminVoluntariado();
   const carga = useApi(() => voluntariadoApi.tablero(), []);
   const tablero = carga.datos;
 
   const campusVisibles = (tablero?.porCampus ?? []).filter(
-    (c) => rol === "admin" || c.idCampus === ID_CAMPUS_ENLACE,
+    (c) => rol.veIdCampus(c.idCampus),
   );
   const suma = (campo: "grupos" | "participantes" | "horas") => campusVisibles.reduce((t, c) => t + c[campo], 0);
-  const esEnlace = rol === "enlace";
-  const nombreCampusEnlace = tablero?.porCampus.find((c) => c.idCampus === ID_CAMPUS_ENLACE)?.nombreCampus ?? "su campus";
+  const { esEnlace } = rol;
   const maximoRed = Math.max(1, ...(tablero?.porRed ?? []).map((r) => r.horas));
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-base font-bold text-slate-800">Tablero nacional</h1>
-        <button
-          type="button"
-          onClick={() => setRol((r) => (r === "admin" ? "enlace" : "admin"))}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"
-        >
-          Rol de prueba: {rol === "admin" ? "Administrador" : "Enlace VOAE"}
-        </button>
-      </div>
-
-      {rol === "enlace" && (
-        <div className="rounded-xl bg-blue-50 px-4 py-3 text-[13px] font-semibold text-unah-navy">
-          Vista de Enlace VOAE — mostrando únicamente {nombreCampusEnlace}. Solo lectura.
-        </div>
-      )}
+      <RolPruebaAdmin />
+      <h1 className="text-base font-bold text-slate-800">{esEnlace ? `Tablero · ${rol.nombreCampus}` : "Tablero nacional"}</h1>
 
       <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={tablero !== undefined}>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <EstadisticaCard
           icon={HiOutlineUserGroup}
-          label={rol === "enlace" ? "Grupos del campus" : "Grupos"}
+          label={esEnlace ? "Grupos del campus" : "Grupos"}
           valor={esEnlace ? suma("grupos") : tablero?.totales.grupos ?? 0}
           colorFondo="bg-blue-50"
           colorIcono="text-unah-navy"
@@ -62,7 +43,7 @@ export default function TableroNacional() {
         />
         <EstadisticaCard
           icon={HiOutlineCalendarDays}
-          label="Actividades"
+          label={esEnlace ? "Actividades (nacional)" : "Actividades"}
           valor={tablero?.totales.actividades ?? 0}
           colorFondo="bg-orange-50"
           colorIcono="text-unah-orange"
@@ -88,7 +69,7 @@ export default function TableroNacional() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-700">Por red temática</h2>
+          <h2 className="text-sm font-bold text-slate-700">Por red temática{esEnlace && " (nacional)"}</h2>
           <div className="mt-4 flex flex-col gap-3">
             {(tablero?.porRed ?? []).map((red) => (
               <div key={red.idRedTematica}>

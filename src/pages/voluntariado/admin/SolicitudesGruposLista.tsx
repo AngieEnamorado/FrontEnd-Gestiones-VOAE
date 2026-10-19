@@ -3,14 +3,18 @@ import BadgeEstadoVoluntariado from "../../../components/voluntariado/BadgeEstad
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi } from "../../../api/voluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { fechaCorta } from "../../../utils/voluntariado";
 
 export default function SolicitudesGruposLista() {
   const carga = useApi(() => voluntariadoApi.solicitudesGrupos(), []);
-  const solicitudes = carga.datos ?? [];
+  const rol = useRolAdminVoluntariado();
+  const solicitudes = (carga.datos ?? []).filter((s) => rol.veCampus(s.nombreCampus));
 
   return (
     <div className="flex flex-col gap-4">
+      <RolPruebaAdmin />
       <h1 className="text-base font-bold text-slate-800">Solicitudes de grupos nuevos</h1>
 
       <EstadoCarga cargando={carga.cargando} error={carga.error} onReintentar={carga.recargar} listo={carga.datos !== undefined}>

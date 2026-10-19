@@ -4,6 +4,8 @@ import BadgeEstadoInforme from "../../../components/voluntariado/BadgeEstadoInfo
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { voluntariadoApi, type InformeResumenApi } from "../../../api/voluntariado";
 import { useApi } from "../../../utils/useApi";
+import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { estadoInforme, formatoHoras, nombreTrimestre } from "../../../utils/voluntariado";
 import { generarReportePdf } from "../../../utils/exportarPdf";
 
@@ -45,10 +47,13 @@ function descargarPdf(informes: InformeResumenApi[]) {
 
 export default function InformesLista() {
   const carga = useApi(() => voluntariadoApi.informes(), []);
-  const informes = carga.datos ?? [];
+  const rol = useRolAdminVoluntariado();
+  // La exportacion usa esta misma lista: el enlace exporta solo su campus.
+  const informes = (carga.datos ?? []).filter((i) => rol.veCampus(i.campus));
 
   return (
     <div className="flex flex-col gap-4">
+      <RolPruebaAdmin />
       <div className="flex items-center justify-between">
         <h1 className="text-base font-bold text-slate-800">Informes trimestrales</h1>
         <div className="flex gap-2">
