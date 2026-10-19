@@ -39,10 +39,13 @@ export function SesionVoluntariadoProvider({ children }: { children: ReactNode }
   const personas = useApi(() => voluntariadoApi.personas(), []);
   const [elegida, setElegida] = useState<number | null>(leerGuardada);
 
-  // Si la guardada ya no existe (p. ej. se limpió la semilla), cae en la primera
-  // de la lista, que la API ordena con los coordinadores primero.
+  // La lista solo llena el selector de prueba: si ya hay una persona guardada,
+  // su resumen se pide de inmediato, sin esperarla. Cuando la lista llega y la
+  // guardada ya no existe (p. ej. se limpió la semilla), cae en la primera, que
+  // la API ordena con los coordinadores primero.
   const idPersona = useMemo(() => {
-    const lista = personas.datos ?? [];
+    const lista = personas.datos;
+    if (!lista) return elegida;
     if (elegida && lista.some((p) => p.idPersona === elegida)) return elegida;
     return lista[0]?.idPersona ?? null;
   }, [personas.datos, elegida]);
@@ -86,10 +89,16 @@ export function SesionVoluntariadoProvider({ children }: { children: ReactNode }
     );
   }
 
+  // Un error del resumen mientras la lista no ha llegado puede ser una persona
+  // guardada que ya no existe: se espera a la lista, que elige otra. La lista
+  // solo bloquea si falla sin que haya persona que mostrar.
+  const esperandoLista = personas.datos === undefined && personas.error === null;
+  const error = resumen.error && !esperandoLista ? resumen.error : !persona ? personas.error : null;
+
   return (
     <EstadoCarga
-      cargando={personas.cargando || resumen.cargando}
-      error={personas.error ?? resumen.error}
+      cargando={resumen.cargando || (resumen.error !== null && esperandoLista) || (!idPersona && personas.cargando)}
+      error={error}
       onReintentar={() => {
         personas.recargar();
         resumen.recargar();

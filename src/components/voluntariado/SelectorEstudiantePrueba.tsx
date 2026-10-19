@@ -5,7 +5,7 @@ import { useSesionVoluntariado } from "../../context/SesionVoluntariadoContext";
 // coordinador, como miembro o como estudiante sin grupo. Se borra, junto con
 // cambiarPersona, cuando la sesión traiga la persona.
 export default function SelectorEstudiantePrueba() {
-  const { idPersona, personasDePrueba, cambiarPersona } = useSesionVoluntariado();
+  const { idPersona, persona, personasDePrueba, cambiarPersona } = useSesionVoluntariado();
   const navigate = useNavigate();
 
   return (
@@ -19,6 +19,12 @@ export default function SelectorEstudiantePrueba() {
         }}
         className="min-w-0 flex-1 truncate rounded-md border border-amber-200 bg-white px-2 py-1 text-[11.5px] text-slate-700"
       >
+        {/* La lista llega después del resumen: mientras tanto, la persona actual. */}
+        {personasDePrueba.length === 0 && (
+          <option value={idPersona}>
+            {persona.nombrePersona} {persona.apellidosPersona}
+          </option>
+        )}
         {personasDePrueba.map((p) => (
           <option key={p.idPersona} value={p.idPersona}>
             {p.nombrePersona} {p.apellidosPersona}
