@@ -86,7 +86,7 @@ export default function CatalogoGrupos() {
               className="rounded-2xl bg-white p-4 shadow-sm"
             >
               <div className="flex items-start gap-3">
-                <LogoGrupo iniciales={iniciales(grupo.nombreGrupo)} color={colorDeGrupo(grupo.idGrupo)} tamano="lg" />
+                <LogoGrupo iniciales={iniciales(grupo.nombreGrupo)} color={colorDeGrupo(grupo.idGrupo)} tamano="lg" url={grupo.urlLogo} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-bold text-slate-800">{grupo.nombreGrupo}</p>
                   <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">

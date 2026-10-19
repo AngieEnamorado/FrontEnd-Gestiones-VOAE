@@ -67,6 +67,8 @@ export interface GrupoResumenApi {
   idsRedesTematicas: string | null;
   idPersonaCoordinador: number | null;
   nombreCoordinador: string | null;
+  /** URL firmada del logo, de vida corta. Null si no tiene logo o es de prototipo. */
+  urlLogo?: string | null;
 }
 
 export interface GrupoDetalleApi {

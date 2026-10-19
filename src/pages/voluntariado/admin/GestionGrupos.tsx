@@ -51,7 +51,7 @@ export default function GestionGrupos() {
                   <tr key={grupo.idGrupo} className="transition-colors duration-150 hover:bg-slate-100">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <LogoGrupo iniciales={iniciales(grupo.nombreGrupo)} color={colorDeGrupo(grupo.idGrupo)} tamano="sm" />
+                        <LogoGrupo iniciales={iniciales(grupo.nombreGrupo)} color={colorDeGrupo(grupo.idGrupo)} tamano="sm" url={grupo.urlLogo} />
                         <span className="font-semibold text-slate-800">{grupo.nombreGrupo}</span>
                       </div>
                     </td>

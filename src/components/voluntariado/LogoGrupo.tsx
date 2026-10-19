@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { GrupoVoluntariado } from "../../types";
 
 const coloresPorFondo: Record<GrupoVoluntariado["logoColor"], string> = {
@@ -25,8 +26,18 @@ const tamanos = {
 
 // Logo del grupo, o monograma de iniciales si todavía no tiene uno.
 export default function LogoGrupo({ iniciales, color, tamano = "md", sobreOscuro = false, url }: LogoGrupoProps) {
-  if (url) {
-    return <img src={url} alt="" className={`shrink-0 rounded-full bg-white object-cover ${tamanos[tamano]}`} />;
+  // La URL firmada vence a los 15 minutos; si la imagen ya no carga se vuelve
+  // al monograma en vez de mostrar una imagen rota.
+  const [fallo, setFallo] = useState<string | null>(null);
+  if (url && fallo !== url) {
+    return (
+      <img
+        src={url}
+        alt=""
+        onError={() => setFallo(url)}
+        className={`shrink-0 rounded-full bg-white object-cover ${tamanos[tamano]}`}
+      />
+    );
   }
   return (
     <span
