@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { voluntariadoApi, type PersonaVoluntariadoApi, type ResumenPersonaApi } from "../api/voluntariado";
 import { useApi } from "../utils/useApi";
 import EstadoCarga from "../components/voluntariado/EstadoCarga";
@@ -25,6 +25,8 @@ interface ValorSesion {
 const SesionVoluntariadoContext = createContext<ValorSesion | null>(null);
 
 const CLAVE_ALMACEN = "voluntariado.idPersonaPrueba";
+/** Ms entre recargas al volver a la pestaña: el foco salta seguido (alerts, DevTools). */
+const INTERVALO_MINIMO_RECARGA = 10_000;
 
 function leerGuardada(): number | null {
   try {
@@ -63,6 +65,27 @@ export function SesionVoluntariadoProvider({ children }: { children: ReactNode }
       // Sin almacenamiento (modo privado): la elección dura lo que la pestaña.
     }
   }, []);
+
+  // Lo que decide otra pantalla (la VOAE aprueba el grupo, el coordinador
+  // acepta una unión) no llega solo: al volver a la pestaña se releen la
+  // persona y la lista del selector, en segundo plano y sin tapar la pantalla.
+  const recargarPersona = resumen.recargar;
+  const recargarLista = personas.recargar;
+  useEffect(() => {
+    let ultima = Date.now();
+    function alVolver() {
+      if (document.visibilityState !== "visible" || Date.now() - ultima < INTERVALO_MINIMO_RECARGA) return;
+      ultima = Date.now();
+      recargarPersona();
+      recargarLista();
+    }
+    window.addEventListener("focus", alVolver);
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      window.removeEventListener("focus", alVolver);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
+  }, [recargarPersona, recargarLista]);
 
   const persona = resumen.datos;
   const valor = useMemo<ValorSesion | null>(
