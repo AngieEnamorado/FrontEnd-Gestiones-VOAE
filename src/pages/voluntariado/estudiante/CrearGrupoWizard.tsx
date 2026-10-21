@@ -111,8 +111,14 @@ export default function CrearGrupoWizard() {
     if (!cuenta) {
       return idCargo === CARGO_COORDINADOR ? { estado: "error", mensaje: "El grupo necesita un coordinador." } : null;
     }
-    if (!/^\d{8,15}$/.test(cuenta)) {
-      return { estado: "error", mensaje: "Escribe solo los dígitos del número de cuenta." };
+    if (!/^\d+$/.test(cuenta)) {
+      return { estado: "error", mensaje: "Escribe solo los dígitos del número de cuenta, sin guiones ni espacios." };
+    }
+    if (cuenta.length < 8 || cuenta.length > 15) {
+      return {
+        estado: "error",
+        mensaje: `Ese número tiene ${cuenta.length} dígitos; una cuenta de la UNAH tiene 11 (p. ej. 20191000123).`,
+      };
     }
     // Un grupo no admite a la misma persona dos veces: un cargo por persona.
     const otroCargo = cargos.find((c) => c.idCargo !== idCargo && (junta[c.idCargo] ?? "").trim() === cuenta);
