@@ -20,7 +20,7 @@ import { useVistaTabla } from "../../../components/procad/vistaTabla";
 import type { Dialogo } from "../../../components/procad/DialogoConfirmacion";
 import { ETIQUETA_ESTADO, ORDEN_ESTADOS } from "../../../components/procad/paleta";
 import { useProcad } from "../../../context/ProcadContext";
-import { CENTROS, INDICE_MINIMO } from "../../../data/mockProcadEstadisticas";
+import { INDICE_MINIMO } from "../../../data/mockProcadEstadisticas";
 import type { EstadoSolicitudProcad, SolicitudProcad, TipoAgrupacion } from "../../../types";
 
 const TONO_ESTADO = {
@@ -277,7 +277,7 @@ const CAMPOS: CampoTabla<SolicitudProcad, AccionesCelda>[] = [
 const COLUMNAS = columnasDe(CAMPOS);
 
 export default function Solicitudes({ abrirDialogo }: { abrirDialogo: (d: Dialogo) => void }) {
-  const { solicitudes, resolverSolicitud } = useProcad();
+  const { solicitudes, resolverSolicitud, centros } = useProcad();
   const [centro, setCentro] = useState("todos");
   const [estado, setEstado] = useState<EstadoSolicitudProcad | "todos">("todos");
   const [texto, setTexto] = useState("");
@@ -373,7 +373,7 @@ export default function Solicitudes({ abrirDialogo }: { abrirDialogo: (d: Dialog
           className={`${CLASE_FILTRO} w-[190px]`}
         >
           <option value="todos">Todos los campus</option>
-          {CENTROS.map((c) => (
+          {centros.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>

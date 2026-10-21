@@ -201,6 +201,17 @@ export interface AccesoApi {
   activo: boolean;
 }
 
+/** Una fila de GET /usuarios: una persona con sus roles de PROCAD (sin INTEGRANTE). */
+export interface UsuarioApi {
+  idPersona: number;
+  nombrePersona: string | null;
+  apellidosPersona: string | null;
+  correoPersona: string | null;
+  /** Codigos separados por coma: «ADMINISTRADOR_PROCAD, DIRECTOR». */
+  roles: string;
+  activo: boolean;
+}
+
 /** GET /v1/catalogo/campus. */
 export interface CampusApi {
   idCampus: number;

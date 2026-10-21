@@ -15,6 +15,7 @@ import type {
   PeriodoApi,
   PeriodoCatalogoApi,
   SolicitudApi,
+  UsuarioApi,
   VisoriaApi,
 } from "../types/procad";
 
@@ -89,6 +90,13 @@ export const listarAccesos = () => apiProcad.get<AccesoApi[]>("/accesos", { todo
 /** Otorga o revoca el acceso de la persona en todos sus grupos. */
 export const cambiarAccesoPersona = (idPersona: number, activo: boolean) =>
   apiProcad.put<AccesoApi[]>(`/accesos/personas/${idPersona}`, { activo });
+
+/** Quienes tienen un rol de PROCAD en la base (administradores, directores…). */
+export const listarUsuarios = () => apiProcad.get<UsuarioApi[]>("/usuarios");
+
+/** Desactiva o reactiva todos sus roles de PROCAD. */
+export const cambiarEstadoUsuario = (idPersona: number, activo: boolean) =>
+  apiProcad.put<UsuarioApi>(`/usuarios/${idPersona}`, { activo });
 
 /* -------------------------------- Catálogo -------------------------------- */
 

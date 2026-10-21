@@ -16,6 +16,7 @@ import type {
   PeriodoInscripcion,
   SolicitudProcad,
   TipoAgrupacion,
+  UsuarioProcad,
   VisoriaProcad,
 } from "../types";
 import type {
@@ -31,6 +32,7 @@ import type {
   MatriculaExcepcionalApi,
   PeriodoCatalogoApi,
   SolicitudApi,
+  UsuarioApi,
   VisoriaApi,
 } from "../types/procad";
 
@@ -263,6 +265,36 @@ export function aEmpleados(accesos: AccesoApi[]): {
   });
 
   return { empleados: empleados.sort((x, y) => x.nombre.localeCompare(y.nombre)), idPorNombre };
+}
+
+const NOMBRE_DE_ROL: Record<string, string> = {
+  ADMINISTRADOR_PROCAD: "Administrador PROCAD",
+  DIRECTOR: "Director",
+  DIRECTOR_CENTRO: "Director de centro",
+  VICERRECTOR: "Vicerrector",
+};
+
+/**
+ * Los usuarios del panel. La pantalla identifica a cada uno por su correo;
+ * `idPorCorreo` es para poder actuar sobre él. Quien no tiene correo en la base
+ * queda identificado por su idPersona.
+ */
+export function aUsuarios(filas: UsuarioApi[]): {
+  usuarios: UsuarioProcad[];
+  idPorCorreo: Map<string, number>;
+} {
+  const idPorCorreo = new Map<string, number>();
+  const usuarios = filas.map((u): UsuarioProcad => {
+    const correo = u.correoPersona ?? `sin correo (persona ${u.idPersona})`;
+    idPorCorreo.set(correo, u.idPersona);
+    return {
+      nombre: nombreCompleto(u.nombrePersona, u.apellidosPersona) || `Persona ${u.idPersona}`,
+      correo,
+      rol: u.roles.split(",").map((r) => NOMBRE_DE_ROL[r.trim()] ?? r.trim()).join(" · "),
+      estado: u.activo ? "activo" : "inactivo",
+    };
+  });
+  return { usuarios, idPorCorreo };
 }
 
 /**
