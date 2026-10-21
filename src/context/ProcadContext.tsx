@@ -522,20 +522,24 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
     (id: number) => {
       const visoria = visorias.find((v) => v.id === id);
       if (!visoria) return;
+      const anotar = () =>
+        registrar(
+          `Visoría de ${visoria.grupo} programada.`,
+          "Programó visoría",
+          `${visoria.grupo} — ${enCorto(visoria.fecha)}, ${visoria.hora}`,
+        );
+
       if (procadConectado) {
-        setAviso("En la base una visoría existe desde que se crea: no hay borradores que programar.");
+        void conApi(() => apiProcad.programarVisoria(id), anotar);
         return;
       }
+
       setVisorias((previas) =>
         previas.map((v) => (v.id === id ? { ...v, estado: "PROGRAMADA" } : v)),
       );
-      registrar(
-        `Visoría de ${visoria.grupo} programada.`,
-        "Programó visoría",
-        `${visoria.grupo} — ${enCorto(visoria.fecha)}, ${visoria.hora}`,
-      );
+      anotar();
     },
-    [visorias, registrar],
+    [visorias, registrar, conApi],
   );
 
   // ── Galería ───────────────────────────────────────────────────────────────

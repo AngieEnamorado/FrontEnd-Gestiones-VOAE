@@ -141,6 +141,18 @@ export interface ActividadApi {
   fechaRegistro: string;
   inscritos: number;
   presentes: number;
+  /** El detalle que reporta el encargado. Las actividades de una serie no lo traen. */
+  tituloActividad: string | null;
+  /** «HH:MM». */
+  horaActividad: string | null;
+  lugarActividad: string | null;
+  horasAbonadas: number | null;
+  justificacionActividad: string | null;
+  idPersonaReporta: number | null;
+  nombreReporta: string | null;
+  apellidosReporta: string | null;
+  correoReporta: string | null;
+  adjuntos: { idAdjuntoActividad: number; nombreArchivo: string; urlArchivo: string }[];
 }
 
 /** Una fila de GET /visorias. */
@@ -153,6 +165,9 @@ export interface VisoriaApi {
   horaVisoria: string | null;
   nombreLugar: string | null;
   nombreAula: string | null;
+  idGrupo: number | null;
+  nombreGrupo: string | null;
+  estadoVisoria: "BORRADOR" | "PROGRAMADA";
   citados: number;
 }
 

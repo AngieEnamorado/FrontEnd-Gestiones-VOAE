@@ -75,6 +75,10 @@ export const validarActividad = (
 
 export const listarVisorias = () => apiProcad.get<VisoriaApi[]>("/visorias");
 
+/** De BORRADOR a PROGRAMADA: desde ahí la ven los citados. */
+export const programarVisoria = (idVisoria: number) =>
+  apiProcad.post<VisoriaApi>(`/visorias/${idVisoria}/programar`);
+
 /* ------------------------------ Configuración ----------------------------- */
 
 export const listarCatalogos = () => apiProcad.get<CatalogosProcadApi>("/catalogos");
