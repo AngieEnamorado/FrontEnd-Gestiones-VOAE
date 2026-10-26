@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { HiOutlineExclamationTriangle } from "react-icons/hi2";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { HiOutlineClipboardDocumentCheck, HiOutlineExclamationTriangle } from "react-icons/hi2";
 import HeaderMovilDetalle from "../../../components/voluntariado/HeaderMovilDetalle";
 import EstadoCarga from "../../../components/voluntariado/EstadoCarga";
 import { useSesionVoluntariado } from "../../../context/SesionVoluntariadoContext";
@@ -41,7 +41,24 @@ export default function PasarLista() {
     return (
       <>
         <HeaderMovilDetalle titulo="Pasar lista" />
-        <p className="p-6 text-sm text-slate-400">No hay una actividad aprobada pendiente de pasar lista.</p>
+        <div className="flex flex-col items-center px-7 py-12 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50">
+            <HiOutlineClipboardDocumentCheck className="h-7 w-7 text-unah-navy" />
+          </div>
+          <p className="mt-4 text-[15px] font-bold text-slate-800">Tu grupo no tiene actividades aprobadas</p>
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-left text-[12.5px] leading-relaxed text-slate-500">
+            <li>Crea la actividad en «Nueva actividad».</li>
+            <li>Espera que la VOAE la apruebe.</li>
+            <li>Los estudiantes se inscriben en la pestaña Actividades.</li>
+            <li>Vuelve aquí para marcar quién asistió.</li>
+          </ol>
+          <Link
+            to="/voluntariado/portal-estudiante/coordinador/actividades/nueva"
+            className="mt-6 rounded-xl bg-unah-orange px-6 py-3 text-sm font-semibold text-white hover:bg-unah-orange-dark"
+          >
+            Crear actividad
+          </Link>
+        </div>
       </>
     );
   }
