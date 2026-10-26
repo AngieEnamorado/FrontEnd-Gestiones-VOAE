@@ -7,6 +7,7 @@ import { voluntariadoApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
 import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import ConfirmarDictamen, { type Dictamen } from "../../../components/voluntariado/ConfirmarDictamen";
 import FueraDeCampus from "../../../components/voluntariado/FueraDeCampus";
 import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { estadoInforme, fechaCorta, formatoHoras, nombreTrimestre } from "../../../utils/voluntariado";
@@ -27,6 +28,7 @@ export default function InformeDetalle() {
   const [resolviendo, setResolviendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abiertas, setAbiertas] = useState<Set<number>>(new Set());
+  const [dictamen, setDictamen] = useState<Dictamen | null>(null);
 
   function alternar(idActividad: number) {
     setAbiertas((previas) => {
@@ -76,8 +78,30 @@ export default function InformeDetalle() {
     }
   }
 
+  function pedirConfirmacion(estado: "ACEPTADO" | "OBSERVADO") {
+    const textos: Record<typeof estado, Omit<Dictamen, "onConfirmar">> = {
+      ACEPTADO: {
+        titulo: `¿Aceptar el informe de «${informe.nombreGrupo}»?`,
+        descripcion:
+          "El informe queda cerrado: el grupo ya no podrá cambiar sus actividades ni las fotos de evidencia. No se puede deshacer.",
+        confirmar: "Sí, aceptar informe",
+        tono: "aprobar",
+        motivo: comentarios.trim() || null,
+      },
+      OBSERVADO: {
+        titulo: "¿Observar el informe?",
+        descripcion: `«${informe.nombreGrupo}» recibirá estos comentarios y podrá corregir el informe y reenviarlo.`,
+        confirmar: "Sí, observar",
+        tono: "devolver",
+        motivo: comentarios.trim(),
+      },
+    };
+    setDictamen({ ...textos[estado], onConfirmar: () => resolver(estado) });
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      <ConfirmarDictamen dictamen={dictamen} onCerrar={() => setDictamen(null)} />
       <RolPruebaAdmin />
       <Link to="/voluntariado/informes" className="text-xs font-semibold text-slate-500 hover:text-slate-700">
         ‹ Volver al listado
@@ -190,7 +214,7 @@ export default function InformeDetalle() {
               {error && <p className="rounded-lg bg-red-50 p-2.5 text-xs font-semibold text-red-600">{error}</p>}
               <button
                 type="button"
-                onClick={() => resolver("ACEPTADO")}
+                onClick={() => pedirConfirmacion("ACEPTADO")}
                 disabled={resolviendo}
                 className="rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
               >
@@ -198,7 +222,7 @@ export default function InformeDetalle() {
               </button>
               <button
                 type="button"
-                onClick={() => resolver("OBSERVADO")}
+                onClick={() => pedirConfirmacion("OBSERVADO")}
                 disabled={requiereComentarios || resolviendo}
                 className="rounded-lg bg-violet-100 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-40"
               >

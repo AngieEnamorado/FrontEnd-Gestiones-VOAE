@@ -4,6 +4,7 @@ import { voluntariadoApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
 import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import ConfirmarDictamen, { type Dictamen } from "../../../components/voluntariado/ConfirmarDictamen";
 import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { fechaCorta } from "../../../utils/voluntariado";
 
@@ -11,6 +12,7 @@ export default function AprobacionActividades() {
   const carga = useApi(() => voluntariadoApi.actividades({ estado: "SOLICITADA" }), []);
   const [enCurso, setEnCurso] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dictamen, setDictamen] = useState<Dictamen | null>(null);
   const rol = useRolAdminVoluntariado();
   // Se aprueba en el campus del grupo organizador.
   const pendientes = (carga.datos ?? []).filter((a) => rol.veCampus(a.campus));
@@ -28,8 +30,27 @@ export default function AprobacionActividades() {
     }
   }
 
+  function pedirConfirmacion(idActividad: number, nombre: string, estado: "APROBADA" | "RECHAZADA") {
+    const textos: Record<typeof estado, Omit<Dictamen, "onConfirmar">> = {
+      APROBADA: {
+        titulo: `¿Aprobar «${nombre}»?`,
+        descripcion: "Los estudiantes podrán inscribirse y el coordinador podrá pasar lista el día de la actividad.",
+        confirmar: "Sí, aprobar",
+        tono: "aprobar",
+      },
+      RECHAZADA: {
+        titulo: `¿Rechazar «${nombre}»?`,
+        descripcion: "El grupo verá la actividad como rechazada y nadie podrá inscribirse. No se puede deshacer desde el panel.",
+        confirmar: "Sí, rechazar",
+        tono: "rechazar",
+      },
+    };
+    setDictamen({ ...textos[estado], onConfirmar: () => resolver(idActividad, estado) });
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      <ConfirmarDictamen dictamen={dictamen} onCerrar={() => setDictamen(null)} />
       <RolPruebaAdmin />
       <h1 className="text-base font-bold text-slate-800">Aprobación de actividades</h1>
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
@@ -64,7 +85,7 @@ export default function AprobacionActividades() {
                 <button
                   type="button"
                   disabled={enCurso === actividad.idActividad}
-                  onClick={() => resolver(actividad.idActividad, "APROBADA")}
+                  onClick={() => pedirConfirmacion(actividad.idActividad, actividad.nombreActividad, "APROBADA")}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
                   Aprobar
@@ -72,7 +93,7 @@ export default function AprobacionActividades() {
                 <button
                   type="button"
                   disabled={enCurso === actividad.idActividad}
-                  onClick={() => resolver(actividad.idActividad, "RECHAZADA")}
+                  onClick={() => pedirConfirmacion(actividad.idActividad, actividad.nombreActividad, "RECHAZADA")}
                   className="rounded-lg bg-red-100 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-200 disabled:opacity-60"
                 >
                   Rechazar

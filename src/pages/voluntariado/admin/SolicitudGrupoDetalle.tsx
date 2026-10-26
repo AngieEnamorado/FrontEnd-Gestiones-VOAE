@@ -8,6 +8,7 @@ import { voluntariadoApi } from "../../../api/voluntariado";
 import { mensajeDeError } from "../../../api/clienteVoluntariado";
 import { useApi } from "../../../utils/useApi";
 import RolPruebaAdmin from "../../../components/voluntariado/RolPruebaAdmin";
+import ConfirmarDictamen, { type Dictamen } from "../../../components/voluntariado/ConfirmarDictamen";
 import FueraDeCampus from "../../../components/voluntariado/FueraDeCampus";
 import { useRolAdminVoluntariado } from "../../../utils/rolAdminVoluntariado";
 import { colorDeRed } from "../../../utils/voluntariado";
@@ -31,6 +32,7 @@ export default function SolicitudGrupoDetalle() {
   const [resolviendo, setResolviendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cuentasSinPersona, setCuentasSinPersona] = useState<string[] | null>(null);
+  const [dictamen, setDictamen] = useState<Dictamen | null>(null);
   const rol = useRolAdminVoluntariado();
 
   if (!carga.datos) {
@@ -73,8 +75,37 @@ export default function SolicitudGrupoDetalle() {
     }
   }
 
+  function pedirConfirmacion(estado: "APROBADA" | "RECHAZADA" | "DEVUELTA") {
+    const nombre = solicitud.nombreGrupo;
+    const textos: Record<typeof estado, Omit<Dictamen, "onConfirmar">> = {
+      APROBADA: {
+        titulo: `¿Aprobar «${nombre}»?`,
+        descripcion: "Se crea el grupo con su junta directiva y se avisa al solicitante. No se puede deshacer.",
+        confirmar: "Sí, aprobar grupo",
+        tono: "aprobar",
+        nota: redes.length === 0 ? "No elegiste redes temáticas: el grupo quedará sin red hasta que lo edites." : undefined,
+      },
+      DEVUELTA: {
+        titulo: "¿Devolver la solicitud para corrección?",
+        descripcion: `El solicitante de «${nombre}» recibirá este motivo y podrá corregir la solicitud.`,
+        confirmar: "Sí, devolver",
+        tono: "devolver",
+        motivo: motivo.trim(),
+      },
+      RECHAZADA: {
+        titulo: `¿Rechazar «${nombre}»?`,
+        descripcion: "La solicitud queda rechazada y se avisa al solicitante con este motivo. No se puede deshacer.",
+        confirmar: "Sí, rechazar",
+        tono: "rechazar",
+        motivo: motivo.trim(),
+      },
+    };
+    setDictamen({ ...textos[estado], onConfirmar: () => resolver(estado) });
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      <ConfirmarDictamen dictamen={dictamen} onCerrar={() => setDictamen(null)} />
       <RolPruebaAdmin />
       <Link to="/voluntariado/solicitudes-grupos" className="text-xs font-semibold text-slate-500 hover:text-slate-700">
         ‹ Volver a la bandeja
@@ -217,7 +248,7 @@ export default function SolicitudGrupoDetalle() {
               {error && <p className="rounded-lg bg-red-50 p-2.5 text-xs font-semibold text-red-600">{error}</p>}
               <button
                 type="button"
-                onClick={() => resolver("APROBADA")}
+                onClick={() => pedirConfirmacion("APROBADA")}
                 disabled={resolviendo}
                 className="rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
               >
@@ -225,7 +256,7 @@ export default function SolicitudGrupoDetalle() {
               </button>
               <button
                 type="button"
-                onClick={() => resolver("DEVUELTA")}
+                onClick={() => pedirConfirmacion("DEVUELTA")}
                 disabled={requiereMotivo || resolviendo}
                 className="rounded-lg bg-violet-100 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -233,7 +264,7 @@ export default function SolicitudGrupoDetalle() {
               </button>
               <button
                 type="button"
-                onClick={() => resolver("RECHAZADA")}
+                onClick={() => pedirConfirmacion("RECHAZADA")}
                 disabled={requiereMotivo || resolviendo}
                 className="rounded-lg bg-red-100 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-40"
               >
