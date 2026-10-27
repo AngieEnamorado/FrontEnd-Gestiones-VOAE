@@ -65,15 +65,16 @@ const CAMPOS: CampoTabla<Fila, Acciones>[] = [
     celda: (f) => <span className="whitespace-nowrap">{f.carreraEstudiante ?? <SinDato />}</span>,
   },
   {
-    label: "Índice",
+    // El del período: es con el que se decide si cumple el mínimo (≥ 70%).
+    label: "Índice del período",
     numerica: true,
-    texto: (f) => (f.indiceGlobal === null ? "" : String(f.indiceGlobal)),
+    texto: (f) => (f.indicePeriodo === null ? "" : String(f.indicePeriodo)),
     celda: (f) =>
-      f.indiceGlobal === null ? (
+      f.indicePeriodo === null ? (
         <SinDato />
       ) : (
         <span className={f.cumpleIndiceMinimo ? "text-slate-700" : "font-semibold text-rose-600"}>
-          {f.indiceGlobal}
+          {f.indicePeriodo}%
         </span>
       ),
   },
@@ -244,7 +245,7 @@ export default function SolicitudesGrupo({
   function proponer(f: Fila) {
     abrirDialogo({
       titulo: `¿Proponer a ${f.nombre} como condicionado?`,
-      descripcion: `Su índice global (${f.indiceGlobal ?? "sin dato"}) no alcanza el mínimo. Como condicionado puede entrar por su talento, si el administrador lo autoriza.`,
+      descripcion: `Su índice del período (${f.indicePeriodo ?? "sin dato"}%) no alcanza el mínimo. Como condicionado puede entrar por su talento, si el administrador lo autoriza.`,
       confirmar: "Sí, proponer",
       tono: "primario",
       nota: "Usted es la primera firma. La solicitud sigue pendiente hasta que el administrador ponga la segunda; después podrá aprobarla.",
