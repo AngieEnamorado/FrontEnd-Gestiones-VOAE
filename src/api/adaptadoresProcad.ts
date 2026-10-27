@@ -16,6 +16,7 @@ import type {
   PeriodoInscripcion,
   SolicitudProcad,
   TipoAgrupacion,
+  UsuarioProcad,
   VisoriaProcad,
 } from "../types";
 import type {
@@ -31,6 +32,7 @@ import type {
   MatriculaExcepcionalApi,
   PeriodoCatalogoApi,
   SolicitudApi,
+  UsuarioApi,
   VisoriaApi,
 } from "../types/procad";
 
@@ -167,28 +169,44 @@ export const aAgrupacion = (g: GrupoApi): AgrupacionProcad => ({
   disciplinas: g.disciplinas.map((d) => d.nombreDisciplina),
 });
 
+/** «17:30» → «5:30 PM», como escribe la hora el resto del panel. */
+function horaDoce(hora: string | null): string {
+  if (!hora) return "";
+  const [h = 0, m = 0] = hora.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+
 /**
- * Una actividad de la API a la del panel. La base guarda mucho menos que la
- * tarjeta de la demostración: no hay título, hora, lugar, horas abonadas,
- * justificación ni adjuntos. El título se arma con la descripción (o con el
- * tipo y el grupo), y lo demás queda vacío en vez de inventarlo.
+ * Una actividad de la API a la del panel. Las que reporta un encargado traen
+ * título, hora, lugar, horas, justificación y adjuntos; las que genera una
+ * serie no, y ahí el título se arma con la descripción o con el tipo y el
+ * grupo, y lo demás queda vacío en vez de inventarlo.
  */
 export const aActividad = (x: ActividadApi): ActividadProcad => ({
   id: x.idActividad,
-  titulo: x.descripcionActividad?.trim() || `${x.nombreTipoActividad ?? "Actividad"} — ${x.nombreGrupo}`,
+  titulo:
+    x.tituloActividad?.trim() ||
+    x.descripcionActividad?.trim() ||
+    `${conMayuscula(x.nombreTipoActividad ?? "actividad")} — ${x.nombreGrupo}`,
   grupo: x.nombreGrupo,
   tipo: x.tipoGrupo,
   centro: x.nombreCampus,
-  // La base no sabe quién la reportó, solo qué usuario la registró.
-  encargado: { nombre: x.usuarioRegistro, rol: "", correo: "" },
+  // Sin encargado registrado (actividades de una serie), queda el usuario que la creó.
+  encargado: x.idPersonaReporta
+    ? {
+        nombre: nombreCompleto(x.nombreReporta, x.apellidosReporta),
+        rol: "Encargado",
+        correo: x.correoReporta ?? "",
+      }
+    : { nombre: x.usuarioRegistro, rol: "", correo: "" },
   fecha: enCorto(soloFecha(x.fechaActividad)),
-  hora: "",
-  lugar: "",
+  hora: horaDoce(x.horaActividad),
+  lugar: x.lugarActividad ?? "",
   inscritos: x.inscritos,
   asistentes: x.presentes,
-  horas: 0,
-  justificacion: "",
-  adjuntos: [],
+  horas: Number(x.horasAbonadas ?? 0),
+  justificacion: x.justificacionActividad ?? "",
+  adjuntos: x.adjuntos.map((adjunto) => adjunto.nombreArchivo),
   enviada: enCorto(soloFecha(x.fechaRegistro)),
   estado: x.codigoEstado,
   resolucion: x.fechaValidacion
@@ -201,18 +219,18 @@ export const aActividad = (x: ActividadApi): ActividadProcad => ({
 });
 
 /**
- * Una visoría de la API a la del calendario. La base no liga la visoría a un
- * grupo ni tiene estado de borrador: se muestra el lugar donde el calendario
- * pondría el grupo, y todas figuran programadas porque existen desde que se crean.
+ * Una visoría de la API a la del calendario. Las anteriores al 2026-09-23 no
+ * tienen grupo: para esas se muestra el lugar donde el calendario pondría el grupo.
  */
 export const aVisoria = (v: VisoriaApi): VisoriaProcad => ({
   id: v.idVisoria,
-  grupo: [v.nombreLugar, v.nombreAula].filter(Boolean).join(" · ") || "Lugar sin definir",
+  grupo:
+    v.nombreGrupo ?? ([v.nombreLugar, v.nombreAula].filter(Boolean).join(" · ") || "Lugar sin definir"),
   centro: v.nombreCampus,
   fecha: soloFecha(v.fechaVisoria),
-  hora: v.horaVisoria ?? "",
+  hora: horaDoce(v.horaVisoria),
   citados: v.citados,
-  estado: "PROGRAMADA",
+  estado: v.estadoVisoria,
 });
 
 /* ------------------------------ Configuración ----------------------------- */
@@ -247,6 +265,36 @@ export function aEmpleados(accesos: AccesoApi[]): {
   });
 
   return { empleados: empleados.sort((x, y) => x.nombre.localeCompare(y.nombre)), idPorNombre };
+}
+
+const NOMBRE_DE_ROL: Record<string, string> = {
+  ADMINISTRADOR_PROCAD: "Administrador PROCAD",
+  DIRECTOR: "Director",
+  DIRECTOR_CENTRO: "Director de centro",
+  VICERRECTOR: "Vicerrector",
+};
+
+/**
+ * Los usuarios del panel. La pantalla identifica a cada uno por su correo;
+ * `idPorCorreo` es para poder actuar sobre él. Quien no tiene correo en la base
+ * queda identificado por su idPersona.
+ */
+export function aUsuarios(filas: UsuarioApi[]): {
+  usuarios: UsuarioProcad[];
+  idPorCorreo: Map<string, number>;
+} {
+  const idPorCorreo = new Map<string, number>();
+  const usuarios = filas.map((u): UsuarioProcad => {
+    const correo = u.correoPersona ?? `sin correo (persona ${u.idPersona})`;
+    idPorCorreo.set(correo, u.idPersona);
+    return {
+      nombre: nombreCompleto(u.nombrePersona, u.apellidosPersona) || `Persona ${u.idPersona}`,
+      correo,
+      rol: u.roles.split(",").map((r) => NOMBRE_DE_ROL[r.trim()] ?? r.trim()).join(" · "),
+      estado: u.activo ? "activo" : "inactivo",
+    };
+  });
+  return { usuarios, idPorCorreo };
 }
 
 /**

@@ -21,12 +21,13 @@ import {
   aMatricula,
   aPeriodos,
   aSolicitud,
+  aUsuarios,
   aVisoria,
   DECISION_DE_ESTADO,
 } from "../api/adaptadoresProcad";
 import type { PeriodoApi } from "../types/procad";
 import { enCorto } from "../utils/fechas";
-import { useUsuarioActual } from "./UserContext";
+import { useIdentidadProcad, useUsuarioActual } from "./UserContext";
 import {
   actividadesProcad,
   auditoriaProcad,
@@ -40,7 +41,7 @@ import {
   visoriasProcad,
 } from "../data/mockProcadAdmin";
 import { albumesGaleria } from "../data/mockProcadGaleria";
-import { agrupacionesProcad } from "../data/mockProcadEstadisticas";
+import { CENTROS, agrupacionesProcad } from "../data/mockProcadEstadisticas";
 import type {
   ActividadProcad,
   AgrupacionProcad,
@@ -99,6 +100,8 @@ interface ValorProcad {
   albumes: AlbumGaleria[];
   empleados: EmpleadoProcad[];
   usuarios: UsuarioProcad[];
+  /** Los campus para filtros y formularios: los del catálogo institucional si hay API. */
+  centros: string[];
   periodos: PeriodoInscripcion[];
   auditoria: RegistroAuditoria[];
   pendientes: PendientesProcad;
@@ -180,24 +183,29 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
   const [visorias, setVisorias] = useState<VisoriaProcad[]>(() =>
     procadConectado ? [] : [...visoriasProcad],
   );
-  // La galería no tiene tablas en la base. Conectado, los álbumes de actividad
-  // de la demostración apuntarían a actividades reales que comparten el id, así
-  // que solo quedan los sueltos.
+  // La galería no tiene tablas en la base: conectado arranca vacía, y lo que se
+  // suba vive solo en esta sesión (la pantalla lo avisa).
   const [albumes, setAlbumes] = useState<AlbumGaleria[]>(() =>
-    albumesGaleria
-      .filter((a) => !procadConectado || a.origen === "suelto")
-      .map((a) => ({ ...a })),
+    procadConectado ? [] : albumesGaleria.map((a) => ({ ...a })),
   );
   const [empleados, setEmpleados] = useState<EmpleadoProcad[]>(() =>
     procadConectado ? [] : [...empleadosProcad],
   );
   /** Conectado: con qué idPersona se actúa sobre cada empleado de la lista. */
   const idEmpleado = useRef(new Map<string, number>());
-  const [usuarios, setUsuarios] = useState<UsuarioProcad[]>(() => [...usuariosProcad]);
+  const [usuarios, setUsuarios] = useState<UsuarioProcad[]>(() =>
+    procadConectado ? [] : [...usuariosProcad],
+  );
+  /** Conectado: con qué idPersona se actúa sobre cada usuario de la lista. */
+  const idUsuario = useRef(new Map<string, number>());
+  const [centros, setCentros] = useState<string[]>(() => (procadConectado ? [] : CENTROS));
   const [periodos, setPeriodos] = useState<PeriodoInscripcion[]>(() =>
     procadConectado ? [] : [...periodosInscripcion],
   );
-  const [auditoria, setAuditoria] = useState<RegistroAuditoria[]>(() => [...auditoriaProcad]);
+  // La base no guarda la auditoría del panel: conectado, muestra lo hecho en esta sesión.
+  const [auditoria, setAuditoria] = useState<RegistroAuditoria[]>(() =>
+    procadConectado ? [] : [...auditoriaProcad],
+  );
   const [aviso, setAviso] = useState<string | null>(null);
 
   const descartarAviso = useCallback(() => setAviso(null), []);
@@ -225,13 +233,17 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
   // acciones la llaman. Después de cada acción se vuelve a leer: los triggers
   // de la base pueden cambiar más de lo que la pantalla pidió (aprobar a un
   // condicionado, expulsar a un integrante…). Sin URL, todo sigue con los datos
-  // de demostración. Los demás módulos todavía usan los mocks.
+  // de demostración. Lo que la base no guarda (galería, auditoría) arranca
+  // vacío; las estadísticas y los reportes todavía son de la demostración.
 
   const [periodoActivo, setPeriodoActivo] = useState<PeriodoApi | null>(null);
 
+  // Quien actúa en el rol vigente (el director elegido en "Modo de vista") o, si no hay, el de la sesión.
+  const identidad = useIdentidadProcad();
+  const autor = identidad?.correo || identidad?.nombreCompleto || usuario.correo || usuario.nombreCompleto;
   useEffect(() => {
-    fijarUsuarioProcad(usuario.correo || usuario.nombreCompleto);
-  }, [usuario.correo, usuario.nombreCompleto]);
+    fijarUsuarioProcad(autor);
+  }, [autor]);
 
   const cargarEstudiantes = useCallback(async () => {
     const [sol, cond, exp, mat] = await Promise.all([
@@ -258,13 +270,22 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
     setVisorias(vis.map(aVisoria));
   }, []);
 
-  /** Accesos al panel y períodos (estos últimos, de Catálogo y solo para leer). */
+  /** Accesos, usuarios del panel, períodos y campus (estos dos últimos, de Catálogo y solo para leer). */
   const cargarConfiguracion = useCallback(async (idActivo: number | null) => {
-    const [accesos, lista] = await Promise.all([apiProcad.listarAccesos(), apiProcad.listarPeriodos()]);
+    const [accesos, cuentas, lista, campus] = await Promise.all([
+      apiProcad.listarAccesos(),
+      apiProcad.listarUsuarios(),
+      apiProcad.listarPeriodos(),
+      apiProcad.listarCampus(),
+    ]);
     const { empleados: deApi, idPorNombre } = aEmpleados(accesos);
     idEmpleado.current = idPorNombre;
     setEmpleados(deApi);
+    const { usuarios: delPanel, idPorCorreo } = aUsuarios(cuentas);
+    idUsuario.current = idPorCorreo;
+    setUsuarios(delPanel);
     setPeriodos(aPeriodos(lista, idActivo));
+    setCentros(campus.filter((c) => c.estadoCampus).map((c) => c.nombreCampus));
   }, []);
 
   const recargar = useCallback(
@@ -277,8 +298,13 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
     [cargarEstudiantes, cargarAgrupaciones, cargarConfiguracion, periodoActivo],
   );
 
+  // El director y el estudiante leen la API desde sus propias pantallas: los
+  // datos de este contexto son del panel del administrador (y las cifras que
+  // consulta Vicerrectoría), así que con esos roles no se piden.
+  const cargaDelPanel = procadConectado && (usuario.rolProcad === "administrador" || usuario.rolProcad === "vicerrector");
+
   useEffect(() => {
-    if (!procadConectado) return;
+    if (!cargaDelPanel) return;
     cargarEstudiantes().catch((error: unknown) =>
       setAviso(`No se pudieron cargar los datos de PROCAD: ${mensajeDeError(error)}`),
     );
@@ -286,18 +312,18 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       .obtenerPeriodoActivo()
       .then(setPeriodoActivo)
       .catch(() => setPeriodoActivo(null));
-  }, [cargarEstudiantes]);
+  }, [cargarEstudiantes, cargaDelPanel]);
 
   // Se vuelve a pedir cuando llega el período activo: cuenta sus integrantes y lo marca en la lista.
   useEffect(() => {
-    if (!procadConectado) return;
+    if (!cargaDelPanel) return;
     cargarAgrupaciones(periodoActivo?.idPeriodo).catch((error: unknown) =>
       setAviso(`No se pudieron cargar las agrupaciones: ${mensajeDeError(error)}`),
     );
     cargarConfiguracion(periodoActivo?.idPeriodo ?? null).catch((error: unknown) =>
       setAviso(`No se pudieron cargar los accesos y períodos: ${mensajeDeError(error)}`),
     );
-  }, [cargarAgrupaciones, cargarConfiguracion, periodoActivo]);
+  }, [cargarAgrupaciones, cargarConfiguracion, periodoActivo, cargaDelPanel]);
 
   /**
    * Corre una acción contra la API con la persona que firma. Si sale bien se
@@ -522,20 +548,24 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
     (id: number) => {
       const visoria = visorias.find((v) => v.id === id);
       if (!visoria) return;
+      const anotar = () =>
+        registrar(
+          `Visoría de ${visoria.grupo} programada.`,
+          "Programó visoría",
+          `${visoria.grupo} — ${enCorto(visoria.fecha)}, ${visoria.hora}`,
+        );
+
       if (procadConectado) {
-        setAviso("En la base una visoría existe desde que se crea: no hay borradores que programar.");
+        void conApi(() => apiProcad.programarVisoria(id), anotar);
         return;
       }
+
       setVisorias((previas) =>
         previas.map((v) => (v.id === id ? { ...v, estado: "PROGRAMADA" } : v)),
       );
-      registrar(
-        `Visoría de ${visoria.grupo} programada.`,
-        "Programó visoría",
-        `${visoria.grupo} — ${enCorto(visoria.fecha)}, ${visoria.hora}`,
-      );
+      anotar();
     },
-    [visorias, registrar],
+    [visorias, registrar, conApi],
   );
 
   // ── Galería ───────────────────────────────────────────────────────────────
@@ -780,16 +810,26 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       const cuenta = usuarios.find((u) => u.correo === correo);
       if (!cuenta) return;
       const activo = cuenta.estado !== "activo";
+      const anotar = () =>
+        registrar(
+          `Usuario ${activo ? "reactivado" : "desactivado"}: ${cuenta.nombre}.`,
+          activo ? "Reactivó usuario" : "Desactivó usuario",
+          `${cuenta.nombre} — ${cuenta.correo}`,
+        );
+
+      if (procadConectado) {
+        const idPersona = idUsuario.current.get(correo);
+        if (idPersona === undefined) return;
+        void conApi(() => apiProcad.cambiarEstadoUsuario(idPersona, activo), anotar);
+        return;
+      }
+
       setUsuarios((previos) =>
         previos.map((u) => (u.correo === correo ? { ...u, estado: activo ? "activo" : "inactivo" } : u)),
       );
-      registrar(
-        `Usuario ${activo ? "reactivado" : "desactivado"}: ${cuenta.nombre}.`,
-        activo ? "Reactivó usuario" : "Desactivó usuario",
-        `${cuenta.nombre} — ${cuenta.correo}`,
-      );
+      anotar();
     },
-    [usuarios, registrar],
+    [usuarios, registrar, conApi],
   );
 
   const pendientes = useMemo<PendientesProcad>(() => {
@@ -826,6 +866,7 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       albumes,
       empleados,
       usuarios,
+      centros,
       periodos,
       auditoria,
       pendientes,
@@ -861,6 +902,7 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       albumes,
       empleados,
       usuarios,
+      centros,
       periodos,
       auditoria,
       pendientes,

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { HiOutlineXMark } from "react-icons/hi2";
 import { ETIQUETA_TIPO } from "./actividad";
-import { CENTROS } from "../../data/mockProcadEstadisticas";
+import { useProcad } from "../../context/ProcadContext";
 import { hoyIso } from "../../utils/fechas";
 import type { DatosAlbumSuelto, TipoAgrupacion } from "../../types";
 
@@ -48,7 +48,8 @@ function Cuerpo({
   const [titulo, setTitulo] = useState(inicial?.titulo ?? "");
   const [grupo, setGrupo] = useState(inicial?.grupo ?? "");
   const [tipo, setTipo] = useState<TipoAgrupacion>(inicial?.tipo ?? "deportivo");
-  const [centro, setCentro] = useState(inicial?.centro ?? CENTROS[0]);
+  const { centros } = useProcad();
+  const [centro, setCentro] = useState(inicial?.centro ?? centros[0] ?? "");
   const [fecha, setFecha] = useState(inicial?.fecha ?? hoyIso());
   const [falta, setFalta] = useState(false);
 
@@ -165,7 +166,7 @@ function Cuerpo({
                 onChange={(e) => setCentro(e.target.value)}
                 className={`${CLASE_CAMPO} cursor-pointer`}
               >
-                {CENTROS.map((c) => (
+                {centros.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>

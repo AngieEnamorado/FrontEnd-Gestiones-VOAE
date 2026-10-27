@@ -7,6 +7,10 @@ export interface CampoDialogo {
   /** Un área de texto cuando la respuesta es una explicación, no un dato. */
   multilinea?: boolean;
   marcador?: string;
+  /** Una lista cerrada (un catálogo) en vez de texto libre. */
+  opciones?: { valor: string; etiqueta: string }[];
+  /** Se puede dejar vacío; sin esto, todo campo es obligatorio. */
+  opcional?: boolean;
 }
 
 export interface Dialogo {
@@ -42,7 +46,7 @@ function CuerpoDialogo({ dialogo, onCerrar }: { dialogo: Dialogo; onCerrar: () =
 
   function confirmar() {
     const sinLlenar = (dialogo.campos ?? [])
-      .filter((c) => !(valores[c.id] ?? "").trim())
+      .filter((c) => !c.opcional && !(valores[c.id] ?? "").trim())
       .map((c) => c.id);
     if (sinLlenar.length > 0) {
       setFaltantes(sinLlenar);
@@ -86,7 +90,7 @@ function CuerpoDialogo({ dialogo, onCerrar }: { dialogo: Dialogo; onCerrar: () =
           autoFocus: i === 0,
           placeholder: campo.marcador,
           value: valores[campo.id] ?? "",
-          onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+          onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
             setValores((v) => ({ ...v, [campo.id]: e.target.value })),
         };
 
@@ -97,8 +101,18 @@ function CuerpoDialogo({ dialogo, onCerrar }: { dialogo: Dialogo; onCerrar: () =
               className="mb-1.5 block text-xs font-semibold text-slate-500"
             >
               {campo.label}
+              {campo.opcional && <span className="font-normal text-slate-400"> (opcional)</span>}
             </label>
-            {campo.multilinea ? (
+            {campo.opciones ? (
+              <select {...comunes} className={clase}>
+                <option value="">Elija una opción</option>
+                {campo.opciones.map((o) => (
+                  <option key={o.valor} value={o.valor}>
+                    {o.etiqueta}
+                  </option>
+                ))}
+              </select>
+            ) : campo.multilinea ? (
               <textarea {...comunes} rows={3} className={`${clase} resize-y`} />
             ) : (
               <input {...comunes} type="text" className={clase} />
