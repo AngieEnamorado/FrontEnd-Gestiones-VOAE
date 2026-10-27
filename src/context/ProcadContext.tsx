@@ -27,7 +27,7 @@ import {
 } from "../api/adaptadoresProcad";
 import type { PeriodoApi } from "../types/procad";
 import { enCorto } from "../utils/fechas";
-import { useUsuarioActual } from "./UserContext";
+import { useIdentidadProcad, useUsuarioActual } from "./UserContext";
 import {
   actividadesProcad,
   auditoriaProcad,
@@ -238,9 +238,12 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
 
   const [periodoActivo, setPeriodoActivo] = useState<PeriodoApi | null>(null);
 
+  // Quien actúa en el rol vigente (el director elegido en "Modo de vista") o, si no hay, el de la sesión.
+  const identidad = useIdentidadProcad();
+  const autor = identidad?.correo || identidad?.nombreCompleto || usuario.correo || usuario.nombreCompleto;
   useEffect(() => {
-    fijarUsuarioProcad(usuario.correo || usuario.nombreCompleto);
-  }, [usuario.correo, usuario.nombreCompleto]);
+    fijarUsuarioProcad(autor);
+  }, [autor]);
 
   const cargarEstudiantes = useCallback(async () => {
     const [sol, cond, exp, mat] = await Promise.all([
@@ -295,8 +298,13 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
     [cargarEstudiantes, cargarAgrupaciones, cargarConfiguracion, periodoActivo],
   );
 
+  // El director y el estudiante leen la API desde sus propias pantallas: los
+  // datos de este contexto son del panel del administrador (y las cifras que
+  // consulta Vicerrectoría), así que con esos roles no se piden.
+  const cargaDelPanel = procadConectado && (usuario.rolProcad === "administrador" || usuario.rolProcad === "vicerrector");
+
   useEffect(() => {
-    if (!procadConectado) return;
+    if (!cargaDelPanel) return;
     cargarEstudiantes().catch((error: unknown) =>
       setAviso(`No se pudieron cargar los datos de PROCAD: ${mensajeDeError(error)}`),
     );
@@ -304,18 +312,18 @@ export function ProcadProvider({ children }: { children: ReactNode }) {
       .obtenerPeriodoActivo()
       .then(setPeriodoActivo)
       .catch(() => setPeriodoActivo(null));
-  }, [cargarEstudiantes]);
+  }, [cargarEstudiantes, cargaDelPanel]);
 
   // Se vuelve a pedir cuando llega el período activo: cuenta sus integrantes y lo marca en la lista.
   useEffect(() => {
-    if (!procadConectado) return;
+    if (!cargaDelPanel) return;
     cargarAgrupaciones(periodoActivo?.idPeriodo).catch((error: unknown) =>
       setAviso(`No se pudieron cargar las agrupaciones: ${mensajeDeError(error)}`),
     );
     cargarConfiguracion(periodoActivo?.idPeriodo ?? null).catch((error: unknown) =>
       setAviso(`No se pudieron cargar los accesos y períodos: ${mensajeDeError(error)}`),
     );
-  }, [cargarAgrupaciones, cargarConfiguracion, periodoActivo]);
+  }, [cargarAgrupaciones, cargarConfiguracion, periodoActivo, cargaDelPanel]);
 
   /**
    * Corre una acción contra la API con la persona que firma. Si sale bien se

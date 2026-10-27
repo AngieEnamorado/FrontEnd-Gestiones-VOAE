@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { PerfilEstudiante, RolGira, RolProcad, UsuarioActual } from "../types";
+import type { IdentidadProcad, PerfilEstudiante, RolGira, RolProcad, UsuarioActual } from "../types";
 import type { UsuarioUnidadGira } from "../types/giras";
 import { obtenerUsuarioDeSesion } from "../data/currentUser";
 import { fijarUsuarioDeAuditoria } from "../api/cliente";
@@ -7,20 +7,45 @@ import { fijarUsuarioDeAuditoria } from "../api/cliente";
 /** Con quién se actúa en cada rol de Giras: un usuario-unidad real de la base de datos. */
 type IdentidadesGira = Partial<Record<RolGira, UsuarioUnidadGira>>;
 
-const CLAVE_IDENTIDADES = "voae.giras.identidades";
+/** Lo mismo para PROCAD: con qué persona de la base se actúa en cada rol. */
+type IdentidadesProcad = Partial<Record<RolProcad, IdentidadProcad>>;
 
-function leerIdentidadesGuardadas(): IdentidadesGira {
+const CLAVE_IDENTIDADES = "voae.giras.identidades";
+const CLAVE_IDENTIDADES_PROCAD = "voae.procad.identidades";
+/** El rol de PROCAD sí se recuerda: probar que algo quedó en la base obliga a recargar. */
+const CLAVE_ROL_PROCAD = "voae.procad.rol";
+const ROLES_PROCAD: readonly RolProcad[] = ["administrador", "vicerrector", "director", "estudiante"];
+
+function leerRolProcad(porDefecto: RolProcad): RolProcad {
   try {
-    const texto = localStorage.getItem(CLAVE_IDENTIDADES);
-    return texto ? (JSON.parse(texto) as IdentidadesGira) : {};
+    const guardado = localStorage.getItem(CLAVE_ROL_PROCAD) as RolProcad | null;
+    return guardado && ROLES_PROCAD.includes(guardado) ? guardado : porDefecto;
   } catch {
-    return {};
+    return porDefecto;
+  }
+}
+
+function leerGuardado<T extends object>(clave: string): T {
+  try {
+    const texto = localStorage.getItem(clave);
+    return texto ? (JSON.parse(texto) as T) : ({} as T);
+  } catch {
+    return {} as T;
+  }
+}
+
+function guardar(clave: string, valor: object) {
+  try {
+    localStorage.setItem(clave, JSON.stringify(valor));
+  } catch {
+    // Sin almacenamiento (modo privado): la elección dura lo que dure la pestaña.
   }
 }
 
 interface ValorUsuario {
   usuario: UsuarioActual;
   identidades: IdentidadesGira;
+  identidadesProcad: IdentidadesProcad;
   /**
    * Cambia el rol de PROCAD de la sesión. Existe solo para poder mostrar la
    * vista de Vicerrectoría mientras no hay backend; cuando la sesión real
@@ -31,6 +56,8 @@ interface ValorUsuario {
   cambiarRolGira: (rol: RolGira) => void;
   /** Elige (o quita, con null) con qué usuario de la base se actúa en un rol de Giras. */
   elegirIdentidadGira: (rol: RolGira, usuario: UsuarioUnidadGira | null) => void;
+  /** Igual, para PROCAD: con qué persona de la base se actúa en un rol. */
+  elegirIdentidadProcad: (rol: RolProcad, persona: IdentidadProcad | null) => void;
 }
 
 const UserContext = createContext<ValorUsuario | null>(null);
@@ -46,8 +73,16 @@ const UserContext = createContext<ValorUsuario | null>(null);
  * Cuando exista la sesión real, `identidades` y `elegirIdentidadGira` se borran.
  */
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [usuario, setUsuario] = useState<UsuarioActual>(() => obtenerUsuarioDeSesion());
-  const [identidades, setIdentidades] = useState<IdentidadesGira>(leerIdentidadesGuardadas);
+  const [usuario, setUsuario] = useState<UsuarioActual>(() => {
+    const sesion = obtenerUsuarioDeSesion();
+    return { ...sesion, rolProcad: leerRolProcad(sesion.rolProcad) };
+  });
+  const [identidades, setIdentidades] = useState<IdentidadesGira>(() =>
+    leerGuardado<IdentidadesGira>(CLAVE_IDENTIDADES),
+  );
+  const [identidadesProcad, setIdentidadesProcad] = useState<IdentidadesProcad>(() =>
+    leerGuardado<IdentidadesProcad>(CLAVE_IDENTIDADES_PROCAD),
+  );
 
   const identidadActual = identidades[usuario.rolGira];
 
@@ -60,22 +95,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
     () => ({
       usuario,
       identidades,
-      cambiarRolProcad: (rolProcad) => setUsuario((previo) => ({ ...previo, rolProcad })),
+      identidadesProcad,
+      cambiarRolProcad: (rolProcad) => {
+        try {
+          localStorage.setItem(CLAVE_ROL_PROCAD, rolProcad);
+        } catch {
+          // Sin almacenamiento: el rol dura lo que dure la pestaña.
+        }
+        setUsuario((previo) => ({ ...previo, rolProcad }));
+      },
       cambiarRolGira: (rolGira) => setUsuario((previo) => ({ ...previo, rolGira })),
       elegirIdentidadGira: (rol, elegido) =>
         setIdentidades((previas) => {
           const siguientes = { ...previas };
           if (elegido) siguientes[rol] = elegido;
           else delete siguientes[rol];
-          try {
-            localStorage.setItem(CLAVE_IDENTIDADES, JSON.stringify(siguientes));
-          } catch {
-            // Sin almacenamiento (modo privado): la elección dura lo que dure la pestaña.
-          }
+          guardar(CLAVE_IDENTIDADES, siguientes);
+          return siguientes;
+        }),
+      elegirIdentidadProcad: (rol, elegida) =>
+        setIdentidadesProcad((previas) => {
+          const siguientes = { ...previas };
+          if (elegida) siguientes[rol] = elegida;
+          else delete siguientes[rol];
+          guardar(CLAVE_IDENTIDADES_PROCAD, siguientes);
           return siguientes;
         }),
     }),
-    [usuario, identidades],
+    [usuario, identidades, identidadesProcad],
   );
 
   return <UserContext.Provider value={valor}>{children}</UserContext.Provider>;
@@ -132,6 +179,31 @@ export function useRolProcad(): { rol: RolProcad; cambiarRol: (rol: RolProcad) =
     throw new Error("useRolProcad debe usarse dentro de <UserProvider>");
   }
   return { rol: contexto.usuario.rolProcad, cambiarRol: contexto.cambiarRolProcad };
+}
+
+/**
+ * La persona de la base con la que se actúa en el rol de PROCAD vigente, o
+ * null si no se eligió. Hoy solo el director la necesita: el administrador
+ * firma con VITE_PROCAD_ID_PERSONA.
+ */
+export function useIdentidadProcad(): IdentidadProcad | null {
+  const contexto = useContext(UserContext);
+  if (!contexto) {
+    throw new Error("useIdentidadProcad debe usarse dentro de <UserProvider>");
+  }
+  return contexto.identidadesProcad[contexto.usuario.rolProcad] ?? null;
+}
+
+/** Las identidades de PROCAD elegidas y la forma de cambiarlas; lo usa "Modo de vista". */
+export function useIdentidadesProcad(): {
+  identidades: IdentidadesProcad;
+  elegir: (rol: RolProcad, persona: IdentidadProcad | null) => void;
+} {
+  const contexto = useContext(UserContext);
+  if (!contexto) {
+    throw new Error("useIdentidadesProcad debe usarse dentro de <UserProvider>");
+  }
+  return { identidades: contexto.identidadesProcad, elegir: contexto.elegirIdentidadProcad };
 }
 
 /** El rol con el que se ve Giras, junto con la forma de cambiarlo. */

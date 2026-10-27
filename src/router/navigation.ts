@@ -1,5 +1,6 @@
 import {
   HiOutlineAdjustmentsHorizontal,
+  HiOutlineAcademicCap,
   HiOutlineUser,
   HiOutlineCurrencyDollar,
   HiOutlineCog6Tooth,
@@ -153,6 +154,21 @@ export const navigationItems: NavItem[] = [
         label: "Estadísticas",
         path: "/procad/estadisticas",
         icon: HiOutlinePresentationChartLine,
+        roles: ["administrador", "vicerrector"],
+      },
+      {
+        id: "mi-grupo",
+        label: "Mi grupo",
+        path: "/procad/mi-grupo",
+        icon: HiOutlineUserGroup,
+        roles: ["director"],
+      },
+      {
+        id: "mi-procad",
+        label: "Mi PROCAD",
+        path: "/procad/mi-procad",
+        icon: HiOutlineAcademicCap,
+        roles: ["estudiante"],
       },
       {
         id: "estudiantes",

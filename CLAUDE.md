@@ -99,12 +99,24 @@ admin's records plus a derived `pendientes` count and the actions that resolve c
 also prepends a row to the audit log and raises a confirmation toast. State is shared because the
 decisions cross modules — resolving a case changes the badge the sidebar draws on another entry.
 
-PROCAD has two roles (`rolProcad` on `UsuarioActual`): `administrador` manages, `vicerrector` only
-reads statistics. Role filtering is scoped to PROCAD only: entries in `navigationItems` declare an
-optional `roles` array (no array = everyone sees it), `Sidebar` filters children by the active role,
-and `src/router/SoloAdministrador.tsx` guards the routes so a direct URL can't bypass the menu.
-`src/pages/procad/ModoDeVista.tsx` switches the role — it is demo tooling for the no-backend stage
-and gets deleted, along with `cambiarRolProcad`, once the session supplies the real role.
+PROCAD has four roles (`rolProcad` on `UsuarioActual`, remembered in `localStorage` under
+`voae.procad.rol`): `administrador` manages, `vicerrector` only reads statistics, `director` works one
+group at a time in `pages/procad/MiGrupo.tsx` (tabs in `pages/procad/miGrupo/`), and `estudiante` applies
+to a group and follows it in `pages/procad/MiProcad.tsx` (`miProcad/`). The student is impersonated by
+typing any real Registro account number in "Modo de vista" (it may not exist in the DB yet:
+`Procad.spCrearSolicitud` creates the person on the first application). The minimum index (período ≥ 70%)
+is computed by the backend (`estudiantes.ts`), never sent by the browser. Entries in
+`navigationItems` declare an optional `roles` array (no array = everyone sees it); `Sidebar`, the role
+cards and `router/AccesoProcad.tsx` (a layout route over all of `/procad`, like `AccesoGiras`) all
+derive from it via `router/rolesProcad.ts`. `src/pages/procad/ModoDeVista.tsx` switches the role and,
+for the director, picks which real DB person is impersonated (`useIdentidadProcad()`, persisted under
+`voae.procad.identidades`; its `idPersona` signs what the director does). The administrador still
+signs with `VITE_PROCAD_ID_PERSONA`. All of it is demo tooling for the no-session stage and gets deleted,
+along with `cambiarRolProcad` and `elegirIdentidadProcad`, once the session supplies the real role.
+
+The director screens talk only to the API (no mock fallback) and keep their own state with
+`useConsulta`, not `ProcadContext` (which is the admin's). Test people, groups and solicitudes for the
+university DB are seeded by `FuncionesLambdaGestionesVOAE/sql/semilla_pruebas_procad.sql`.
 
 **Giras roles and pages.** Five roles (`RolGira` in `types`: vicerrectoria, jefe-mision, jefe-aprobacion,
 estudiante, administrador) live in `UsuarioActual.rolGira`, read through `useRolGira()`. What each role sees is

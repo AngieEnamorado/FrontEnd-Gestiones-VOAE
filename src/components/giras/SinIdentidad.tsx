@@ -4,9 +4,10 @@ import { RUTA_MODO_GIRAS } from "../../router/navigation";
 /**
  * Lo que se ve en lugar de una pantalla cuando el rol necesita saber con qué
  * usuario de la base se actúa y todavía no se eligió. Se borra junto con
- * "Modo de vista" cuando exista la sesión real.
+ * "Modo de vista" cuando exista la sesión real. PROCAD la usa también, con
+ * `ruta` apuntando a su propio "Modo de vista".
  */
-export default function SinIdentidad({ rol }: { rol: string }) {
+export default function SinIdentidad({ rol, ruta = RUTA_MODO_GIRAS }: { rol: string; ruta?: string }) {
   return (
     <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
       <h2 className="text-lg font-bold text-slate-800">Falta elegir con qué usuario actúas</h2>
@@ -15,7 +16,7 @@ export default function SinIdentidad({ rol }: { rol: string }) {
         persona de la base de datos eres. Se elige en «Modo de vista».
       </p>
       <Link
-        to={RUTA_MODO_GIRAS}
+        to={ruta}
         className="mt-5 inline-flex rounded-lg bg-unah-navy px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-unah-navy-dark"
       >
         Ir a Modo de vista

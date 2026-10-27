@@ -60,13 +60,29 @@ export interface PerfilEstudiante {
   numeroCuenta: string;
 }
 
-/** Los dos roles de PROCAD que existen dentro de esta plataforma. */
-export type RolProcad = "administrador" | "vicerrector";
+/** Los roles de PROCAD que existen dentro de esta plataforma. */
+export type RolProcad = "administrador" | "vicerrector" | "director" | "estudiante";
 
 export const ETIQUETA_ROL_PROCAD: Record<RolProcad, string> = {
   administrador: "Administrador PROCAD",
   vicerrector: "Vicerrectoría",
+  director: "Director / Entrenador",
+  estudiante: "Estudiante",
 };
+
+/**
+ * Una persona real de la base con un rol de PROCAD, con la que se actúa
+ * mientras no hay sesión. Su `idPersona` es lo que la API pide como quien
+ * resuelve, propone o solicita.
+ */
+export interface IdentidadProcad {
+  /** null en un estudiante que nunca pidió entrar: la base lo crea con su primera solicitud. */
+  idPersona: number | null;
+  nombreCompleto: string;
+  correo: string | null;
+  /** Solo el estudiante: es lo que lo identifica ante Registro. */
+  numeroCuenta?: string;
+}
 
 /** Los cinco roles con los que se puede ver el módulo de Giras. */
 export type RolGira =

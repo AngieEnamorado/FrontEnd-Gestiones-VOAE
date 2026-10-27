@@ -22,9 +22,11 @@ import GaleriaProcad from "./pages/procad/Galeria";
 import ConfiguracionProcad from "./pages/procad/Configuracion";
 import ReportesProcad from "./pages/procad/Reportes";
 import ModoDeVista from "./pages/procad/ModoDeVista";
+import MiGrupoProcad from "./pages/procad/MiGrupo";
+import MiProcad from "./pages/procad/MiProcad";
 import ModoDeVistaGiras from "./pages/giras/ModoDeVista";
 import ConfiguracionGiras from "./pages/giras/Configuracion";
-import SoloAdministrador from "./router/SoloAdministrador";
+import AccesoProcad from "./router/AccesoProcad";
 import AccesoGiras from "./router/AccesoGiras";
 import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
@@ -110,52 +112,20 @@ export default function App() {
           />
           <Route path="estadisticas" element={<Estadisticas />} />
         </Route>
-        <Route path="/procad">
-          <Route index element={<Navigate to="estadisticas" replace />} />
+        {/* AccesoProcad hace de guardia y de índice, como AccesoGiras: cada rol
+            abre solo lo que su menú le muestra. */}
+        <Route path="/procad" element={<AccesoProcad />}>
           <Route path="estadisticas" element={<EstadisticasProcad />} />
           {/* El reporte personalizado se arma desde el panel y lleva su
               selección en la URL, así que no es una entrada del sidebar. */}
           <Route path="estadisticas/personalizado" element={<ReportePersonalizado />} />
-          <Route
-            path="estudiantes"
-            element={
-              <SoloAdministrador>
-                <EstudiantesProcad />
-              </SoloAdministrador>
-            }
-          />
-          <Route
-            path="agrupaciones"
-            element={
-              <SoloAdministrador>
-                <AgrupacionesProcad />
-              </SoloAdministrador>
-            }
-          />
-          <Route
-            path="galeria"
-            element={
-              <SoloAdministrador>
-                <GaleriaProcad />
-              </SoloAdministrador>
-            }
-          />
-          <Route
-            path="configuracion"
-            element={
-              <SoloAdministrador>
-                <ConfiguracionProcad />
-              </SoloAdministrador>
-            }
-          />
-          <Route
-            path="reportes"
-            element={
-              <SoloAdministrador>
-                <ReportesProcad />
-              </SoloAdministrador>
-            }
-          />
+          <Route path="estudiantes" element={<EstudiantesProcad />} />
+          <Route path="agrupaciones" element={<AgrupacionesProcad />} />
+          <Route path="galeria" element={<GaleriaProcad />} />
+          <Route path="configuracion" element={<ConfiguracionProcad />} />
+          <Route path="reportes" element={<ReportesProcad />} />
+          <Route path="mi-grupo" element={<MiGrupoProcad />} />
+          <Route path="mi-procad" element={<MiProcad />} />
           <Route path="modo" element={<ModoDeVista />} />
         </Route>
 
